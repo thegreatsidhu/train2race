@@ -261,3 +261,28 @@ model InviteCode {
 
   @@map("invite_codes")
 }
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique @default(cuid())
+  expires   DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model InviteCode {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  usedBy    String?
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+  note      String?
+
+  @@map("invite_codes")
+}
