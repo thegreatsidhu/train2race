@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  /* Base surface — near-black, slightly warm, like a vitals monitor at night */
+  --background: #0b0d10;
+  --surface: #12161b;
+  --surface-raised: #181d24;
+  --border: #232a32;
+  --foreground: #ede9e2;
+  --foreground-dim: #9aa3ab;
+
+  /* Single signal accent: calm teal = normal/healthy */
+  --signal: #5ec9b5;
+  --signal-dim: #3a8a7b;
+
+  /* Reserved exclusively for cardiac flags / alerts — never decorative */
+  --alert: #e8604c;
+  --alert-dim: #7a3a30;
+
+  /* Secondary accent for training load / strain, distinct from health signal */
+  --load: #d6a756;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-foreground-dim: var(--foreground-dim);
+  --color-signal: var(--signal);
+  --color-signal-dim: var(--signal-dim);
+  --color-alert: var(--alert);
+  --color-alert-dim: var(--alert-dim);
+  --color-load: var(--load);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.font-data {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Respect reduced-motion preference for the waveform + transitions */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

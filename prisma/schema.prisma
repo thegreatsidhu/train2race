@@ -1,0 +1,263 @@
+// Vitality — database schema
+// Normalizes Garmin / Whoop / Strava / Apple Health into one shared model
+// so the AI advice engine and chat coach only ever reason over one shape.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+// ─────────────────────────────────────────────
+// Auth (NextAuth / Auth.js standard models)
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String? // for email+password credential login
+  createdAt     DateTime  @default(now())
+
+  // Profile fields used by the advice engine
+  dateOfBirth     DateTime?
+  sex             String? // "male" | "female" | "other" | null — relevant for HR/HRV baselines
+  heightCm        Float?
+  weightKg        Float?
+  timezone        String?  @default("America/Los_Angeles")
+  goals           Goal[]
+  cardiacFlags    String[] @default([]) // self-reported, e.g. ["family_history_chd"], never diagnostic
+
+  accounts        Account[]
+  sessions        Session[]
+  connections     DeviceConnection[]
+  dailyMetrics    DailyMetrics[]
+  activities      Activity[]
+  adviceCards     AdviceCard[]
+  chatMessages    ChatMessage[]
+  raceTargets     RaceTarget[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────
+// Device connections (Garmin / Whoop / Strava / Apple Health)
+// ─────────────────────────────────────────────
+
+enum DataSource {
+  GARMIN
+  WHOOP
+  STRAVA
+  APPLE_HEALTH
+}
+
+model DeviceConnection {
+  id            String     @id @default(cuid())
+  userId        String
+  source        DataSource
+  accessToken   String? // encrypted at rest in production (see lib/crypto)
+  refreshToken  String?
+  expiresAt     DateTime?
+  externalUserId String?   // provider's own user/athlete id
+  webhookSecret String?   // used for Apple Health inbound webhook auth
+  status        String     @default("active") // active | expired | revoked | error
+  lastSyncedAt  DateTime?
+  lastError     String?
+  createdAt     DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, source])
+  @@map("device_connections")
+}
+
+// ─────────────────────────────────────────────
+// Normalized health data
+// ─────────────────────────────────────────────
+
+model DailyMetrics {
+  id     String   @id @default(cuid())
+  userId String
+  date   DateTime // calendar day, normalized to user's local midnight
+
+  source DataSource // which connection produced this row (one row per source per day)
+
+  restingHeartRate   Float?
+  avgHeartRate       Float?
+  maxHeartRate       Float?
+  hrvMs              Float? // overnight HRV average, ms
+  hrvSdnnMs          Float?
+  sleepScore         Float? // 0-100, vendor's own scoring
+  sleepDurationMin    Float?
+  sleepDeepMin        Float?
+  sleepRemMin         Float?
+  sleepLightMin       Float?
+  sleepAwakeMin       Float?
+  respirationRate    Float?
+  spo2Pct            Float?
+  bodyBatteryOrRecoveryPct Float? // Garmin Body Battery / Whoop Recovery %, 0-100
+  strainOrLoadScore  Float? // Whoop Strain (0-21) or Garmin Training Load equivalent
+  steps              Int?
+  activeCalories     Float?
+  totalCalories      Float?
+  vo2Max             Float?
+  bodyWeightKg       Float?
+  stressLevel        Float? // 0-100 where available
+
+  raw    Json? // original vendor payload, for debugging/audit
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, source])
+  @@index([userId, date])
+  @@map("daily_metrics")
+}
+
+model Activity {
+  id            String     @id @default(cuid())
+  userId        String
+  source        DataSource
+  externalId    String // vendor's activity id, for de-duplication
+  type          String // "run" | "ride" | "swim" | "strength" | etc (normalized)
+  startTime     DateTime
+  durationSec   Int
+  distanceM     Float?
+  avgHeartRate  Float?
+  maxHeartRate  Float?
+  avgPaceSecPerKm Float?
+  elevationGainM Float?
+  calories      Float?
+  trainingLoad  Float?
+  perceivedEffort Float? // RPE 1-10 if available
+  title         String?
+  raw           Json?
+  createdAt     DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([source, externalId])
+  @@index([userId, startTime])
+  @@map("activities")
+}
+
+// ─────────────────────────────────────────────
+// Goals, race targets
+// ─────────────────────────────────────────────
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String // "race" | "general_health" | "cardiac_health" | "weight" | "custom"
+  description String
+  targetDate  DateTime?
+  status      String   @default("active") // active | completed | abandoned
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("goals")
+}
+
+model RaceTarget {
+  id           String   @id @default(cuid())
+  userId       String
+  raceName     String
+  raceDate     DateTime
+  distanceM    Float // e.g. 21097.5 for half marathon
+  goalTimeSec  Int?
+  trainingPlanJson Json? // AI-generated periodized plan, stored so it persists & can be edited
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("race_targets")
+}
+
+// ─────────────────────────────────────────────
+// AI outputs
+// ─────────────────────────────────────────────
+
+model AdviceCard {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime // the day this advice is FOR
+  headline  String
+  body      String // markdown
+  category  String // "training" | "recovery" | "sleep" | "cardiac_flag" | "nutrition" | "general"
+  severity  String   @default("info") // info | suggestion | flag (flag = recommend seeing a doctor)
+  metricsSnapshotJson Json? // the inputs the AI used, for transparency/debugging
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("advice_cards")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("chat_messages")
+}
+model InviteCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  usedBy    String?
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  note      String?
+
+  @@map("invite_codes")
+}
