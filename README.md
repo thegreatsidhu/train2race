@@ -290,3 +290,5 @@ When your Garmin Developer Program approval comes through:
 ## Disclaimer
 
 Vitality is a personal fitness coaching and wellness tracking tool. It is not a medical device, does not diagnose any medical condition, and is not a substitute for professional medical advice. The cardiac trend flagging feature surfaces statistical deviations from your own historical baseline and recommends consulting a doctor — it makes no claims about the clinical significance of any reading.
+ 
+ 
