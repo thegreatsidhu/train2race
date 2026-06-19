@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+
 const TYPE_COLORS: Record<string, string> = {
   easy_run: "bg-green-900 text-green-300",
   tempo: "bg-yellow-900 text-yellow-300",
@@ -123,8 +124,8 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                       <p className="text-xs text-foreground-dim mb-1">{day.slice(0,3)}</p>
                       <div className={`rounded-lg p-2 text-xs ${colorClass}`}>
                         <p className="font-medium truncate">{workout.title}</p>
-                        {workout.distanceKm && <p>{workout.distanceKm}km</p>}
-                        {workout.durationMin && !workout.distanceKm && <p>{workout.durationMin}min</p>}
+                        {workout.distanceKm && <p>{(workout.distanceKm / 1.60934).toFixed(1)} mi</p>}
+                        {workout.durationMin && !workout.distanceKm && <p>{workout.durationMin} min</p>}
                       </div>
                       {(isPast || workout.completed) && (
                         <button
