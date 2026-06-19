@@ -35,14 +35,12 @@ export default async function RacesPage() {
                 {r.raceDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </span>
             </div>
-            <p className="text-sm text-foreground-dim">
-              {(r.distanceM / 1000).toFixed(1)} km
-              {r.goalTimeSec ? ` · goal ${formatSeconds(r.goalTimeSec)}` : ""}
-            </p>
-            <a
-              <div className="flex items-center justify-between mt-3">
-  
-    <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center justify-between mt-3">
+  <a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">
+    View training plan →
+  </a>
+  <DeleteRaceButton raceId={r.id} />
+</div>
   <a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">
     View training plan →
   </a>
