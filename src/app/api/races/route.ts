@@ -52,7 +52,9 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const userId = (session.user as { id: string }).id;
-  const { id } = await req.json();
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   await prisma.raceTarget.delete({ where: { id, userId } });
   return NextResponse.json({ ok: true });
 }
