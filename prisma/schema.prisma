@@ -93,6 +93,7 @@ enum DataSource {
   WHOOP
   STRAVA
   APPLE_HEALTH
+  MANUAL
 }
 
 model DeviceConnection {
