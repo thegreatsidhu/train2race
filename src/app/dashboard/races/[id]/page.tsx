@@ -33,4 +33,4 @@ export default async function RacePlanPage({ params }: { params: { id: string } 
       <RacePlanView race={race} plan={race.trainingPlan} />
     </div>
   );
-}placeholder
+}
