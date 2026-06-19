@@ -32,19 +32,17 @@ export default async function TodayPage() {
   const recoveryComparison = comparisons.find((c) => c.field === "bodyBatteryOrRecoveryPct");
 
   return (
-    <div className="max-w-4xl px-8 py-10">
-      <header className="mb-8">
+    <div className="max-w-4xl px-4 md:px-8 py-6 md:py-10">
+      <header className="mb-6 md:mb-8">
         <p className="font-data text-xs uppercase tracking-[0.16em] text-foreground-dim mb-2">
           {today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Today</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Today</h1>
       </header>
 
       {!hasAnyConnection && (
         <div className="rounded-2xl border border-border bg-surface p-6 mb-6">
-          <p className="text-sm text-foreground-dim mb-3">
-            No devices connected yet.
-          </p>
+          <p className="text-sm text-foreground-dim mb-3">No devices connected yet.</p>
           <a href="/dashboard/connections"
             className="inline-block px-4 py-2 rounded-full bg-signal text-background text-sm font-medium hover:bg-signal-dim transition-colors">
             Connect a device
@@ -54,15 +52,13 @@ export default async function TodayPage() {
 
       {hasAnyConnection && !hasData && (
         <div className="rounded-2xl border border-border bg-surface p-6 mb-6">
-          <p className="text-sm text-foreground-dim">
-            Connected, but no data has synced yet.
-          </p>
+          <p className="text-sm text-foreground-dim">Connected, but no data has synced yet.</p>
         </div>
       )}
 
       {hasData && (
         <>
-          <div className="rounded-2xl border border-border bg-surface p-6 mb-6">
+          <div className="rounded-2xl border border-border bg-surface p-4 md:p-6 mb-6">
             <div className="flex items-center justify-between mb-3">
               <span className="font-data text-xs text-foreground-dim uppercase tracking-wide">Resting heart rate</span>
               <span className="font-data text-2xl text-signal">
@@ -75,27 +71,25 @@ export default async function TodayPage() {
           {adviceCard ? (
             <AdviceCardView card={adviceCard} />
           ) : (
-            <div className="rounded-2xl border border-border bg-surface p-6 mb-6 flex items-center justify-between">
-              <p className="text-sm text-foreground-dim">
-                Tonight&apos;s advice hasn&apos;t generated yet.
-              </p>
+            <div className="rounded-2xl border border-border bg-surface p-4 md:p-6 mb-6 flex items-center justify-between">
+              <p className="text-sm text-foreground-dim">Tonight&apos;s advice hasn&apos;t generated yet.</p>
               <GenerateAdviceButton />
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
             <MetricTile label="HRV" value={latest?.hrvMs} unit="ms" comparison={hrvComparison} />
             <MetricTile label="Sleep score" value={latest?.sleepScore} unit="" comparison={sleepComparison} />
             <MetricTile label="Recovery" value={latest?.bodyBatteryOrRecoveryPct} unit="%" comparison={recoveryComparison} />
             <MetricTile label="Resting HR" value={latest?.restingHeartRate} unit="bpm" comparison={rhrComparison} invertGood />
           </div>
 
-          <section className="mb-8">
+          <section className="mb-6 md:mb-8">
             <h2 className="text-sm font-medium text-foreground-dim mb-3">30-day trend</h2>
             <TrendChart history={history} />
           </section>
 
-         <section>
+          <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-foreground-dim">Recent activity</h2>
               <a href="/dashboard/log-workout"
@@ -121,7 +115,7 @@ export default async function TodayPage() {
 
 function MetricTile({ label, value, unit, comparison, invertGood = false }: {
   label: string;
-  value?: number;
+  value?: number | null;
   unit: string;
   comparison?: { direction: "up" | "down" | "flat" | "unknown"; deltaPct?: number };
   invertGood?: boolean;
@@ -133,9 +127,9 @@ function MetricTile({ label, value, unit, comparison, invertGood = false }: {
   const arrow = direction === "up" ? "↑" : direction === "down" ? "↓" : direction === "flat" ? "→" : "";
 
   return (
-    <div className="rounded-xl border border-border bg-surface px-4 py-3">
+    <div className="rounded-xl border border-border bg-surface px-3 md:px-4 py-3">
       <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">{label}</p>
-      <p className="font-data text-xl">
+      <p className="font-data text-lg md:text-xl">
         {value != null ? Math.round(value * 10) / 10 : "—"}
         <span className="text-xs text-foreground-dim ml-1">{unit}</span>
       </p>
