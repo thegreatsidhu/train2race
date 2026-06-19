@@ -6,7 +6,6 @@ import { NewRaceForm } from "@/components/NewRaceForm";
 export default async function RacesPage() {
   const session = await auth();
   const userId = (session!.user as { id: string }).id;
-
   const races = await prisma.raceTarget.findMany({
     where: { userId },
     orderBy: { raceDate: "asc" },
@@ -20,9 +19,7 @@ export default async function RacesPage() {
           Add a race and ask your coach to build the training plan around your actual recovery data.
         </p>
       </header>
-
       <NewRaceForm />
-
       <div className="space-y-3 mt-8">
         {races.length === 0 && (
           <p className="text-sm text-foreground-dim">No races added yet.</p>
@@ -35,38 +32,19 @@ export default async function RacesPage() {
                 {r.raceDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </span>
             </div>
+            <p className="text-sm text-foreground-dim">
+              {(r.distanceM / 1000).toFixed(1)} km
+              {r.goalTimeSec ? ` · goal ${Math.floor(r.goalTimeSec / 3600)}h ${Math.floor((r.goalTimeSec % 3600) / 60)}m` : ""}
+            </p>
             <div className="flex items-center justify-between mt-3">
-  <a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">
-    View training plan →
-  </a>
-  <DeleteRaceButton raceId={r.id} />
-</div>
-  <a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">
-    View training plan →
-  </a>
-  <DeleteRaceButton raceId={r.id} />
-</div>
-  <button
-    onClick={async () => {
-      if (confirm("Delete this race and its training plan?")) {
-        await fetch(`/api/races/${r.id}`, { method: "DELETE" });
-        window.location.reload();
-      }
-    }}
-    className="text-xs text-foreground-dim hover:text-alert transition-colors"
-  >
-    Delete
-  </button>
-</div>
+              <a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">
+                View training plan →
+              </a>
+              <DeleteRaceButton raceId={r.id} />
+            </div>
           </div>
         ))}
       </div>
     </div>
   );
-}
-
-function formatSeconds(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
