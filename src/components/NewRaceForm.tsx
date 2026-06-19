@@ -101,7 +101,7 @@ export function NewRaceForm() {
               onChange={e => setGoalMinutes(e.target.value)}
               className="px-3 py-2 rounded-lg bg-surface-raised border border-border outline-none focus:border-signal text-sm" />
           </div>
-          <input placeholder="Current weekly mileage (km)" value={weeklyMileage}
+          <input placeholder="Current weekly mileage (miles)"" value={weeklyMileage}
             onChange={e => setWeeklyMileage(e.target.value)} type="number"
             className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-border outline-none focus:border-signal text-sm" />
           <input placeholder="Recent race time (e.g. 1:45 half marathon)" value={recentRaceTime}
