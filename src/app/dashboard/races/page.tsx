@@ -33,7 +33,7 @@ export default async function RacesPage() {
               </span>
             </div>
             <p className="text-sm text-foreground-dim">
-              {(r.distanceM / 1000).toFixed(1)} km
+              {(r.distanceM / 1609.34).toFixed(1)} mi
               {r.goalTimeSec ? ` · goal ${Math.floor(r.goalTimeSec / 3600)}h ${Math.floor((r.goalTimeSec % 3600) / 60)}m` : ""}
             </p>
             <div className="flex items-center justify-between mt-3">
