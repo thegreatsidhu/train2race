@@ -3,12 +3,14 @@
 export function DeleteRaceButton({ raceId }: { raceId: string }) {
   async function handleDelete() {
     if (!confirm("Delete this race and its training plan?")) return;
-    await fetch(`/api/races/${raceId}`, {
+    const res = await fetch(`/api/races?id=${raceId}`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: raceId }),
     });
-    window.location.reload();
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      alert("Failed to delete race");
+    }
   }
 
   return (
