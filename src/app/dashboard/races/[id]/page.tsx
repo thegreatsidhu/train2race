@@ -1,4 +1,4 @@
-Set-Content -LiteralPath "src\app\dashboard\races\[id]\page.tsx" -Value '// @ts-nocheck
+// @ts-nocheck
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RacePlanView } from "@/components/RacePlanView";
@@ -34,4 +34,4 @@ export default async function RacePlanPage({ params }: { params: Promise<{ id: s
       <RacePlanView race={race} plan={race.trainingPlan} />
     </div>
   );
-}'
+}
