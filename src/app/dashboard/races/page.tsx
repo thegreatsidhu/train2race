@@ -39,11 +39,25 @@ export default async function RacesPage() {
               {r.goalTimeSec ? ` · goal ${formatSeconds(r.goalTimeSec)}` : ""}
             </p>
             <a
-              href={`/dashboard/races/${r.id}`}
-              className="inline-block mt-3 text-sm text-signal hover:underline"
-              >
-             View training plan →
-            </a>
+              <div className="flex items-center justify-between mt-3">
+  
+    href={`/dashboard/races/${r.id}`}
+    className="text-sm text-signal hover:underline"
+  >
+    View training plan →
+  </a>
+  <button
+    onClick={async () => {
+      if (confirm("Delete this race and its training plan?")) {
+        await fetch(`/api/races/${r.id}`, { method: "DELETE" });
+        window.location.reload();
+      }
+    }}
+    className="text-xs text-foreground-dim hover:text-alert transition-colors"
+  >
+    Delete
+  </button>
+</div>
           </div>
         ))}
       </div>
