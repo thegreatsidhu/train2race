@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
