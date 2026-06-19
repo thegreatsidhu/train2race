@@ -1,14 +1,15 @@
-// @ts-nocheck
+Set-Content -LiteralPath "src\app\dashboard\races\[id]\page.tsx" -Value '// @ts-nocheck
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RacePlanView } from "@/components/RacePlanView";
 
-export default async function RacePlanPage({ params }: { params: { id: string } }) {
+export default async function RacePlanPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   const userId = (session!.user as { id: string }).id;
 
   const race = await prisma.raceTarget.findUnique({
-    where: { id: params.id, userId },
+    where: { id, userId },
     include: {
       trainingPlan: {
         include: {
@@ -33,4 +34,4 @@ export default async function RacePlanPage({ params }: { params: { id: string } 
       <RacePlanView race={race} plan={race.trainingPlan} />
     </div>
   );
-}
+}'
