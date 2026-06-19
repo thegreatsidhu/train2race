@@ -2,14 +2,16 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "@/components/SignOutButton";
+import { MobileNav } from "@/components/MobileNav";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   return (
-    <div className="flex-1 flex">
-      <aside className="w-56 border-r border-border flex flex-col px-4 py-6 shrink-0">
+    <div className="flex-1 flex flex-col md:flex-row">
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-56 border-r border-border flex-col px-4 py-6 shrink-0">
         <Link href="/dashboard" className="font-semibold tracking-tight text-lg px-2 mb-8">
           Train2Race
         </Link>
@@ -27,6 +29,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <SignOutButton />
         </div>
       </aside>
+
+      {/* Mobile top bar */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border">
+        <Link href="/dashboard" className="font-semibold tracking-tight text-lg">
+          Train2Race
+        </Link>
+        <MobileNav email={session.user.email ?? ""} />
+      </div>
+
       <main className="flex-1 min-w-0">{children}</main>
     </div>
   );
