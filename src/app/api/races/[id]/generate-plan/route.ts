@@ -18,17 +18,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { weeklyMileageKm, recentRaceTime, trainingDaysPerWeek, raceType, isTriathlon } = body;
 
   const weeksToRace = Math.max(4, Math.round((race.raceDate.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)));
-  const distanceKm = race.distanceM / 1000;
+  const distanceMiles = (race.distanceM / 1609.34).toFixed(1);
   const goalTime = race.goalTimeSec
     ? `${Math.floor(race.goalTimeSec / 3600)}h ${Math.floor((race.goalTimeSec % 3600) / 60)}m`
     : "finish";
 
   const prompt = `You are an expert endurance coach. Create a detailed ${weeksToRace}-week training plan.
 Race: ${race.raceName}
-Distance: ${distanceKm}km ${isTriathlon ? "(triathlon)" : "(running)"}
+Distance: ${distanceMiles} miles ${isTriathlon ? "(triathlon)" : "(running)"}
 Goal time: ${goalTime}
 Race type: ${raceType || "main"} race
-Current weekly mileage: ${weeklyMileageKm || 30}km
+Current weekly mileage: ${weeklyMileageKm || 30} miles
 Recent race time: ${recentRaceTime || "none provided"}
 Training days per week: ${trainingDaysPerWeek || 5}
 Weeks until race: ${weeksToRace}
@@ -39,7 +39,7 @@ Generate a training plan as a JSON array of workouts. Each workout must have:
 - type (easy_run/tempo/intervals/long_run/rest/cross_train/race${isTriathlon ? "/swim/bike/brick" : ""})
 - title (short name)
 - description (2-3 sentences of coaching instruction)
-- distanceKm (number or null)
+- distanceMiles (number or null)
 - durationMin (number or null)
 
 Return ONLY a valid JSON array with no markdown, no code blocks, no explanation.`;
@@ -77,7 +77,7 @@ Return ONLY a valid JSON array with no markdown, no code blocks, no explanation.
               type: w.type,
               title: w.title,
               description: w.description,
-              distanceKm: w.distanceKm || null,
+              distanceKm: w.distanceMiles ? w.distanceMiles * 1.60934 : null,
               durationMin: w.durationMin || null,
             };
           }),
