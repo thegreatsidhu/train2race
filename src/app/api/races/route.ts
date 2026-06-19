@@ -46,3 +46,13 @@ export async function GET() {
   const races = await prisma.raceTarget.findMany({ where: { userId }, orderBy: { raceDate: "asc" } });
   return NextResponse.json({ races });
 }
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = (session.user as { id: string }).id;
+  const { id } = await req.json();
+  await prisma.raceTarget.delete({ where: { id, userId } });
+  return NextResponse.json({ ok: true });
+}
