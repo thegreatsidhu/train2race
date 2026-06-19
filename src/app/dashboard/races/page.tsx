@@ -39,10 +39,10 @@ export default async function RacesPage() {
               {r.goalTimeSec ? ` · goal ${formatSeconds(r.goalTimeSec)}` : ""}
             </p>
             <a
-              href="/dashboard/chat"
+              href={`/dashboard/races/${r.id}`}
               className="inline-block mt-3 text-sm text-signal hover:underline"
-            >
-              Ask coach to build/update the training plan →
+              >
+             View training plan →
             </a>
           </div>
         ))}
