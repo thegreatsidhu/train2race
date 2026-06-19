@@ -210,13 +210,18 @@ model RaceTarget {
   userId       String
   raceName     String
   raceDate     DateTime
-  distanceM    Float // e.g. 21097.5 for half marathon
+  distanceM    Float
   goalTimeSec  Int?
-  trainingPlanJson Json? // AI-generated periodized plan, stored so it persists & can be edited
+  raceType         String?  // "main" | "training" | "fun"
+  weeklyMileageKm  Float?
+  recentRaceTime   String?
+  trainingDaysPerWeek Int?
+  isTriathlon      Boolean? @default(false)
+  trainingPlanJson Json?
   createdAt    DateTime @default(now())
-  trainingPlan  TrainingPlan?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainingPlan TrainingPlan?
 
   @@map("race_targets")
 }
