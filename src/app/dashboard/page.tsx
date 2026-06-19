@@ -95,8 +95,14 @@ export default async function TodayPage() {
             <TrendChart history={history} />
           </section>
 
-          <section>
-            <h2 className="text-sm font-medium text-foreground-dim mb-3">Recent activity</h2>
+         <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-foreground-dim">Recent activity</h2>
+              <a href="/dashboard/log-workout"
+                className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium hover:bg-signal-dim transition-colors">
+                + Log workout
+              </a>
+            </div>
             <ActivityList activities={recentActivities.map(a => ({
               id: a.id,
               title: a.title,
