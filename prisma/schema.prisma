@@ -275,14 +275,3 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
-model InviteCode {
-  id        String    @id @default(cuid())
-  code      String    @unique
-  usedBy    String?
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-  expiresAt DateTime?
-  note      String?
-
-  @@map("invite_codes")
-}
