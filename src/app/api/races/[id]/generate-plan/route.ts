@@ -6,11 +6,12 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   const userId = (session!.user as { id: string }).id;
 
-  const race = await prisma.raceTarget.findUnique({ where: { id: params.id, userId } });
+  const race = await prisma.raceTarget.findUnique({ where: { id, userId } });
   if (!race) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -23,12 +24,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     : "finish";
 
   const prompt = `You are an expert endurance coach. Create a detailed ${weeksToRace}-week training plan.
-
 Race: ${race.raceName}
 Distance: ${distanceKm}km ${isTriathlon ? "(triathlon)" : "(running)"}
 Goal time: ${goalTime}
-Race type: ${raceType} race
-Current weekly mileage: ${weeklyMileageKm || "unknown"}km
+Race type: ${raceType || "main"} race
+Current weekly mileage: ${weeklyMileageKm || 30}km
 Recent race time: ${recentRaceTime || "none provided"}
 Training days per week: ${trainingDaysPerWeek || 5}
 Weeks until race: ${weeksToRace}
@@ -42,52 +42,51 @@ Generate a training plan as a JSON array of workouts. Each workout must have:
 - distanceKm (number or null)
 - durationMin (number or null)
 
-Return ONLY a valid JSON array, no other text.`;
+Return ONLY a valid JSON array with no markdown, no code blocks, no explanation.`;
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8000,
-    messages: [{ role: "user", content: prompt }],
-  });
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8000,
+      messages: [{ role: "user", content: prompt }],
+    });
 
-  const text = message.content[0].type === "text" ? message.content[0].text : "";
-  const workouts = JSON.parse(text.replace(/```json|```/g, "").trim());
+    const text = message.content[0].type === "text" ? message.content[0].text : "";
+    const cleaned = text.replace(/```json|```/g, "").trim();
+    const workouts = JSON.parse(cleaned);
 
-  // Delete existing plan if any
-  await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
+    await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
 
-  // Calculate dates for each workout
-  const raceDate = new Date(race.raceDate);
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - startDate.getDay() + 1); // Start from next Monday
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - startDate.getDay() + 1);
 
-  const dayMap: Record<string, number> = {
-    Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
-    Friday: 4, Saturday: 5, Sunday: 6,
-  };
+    const dayMap = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
 
-  const plan = await prisma.trainingPlan.create({
-    data: {
-      userId,
-      raceId: race.id,
-      workouts: {
-        create: workouts.map((w: any) => {
-          const workoutDate = new Date(startDate);
-          workoutDate.setDate(startDate.getDate() + (w.week - 1) * 7 + (dayMap[w.day] || 0));
-          return {
-            week: w.week,
-            day: w.day,
-            date: workoutDate,
-            type: w.type,
-            title: w.title,
-            description: w.description,
-            distanceKm: w.distanceKm || null,
-            durationMin: w.durationMin || null,
-          };
-        }),
+    const plan = await prisma.trainingPlan.create({
+      data: {
+        userId,
+        raceId: race.id,
+        workouts: {
+          create: workouts.map((w) => {
+            const workoutDate = new Date(startDate);
+            workoutDate.setDate(startDate.getDate() + (w.week - 1) * 7 + (dayMap[w.day] || 0));
+            return {
+              week: w.week,
+              day: w.day,
+              date: workoutDate,
+              type: w.type,
+              title: w.title,
+              description: w.description,
+              distanceKm: w.distanceKm || null,
+              durationMin: w.durationMin || null,
+            };
+          }),
+        },
       },
-    },
-  });
+    });
 
-  return NextResponse.json({ plan });
+    return NextResponse.json({ plan });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
 }
