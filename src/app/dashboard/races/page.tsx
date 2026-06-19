@@ -1,3 +1,4 @@
+import { DeleteRaceButton } from "@/components/DeleteRaceButton";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NewRaceForm } from "@/components/NewRaceForm";
@@ -41,11 +42,12 @@ export default async function RacesPage() {
             <a
               <div className="flex items-center justify-between mt-3">
   
-    href={`/dashboard/races/${r.id}`}
-    className="text-sm text-signal hover:underline"
-  >
+    <div className="flex items-center justify-between mt-3">
+  <a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">
     View training plan →
   </a>
+  <DeleteRaceButton raceId={r.id} />
+</div>
   <button
     onClick={async () => {
       if (confirm("Delete this race and its training plan?")) {
