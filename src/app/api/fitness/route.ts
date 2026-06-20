@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMergedDailyMetrics } from "@/lib/ai/metrics";
 import { computeFitnessAssessment } from "@/lib/ai/fitness-score";
-import { anthropic, ADVICE_MODEL } from "@/lib/ai/client";
+import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
 
 const CACHE_HOURS = 24;
 
@@ -58,10 +58,10 @@ Overall score: ${assessment.overallScore}/100 (${assessment.overallLabel})
 Based on ${assessment.daysOfData} days of data.
 
 Dimension scores:
-${assessment.dimensions.map((d) => `- ${d.name}: ${d.score}/100 (${d.label}) — ${d.insight}`).join("\n")}`;
+${assessment.dimensions.map((d) => `- ${d.name}: ${d.score}/100 (${d.label}) â€” ${d.insight}`).join("\n")}`;
 
   const response = await anthropic.messages.create({
-    model: ADVICE_MODEL,
+    model: HAIKU_MODEL,
     max_tokens: 300,
     messages: [{ role: "user", content: prompt }],
   });
