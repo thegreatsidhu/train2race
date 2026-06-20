@@ -50,3 +50,5 @@ export async function chatWithCoach(
   const textBlock = response.content.find((b) => b.type === "text");
   return textBlock?.type === "text" ? textBlock.text : "";
 }
+
+export const SONNET_MODEL = "claude-sonnet-4-6";
