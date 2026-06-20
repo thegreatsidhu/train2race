@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +23,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  const existing = await prisma.raceTarget.findFirst({ where: { userId, raceName, raceDate: new Date(raceDate) } });
+  if (existing) { return NextResponse.json({ error: "You already have a race with this name and date." }, { status: 409 }); }
   const race = await prisma.raceTarget.create({
     data: {
       userId,
@@ -58,3 +60,4 @@ export async function DELETE(req: Request) {
   await prisma.raceTarget.delete({ where: { id, userId } });
   return NextResponse.json({ ok: true });
 }
+
