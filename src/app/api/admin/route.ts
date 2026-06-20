@@ -30,7 +30,7 @@ export async function GET(req: Request) {
         name: true,
         email: true,
         createdAt: true,
-        connections: { select: { source: true, connected: true } },
+        connections: { select: { source: true, status: true } },
         _count: { select: { activities: true, raceTargets: true } },
       },
     });
