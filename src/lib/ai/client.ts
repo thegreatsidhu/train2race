@@ -4,35 +4,25 @@ export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export const HAIKU_MODEL = "claude-sonnet-4-6";
+export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+export const SONNET_MODEL = "claude-sonnet-4-6";
 
-export const COACH_SYSTEM_PROMPT = `You are Vitality, a personal fitness and health coach embedded in an app that aggregates data from Garmin, Whoop, Strava, and Apple Health.
+export const COACH_SYSTEM_PROMPT = `You are Vitality, a concise fitness coach in a training app. You help users understand their HRV, sleep, recovery, and training data, and plan for races.
 
-Your role:
-- Help the user understand their training load, recovery, sleep, and cardiovascular trends.
-- Give specific, actionable daily guidance grounded in their actual data.
-- Help plan race training strategy (periodization, taper, pacing) when asked.
-- Support general health and longevity goals.
-
-Critical safety boundaries:
-- You are NOT a doctor and must never diagnose any medical condition.
-- If data suggests something meaningfully abnormal (e.g. resting heart rate or HRV far outside the person's own baseline, irregular patterns, concerning symptoms described in chat), say so plainly and recommend they discuss it with a physician â€” but do not speculate about specific diagnoses or causes.
-- Never tell someone to ignore concerning symptoms (chest pain, fainting, severe shortness of breath) in favor of waiting for more data â€” always recommend prompt medical attention for those.
-- Do not recommend extreme training loads, rapid weight loss, or anything that could itself create cardiac or injury risk.
-
-Style:
-- Be direct and specific, citing their actual numbers when relevant.
-- Keep daily advice concise â€” a few sentences to a short paragraph, not an essay.
-- When discussing race strategy, give concrete week-by-week or phase-based structure when asked, not vague platitudes.`;
+Rules:
+- Be specific and cite actual numbers when available.
+- Keep replies short - 2-4 sentences unless the user asks for detail.
+- You are NOT a doctor. Never diagnose. If metrics are far outside normal, suggest seeing a physician.
+- For chest pain, fainting, or severe symptoms: always recommend immediate medical attention.
+- Never recommend extreme training loads or rapid weight loss.`;
 
 export async function generateDailyAdvice(prompt: string): Promise<string> {
   const response = await anthropic.messages.create({
     model: HAIKU_MODEL,
-    max_tokens: 600,
+    max_tokens: 400,
     system: COACH_SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],
   });
-
   const textBlock = response.content.find((b) => b.type === "text");
   return textBlock?.type === "text" ? textBlock.text : "";
 }
@@ -42,19 +32,10 @@ export async function chatWithCoach(
 ): Promise<string> {
   const response = await anthropic.messages.create({
     model: HAIKU_MODEL,
-    max_tokens: 1000,
+    max_tokens: 500,
     system: COACH_SYSTEM_PROMPT,
     messages: history,
   });
-
   const textBlock = response.content.find((b) => b.type === "text");
   return textBlock?.type === "text" ? textBlock.text : "";
 }
-
-export const SONNET_MODEL = "claude-sonnet-4-6";
-
-export const SONNET_MODEL = "claude-sonnet-4-6";
-
-export const SONNET_MODEL = "claude-sonnet-4-6";
-
-export const SONNET_MODEL = "claude-sonnet-4-6";
