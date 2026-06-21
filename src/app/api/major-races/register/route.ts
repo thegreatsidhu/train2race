@@ -7,12 +7,8 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
   const { majorRaceId, goalTimeSec, isPublic = true, raceTargetId } = await req.json();
-  const registration = await prisma.raceRegistration.upsert({
-    where: { userId_majorRaceId: { userId, majorRaceId } },
-    update: { goalTimeSec, isPublic, raceTargetId },
-    create: { userId, majorRaceId, goalTimeSec, isPublic, raceTargetId },
-  });
-  return NextResponse.json({ registration });
+  const reg = await prisma.raceRegistration.upsert({ where: { userId_majorRaceId: { userId, majorRaceId } }, update: { goalTimeSec, isPublic, raceTargetId }, create: { userId, majorRaceId, goalTimeSec, isPublic, raceTargetId } });
+  return NextResponse.json({ registration: reg });
 }
 export async function DELETE(req: NextRequest) {
   const session = await auth();

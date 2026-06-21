@@ -15,11 +15,9 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "asc" },
   });
   const community = registrations.map(reg => {
-    const plan = reg.user.raceTargets[0]?.trainingPlan;
-    const workouts = plan?.workouts ?? [];
-    const total = workouts.length;
-    const done = workouts.filter(w => w.completed).length;
-    const weeklyMiles = workouts.filter(w => { const d = new Date(w.date); const now = new Date(); const weekAgo = new Date(now.getTime()-7*24*60*60*1000); return d>=weekAgo&&d<=now&&w.completed&&w.distanceKm; }).reduce((sum,w)=>sum+(w.distanceKm||0)/1.60934,0);
+    const workouts = reg.user.raceTargets[0]?.trainingPlan?.workouts ?? [];
+    const total = workouts.length; const done = workouts.filter(w => w.completed).length;
+    const weeklyMiles = workouts.filter(w => { const d=new Date(w.date); const now=new Date(); return d>=new Date(now.getTime()-7*24*60*60*1000)&&d<=now&&w.completed&&w.distanceKm; }).reduce((sum,w)=>sum+(w.distanceKm||0)/1.60934,0);
     return { userId: reg.user.id, name: reg.user.name||"Anonymous", isMe: reg.userId===userId, goalTimeSec: reg.goalTimeSec, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles: Math.round(weeklyMiles*10)/10 };
   }).sort((a,b)=>b.pct-a.pct);
   return NextResponse.json({ community });
