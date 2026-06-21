@@ -11,7 +11,7 @@ export default function AdminPage() {
   const [genCount, setGenCount] = useState(1);
   const [newCodes, setNewCodes] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"users" | "invites">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "invites" | "races">("users");
 
   async function handleLogin() {
     setLoading(true);
@@ -51,6 +51,10 @@ export default function AdminPage() {
     setGenerating(false);
   }
 
+  async function approveRace(raceId, action) {
+    await fetch("/api/admin/races", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, raceId, action }) });
+    await refreshData();
+  }
   function copyCode(code: string) {
     navigator.clipboard.writeText(code);
     setCopied(code);
@@ -109,7 +113,7 @@ export default function AdminPage() {
           ))}
         </div>
         <div className="flex gap-2 mb-6">
-          {(["users", "invites"] as const).map((tab) => (
+          {(["users", "invites", "races"] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab === tab ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
               {tab === "users" ? "Users (" + (data?.users?.length || 0) + ")" : "Invites (" + unusedCodes.length + " unused)"}
@@ -171,7 +175,24 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+      {activeTab === "races" && (
+        <div>
+          <h2 className="font-medium mb-3">Pending Races ({data?.pendingRaces?.length || 0})</h2>
+          {!data?.pendingRaces?.length ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
+            <div className="space-y-3">{data.pendingRaces.map((race) => (
+              <div key={race.id} className="rounded-2xl border border-border bg-surface p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div><p className="font-medium">{race.name}</p><p className="text-sm text-foreground-dim">{race.city}, {race.country} · {(race.distanceM/1609.34).toFixed(1)}mi</p><p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>{race.website&&<a href={race.website} target="_blank" className="text-xs text-signal hover:underline">{race.website}</a>}</div>
+                  <div className="flex gap-2 shrink-0"><button onClick={()=>approveRace(race.id,"approve")} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">Approve</button><button onClick={()=>approveRace(race.id,"reject")} className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">Reject</button></div>
+                </div>
+              </div>
+            ))}</div>
+          )}
+        </div>
+      )}
       </div>
     </div>
   );
 }
+
+
