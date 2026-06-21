@@ -45,7 +45,7 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
           <div>
             <span className={"text-xs font-medium px-2 py-0.5 rounded-full " + (TYPE_COLORS[workout.type] || "bg-surface border border-border text-foreground-dim")}>{workout.type.replace(/_/g, " ")}</span>
             <h2 className="text-lg font-semibold mt-2">{workout.title}</h2>
-            <p className="text-xs text-foreground-dim mt-0.5">{workout.day} - Week {workout.week}{workout.distanceKm ? " - " + (workout.distanceKm/1.60934).toFixed(1) + " mi planned" : ""}{workout.durationMin && !workout.distanceKm ? " - " + workout.durationMin + " min planned" : ""}</p>
+            <p className="text-xs text-foreground-dim mt-0.5">{workout.day} - Week {workout.week} - {workout.date ? new Date(workout.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : ""}{workout.distanceKm ? " - " + (workout.distanceKm/1.60934).toFixed(1) + " mi planned" : ""}{workout.durationMin && !workout.distanceKm ? " - " + workout.durationMin + " min planned" : ""}</p>
           </div>
           <button onClick={onClose} className="text-foreground-dim hover:text-foreground text-xl leading-none ml-4">x</button>
         </div>
@@ -256,7 +256,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                   const isToday = workoutDate.getTime()===today.getTime();
                   return (
                     <div key={day} className={"flex items-center gap-3 "+(workout.completed?"opacity-60":"")}>
-                      <div className="w-10 shrink-0 text-center"><p className={"text-xs font-medium "+(isToday?"text-signal":"text-foreground-dim")}>{day.slice(0,3)}</p></div>
+                      <div className="w-10 shrink-0 text-center"><p className={"text-xs font-medium "+(isToday?"text-signal":"text-foreground-dim")}>{day.slice(0,3)}</p><p className="text-xs text-foreground-dim opacity-60">{weekDates[day]}</p></div>
                       <button onClick={()=>setSelectedWorkout(workout)} className={"flex-1 text-left rounded-xl px-3 py-2.5 text-xs "+colorClass+" hover:opacity-80 transition-opacity"}>
                         <div className="flex items-center justify-between gap-2"><p className="font-medium">{workout.title}</p><p className="shrink-0 opacity-75">{workout.distanceKm?(workout.distanceKm/1.60934).toFixed(1)+"mi":workout.durationMin?workout.durationMin+"min":""}</p></div>
                       </button>
