@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import Link from "next/link";
 
@@ -26,7 +26,6 @@ export function MobileNav({ email }: { email: string }) {
               { href: "/dashboard", label: "Today" },
               { href: "/dashboard/fitness", label: "Fitness" },
               { href: "/dashboard/nutrition", label: "Nutrition" },
-              { href: "/dashboard/chat", label: "Coach" },
               { href: "/dashboard/races", label: "Race plans" },
               { href: "/dashboard/connections", label: "Connections" },
               { href: "/dashboard/profile", label: "Profile" },
@@ -49,3 +48,4 @@ export function MobileNav({ email }: { email: string }) {
     </>
   );
 }
+
