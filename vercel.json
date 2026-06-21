@@ -1,8 +1,16 @@
-{
+﻿{
   "crons": [
     {
       "path": "/api/cron/nightly-sync",
-      "schedule": "0 5 * * *"
+      "schedule": "0 */3 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/races/[id]/generate-plan/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/nightly-sync/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }
