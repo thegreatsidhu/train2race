@@ -36,6 +36,7 @@ model User {
   trainingPlans   TrainingPlan[]
   passwordResetTokens PasswordResetToken[]
   raceRegistrations RaceRegistration[]
+  eventMessages     EventMessage[]
   teamMembers       TeamMember[]
   teamMessages      TeamMessage[]
   @@map("users")
@@ -340,4 +341,18 @@ model TeamMessage {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([teamId, createdAt])
   @@map("team_messages")
+}
+
+model EventMessage {
+  id          String   @id @default(cuid())
+  majorRaceId String
+  userId      String
+  content     String
+  isDeleted   Boolean  @default(false)
+  deletedBy   String?
+  createdAt   DateTime @default(now())
+  majorRace   MajorRace @relation(fields: [majorRaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([majorRaceId, createdAt])
+  @@map("event_messages")
 }
