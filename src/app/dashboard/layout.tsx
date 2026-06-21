@@ -17,7 +17,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </Link>
         <nav className="flex flex-col gap-1 text-sm flex-1">
           <NavLink href="/dashboard" label="Today" />
-          <NavLink href="/dashboard/fitness" label="Fitness" />
           <NavLink href="/dashboard/nutrition" label="Nutrition" />
           <NavLink href="/dashboard/races" label="Race plans" />
           <NavLink href="/dashboard/community" label="Community" />
@@ -54,6 +53,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
     </Link>
   );
 }
+
 
 
 

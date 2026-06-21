@@ -24,7 +24,6 @@ export function MobileNav({ email }: { email: string }) {
           <nav className="flex flex-col gap-1 p-4 text-lg">
             {[
               { href: "/dashboard", label: "Today" },
-              { href: "/dashboard/fitness", label: "Fitness" },
               { href: "/dashboard/nutrition", label: "Nutrition" },
               { href: "/dashboard/races", label: "Race plans" },
               { href: "/dashboard/community", label: "Community" },
@@ -51,6 +50,7 @@ export function MobileNav({ email }: { email: string }) {
     </>
   );
 }
+
 
 
 
