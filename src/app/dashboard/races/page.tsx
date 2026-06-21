@@ -1,4 +1,4 @@
-﻿import { DeleteRaceButton } from "@/components/DeleteRaceButton";
+import { DeleteRaceButton } from "@/components/DeleteRaceButton";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NewRaceForm } from "@/components/NewRaceForm";
