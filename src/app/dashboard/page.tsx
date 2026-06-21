@@ -65,7 +65,6 @@ export default async function TodayPage() {
   const sleepComparison = comparisons.find(c=>c.field==="sleepScore");
   const recoveryComparison = comparisons.find(c=>c.field==="bodyBatteryOrRecoveryPct");
   const rhrComparison = comparisons.find(c=>c.field==="restingHeartRate");
-  const fitnessScore = latest?Math.round(((latest.hrvMs?Math.min(latest.hrvMs/80*100,100):50)*0.3)+((latest.sleepScore||50)*0.3)+((latest.bodyBatteryOrRecoveryPct||50)*0.4)):null;
 
   return (
     <div className="max-w-4xl px-4 md:px-8 py-6 md:py-10">
@@ -149,7 +148,7 @@ export default async function TodayPage() {
             <div className="rounded-2xl border border-border bg-surface p-4 md:p-6">
               <div className="flex items-center justify-between mb-3">
                 <div><span className="font-data text-xs text-foreground-dim uppercase tracking-wide">Resting heart rate</span>{rhrComparison&&<span className={"ml-2 text-xs "+(rhrComparison.direction==="down"?"text-signal":rhrComparison.direction==="up"?"text-alert":"text-foreground-dim")}>{rhrComparison.direction==="down"?"down":rhrComparison.direction==="up"?"up":"flat"} {rhrComparison.deltaPct?Math.abs(rhrComparison.deltaPct)+"% vs 30d":""}</span>}</div>
-                <span className="font-data text-2xl text-signal">{latest?.restingHeartRate??"â€”"} <span className="text-sm text-foreground-dim">bpm</span></span>
+                <span className="font-data text-2xl text-signal">{latest?.restingHeartRate??"Ã¢â‚¬â€"} <span className="text-sm text-foreground-dim">bpm</span></span>
               </div>
               <Waveform restingHeartRate={latest?.restingHeartRate??60} className="h-14"/>
             </div>
@@ -159,7 +158,7 @@ export default async function TodayPage() {
             <h2 className="text-sm font-medium text-foreground-dim mb-3">This week</h2>
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Miles</p><p className="font-data text-xl">{weeklyMiles.toFixed(1)}</p></div>
-              <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Time</p><p className="font-data text-xl">{weeklyTime>0?formatDuration(weeklyTime):"â€”"}</p></div>
+              <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Time</p><p className="font-data text-xl">{weeklyTime>0?formatDuration(weeklyTime):"Ã¢â‚¬â€"}</p></div>
               <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Activities</p><p className="font-data text-xl">{weeklyActivities.length}</p></div>
             </div>
           </section>
@@ -185,7 +184,7 @@ function MetricTile({label,value,unit,comparison,invertGood=false}:{label:string
   return(
     <div className="rounded-xl border border-border bg-surface px-3 md:px-4 py-3">
       <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">{label}</p>
-      <p className="font-data text-lg md:text-xl">{value!=null?Math.round(value*10)/10:"â€”"}<span className="text-xs text-foreground-dim ml-1">{unit}</span></p>
+      <p className="font-data text-lg md:text-xl">{value!=null?Math.round(value*10)/10:"Ã¢â‚¬â€"}<span className="text-xs text-foreground-dim ml-1">{unit}</span></p>
       {comparison?.deltaPct!=null&&<p className={`text-xs ${color} mt-0.5`}>{arrow} {Math.abs(comparison.deltaPct)}% vs 30d</p>}
     </div>
   );
