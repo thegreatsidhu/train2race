@@ -80,7 +80,7 @@ export default async function TodayPage() {
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Today</h1>
       </header>
 
-      {activeRace&&plan&&totalWorkouts>0&&(
+      {activeRace&&(
         <section className="mb-6">
           <div className="rounded-2xl border border-border bg-surface overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -100,7 +100,12 @@ export default async function TodayPage() {
               </div>
             </div>
             <div className="px-5 py-4">
-              {todaysWorkout?(
+              {(!plan || totalWorkouts === 0) ? (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground-dim">No training plan yet.</p>
+                  <a href={"/dashboard/races/"+activeRace.id} className="text-xs text-signal hover:underline">Build a plan</a>
+                </div>
+              ) : todaysWorkout?(
                 <div>
                   <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Today</p>
                   <div className={"rounded-xl border p-3 "+(TYPE_COLORS[todaysWorkout.type]||"bg-surface border-border")+" "+(todaysWorkout.completed?"opacity-50":"")}>
