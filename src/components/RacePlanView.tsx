@@ -137,7 +137,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                 <h3 className="font-medium">Week {weekNum}{isCurrentWeek&&<span className="ml-2 text-xs bg-signal text-background px-2 py-0.5 rounded-full">Current</span>}</h3>
                 <span className="text-xs text-foreground-dim">{weekDone}/{(workouts as any[]).length} done</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+              <div className="hidden md:grid md:grid-cols-7 gap-2">
                 {DAYS.map(day => {
                   const workout = (workouts as any[]).find(w=>w.day===day);
                   if (!workout) return <div key={day} className="rounded-xl p-2 text-center"><p className="text-xs text-foreground-dim">{day.slice(0,3)}</p></div>;
@@ -170,3 +170,5 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
     </div>
   );
 }
+
+
