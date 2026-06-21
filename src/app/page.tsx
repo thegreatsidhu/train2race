@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <div className="flex flex-col flex-1">
       <nav className="flex items-center justify-between px-6 md:px-10 py-6 max-w-6xl w-full mx-auto">
-        <span className="font-semibold tracking-tight text-lg">Train2Race</span>
+        <div className="flex items-center gap-2"><img src="/logo.png" alt="Train2Race" className="w-8 h-8 rounded-lg" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></div>
         <div className="flex items-center gap-6 text-sm text-foreground-dim">
           <Link href="/login" className="hover:text-foreground transition-colors">Log in</Link>
           <Link href="/signup" className="px-4 py-2 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Get started</Link>
@@ -78,3 +78,4 @@ function Stat({ label, value, good }: { label: string; value: string; good?: boo
 function Pillar({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
   return <div><p className="font-data text-xs uppercase tracking-[0.14em] text-load mb-3">{eyebrow}</p><h3 className="text-xl font-semibold mb-3 tracking-tight">{title}</h3><p className="text-foreground-dim leading-relaxed text-sm">{body}</p></div>;
 }
+
