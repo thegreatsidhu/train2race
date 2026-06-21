@@ -4,6 +4,7 @@ import { useState } from "react";
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -72,10 +73,10 @@ export default function AdminPage() {
           </div>
           <div className="rounded-2xl border border-border bg-surface p-6">
             <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               placeholder="Enter admin password"
-              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-sm outline-none focus:border-signal mb-4" />
+              className="w-full px-4 py-3 pr-16 rounded-xl bg-background border border-border text-sm outline-none focus:border-signal" />
             {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
             <button onClick={handleLogin} disabled={loading || !password}
               className="w-full py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors disabled:opacity-60">
@@ -128,7 +129,7 @@ export default function AdminPage() {
                 <p className="font-medium">{user.name || "No name"}</p>
                 <p className="text-sm text-foreground-dim">{user.email}</p>
                 <p className="text-xs text-foreground-dim mt-0.5">
-                  Joined {new Date(user.createdAt).toLocaleDateString()} · {user._count.activities} activities · {user._count.raceTargets} races
+                  Joined {new Date(user.createdAt).toLocaleDateString()} Â· {user._count.activities} activities Â· {user._count.raceTargets} races
                 </p>
               </div>
             ))}
@@ -183,7 +184,7 @@ export default function AdminPage() {
             <div className="space-y-3">{data.pendingRaces.map((race) => (
               <div key={race.id} className="rounded-2xl border border-border bg-surface p-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div><p className="font-medium">{race.name}</p><p className="text-sm text-foreground-dim">{race.city}, {race.country} · {(race.distanceM/1609.34).toFixed(1)}mi</p><p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>{race.website&&<a href={race.website} target="_blank" className="text-xs text-signal hover:underline">{race.website}</a>}</div>
+                  <div><p className="font-medium">{race.name}</p><p className="text-sm text-foreground-dim">{race.city}, {race.country} Â· {(race.distanceM/1609.34).toFixed(1)}mi</p><p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>{race.website&&<a href={race.website} target="_blank" className="text-xs text-signal hover:underline">{race.website}</a>}</div>
                   <div className="flex gap-2 shrink-0"><button onClick={()=>approveRace(race.id,"approve")} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">Approve</button><button onClick={()=>approveRace(race.id,"reject")} className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">Reject</button></div>
                 </div>
               </div>
