@@ -11,5 +11,6 @@ export async function GET(req: NextRequest) {
     take: 50,
     include: { _count: { select: { registrations: true } } },
   });
-  return NextResponse.json({ races });
+  return NextResponse.json({ races }, { headers: { "Cache-Control": "public, max-age=3600" } });
 }
+

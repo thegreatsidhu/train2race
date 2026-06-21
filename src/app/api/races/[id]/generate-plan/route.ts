@@ -82,3 +82,4 @@ Types: easy_run/tempo/intervals/long_run/cross_train${isTriathlon?"/swim/bike/br
 
 
 
+
