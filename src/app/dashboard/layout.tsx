@@ -20,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <NavLink href="/dashboard/fitness" label="Fitness" />
           <NavLink href="/dashboard/nutrition" label="Nutrition" />
           <NavLink href="/dashboard/races" label="Race plans" />
+          <NavLink href="/dashboard/community" label="Community" />
           <NavLink href="/dashboard/connections" label="Connections" />
           <NavLink href="/dashboard/profile" label="Profile" />
         </nav>
@@ -52,4 +53,5 @@ function NavLink({ href, label }: { href: string; label: string }) {
     </Link>
   );
 }
+
 
