@@ -35,6 +35,8 @@ export async function POST(req, { params }) {
   const userId = session.user.id;
   const race = await prisma.raceTarget.findUnique({ where: { id, userId } });
   if (!race) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const recentPlan = await prisma.trainingPlan.findFirst({ where: { raceId: race.id, createdAt: { gte: new Date(Date.now()-60000) } }, select: { id: true } });
+  if (recentPlan) return NextResponse.json({ error: "Please wait before regenerating" }, { status: 429 });
   const body = await req.json();
   const { weeklyMileageKm, recentRaceTime, trainingDaysPerWeek, hardDays, longRunDay, injuryConcerns, fitnessNotes, prioritize } = body;
   const isTriathlon = race.isTriathlon || false;
@@ -77,5 +79,6 @@ Types: easy_run/tempo/intervals/long_run/cross_train${isTriathlon?"/swim/bike/br
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+
 
 
