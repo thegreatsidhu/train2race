@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Waveform } from "@/components/Waveform";
 
 export default function Home() {
@@ -65,6 +65,7 @@ export default function Home() {
       <footer className="border-t border-border py-8 px-6 md:px-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-foreground-dim flex-wrap gap-2">
           <span>Train2Race is a training tool, not a medical device.</span>
+          <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
           <span>Boston Chicago NYC Ironman and 100 plus more races</span>
         </div>
       </footer>
