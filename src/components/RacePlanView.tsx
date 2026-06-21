@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run: "bg-green-900 text-green-300",
@@ -115,7 +116,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
   const [selectedWorkout, setSelectedWorkout] = useState<any|null>(null);
   const [showRebuild, setShowRebuild] = useState(false);
 
-  if (!plan) return <BuildPlanForm race={race} onBuilt={() => window.location.reload()} />;
+  if (!plan) return <BuildPlanForm race={race} onBuilt={() => router.refresh()} />;
 
   const weeks: Record<number,any[]> = {};
   for (const w of plan.workouts) { if(!weeks[w.week]) weeks[w.week]=[]; weeks[w.week].push(w); }
@@ -163,12 +164,13 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
           );
         })}
       </div>
-      {selectedWorkout && <WorkoutModal workout={selectedWorkout} onClose={()=>setSelectedWorkout(null)} onLogged={()=>{setSelectedWorkout(null);window.location.reload();}} />}
+      {selectedWorkout && <WorkoutModal workout={selectedWorkout} onClose={()=>setSelectedWorkout(null)} onLogged={()=>{setSelectedWorkout(null);router.refresh();}} />}
       {showRebuild && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={e=>{if(e.target===e.currentTarget)setShowRebuild(false);}}>
-        <div className="w-full max-w-lg"><BuildPlanForm race={race} onBuilt={()=>{setShowRebuild(false);window.location.reload();}} /></div>
+        <div className="w-full max-w-lg"><BuildPlanForm race={race} onBuilt={()=>{setShowRebuild(false);router.refresh();}} /></div>
       </div>}
     </div>
   );
 }
+
 
 

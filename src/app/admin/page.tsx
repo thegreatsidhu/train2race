@@ -20,7 +20,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, action: "getData" }),
       });
       if (!res.ok) { setError("Wrong password"); setLoading(false); return; }
       const dataRes = await fetch("/api/admin?password=" + encodeURIComponent(password));
@@ -194,5 +194,6 @@ export default function AdminPage() {
     </div>
   );
 }
+
 
 
