@@ -27,6 +27,20 @@ const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sun
 
 function WorkoutModal({ workout, onClose, onLogged }: { workout: any; onClose: () => void; onLogged: () => void }) {
   const [logging, setLogging] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [moveDate, setMoveDate] = useState("");
+  const [showMove, setShowMove] = useState(false);
+
+  async function handleMove() {
+    if (!moveDate) return;
+    setMoving(true);
+    const wid = workout.id;
+    await fetch("/api/races/workouts/" + wid + "/move", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newDate: moveDate }) });
+    setMoving(false);
+    setShowMove(false);
+    onMoved?.();
+    onClose();
+  }
   const [submitted, setSubmitted] = useState(false);
   const [moving, setMoving] = useState(false);
   const [moveDate, setMoveDate] = useState("");
@@ -55,7 +69,7 @@ function WorkoutModal({ workout, onClose, onLogged }: { workout: any; onClose: (
           <div>
             <span className={"text-xs font-medium px-2 py-0.5 rounded-full " + (TYPE_COLORS[workout.type] || "bg-surface border border-border text-foreground-dim")}>{workout.type.replace(/_/g," ")}</span>
             <h2 className="text-lg font-semibold mt-2">{workout.title}</h2>
-            <p className="text-xs text-foreground-dim mt-0.5">{workout.day} Â· Week {workout.week}{workout.distanceKm ? ` Â· ${(workout.distanceKm/1.60934).toFixed(1)} mi planned` : ""}</p>
+            <p className="text-xs text-foreground-dim mt-0.5">{workout.day} Ãƒâ€šÃ‚Â· Week {workout.week}{workout.distanceKm ? ` Ãƒâ€šÃ‚Â· ${(workout.distanceKm/1.60934).toFixed(1)} mi planned` : ""}</p>
           </div>
           <button onClick={onClose} className="text-foreground-dim hover:text-foreground text-xl ml-4">x</button>
         </div>
@@ -63,6 +77,22 @@ function WorkoutModal({ workout, onClose, onLogged }: { workout: any; onClose: (
           <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Coach notes</p>
           <p className="text-sm leading-relaxed">{workout.description}</p>
         </div>
+        {!workout.completed && (
+          <div className="mb-4 border-t border-border pt-4">
+            {!showMove ? (
+              <button onClick={() => setShowMove(true)} className="text-xs text-foreground-dim hover:text-foreground transition-colors">Move to a different day</button>
+            ) : (
+              <div className="rounded-xl border border-border bg-surface p-3">
+                <p className="text-xs text-foreground-dim mb-2">Pick a new date for this workout:</p>
+                <div className="flex gap-2 flex-wrap">
+                  <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} className="flex-1 px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal"/>
+                  <button onClick={handleMove} disabled={moving||!moveDate} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-60">{moving ? "Moving..." : "Move"}</button>
+                  <button onClick={() => setShowMove(false)} className="text-xs text-foreground-dim px-2">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {workout.completed ? <p className="text-sm text-signal text-center font-medium py-2">Logged to your activity feed</p> : (
           <>
             <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Log this workout</p>
@@ -106,20 +136,20 @@ function BuildPlanForm({ race, onBuilt }: { race: any; onBuilt: () => void }) {
         <div><label className="text-xs text-foreground-dim mb-1 block">Recent race time (optional)</label><input placeholder="e.g. 22:30 5K" value={form.recentRaceTime} onChange={e=>setForm({...form,recentRaceTime:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none focus:border-signal" /></div>
         <div><label className="text-xs text-foreground-dim mb-1 block">Training days per week: {form.trainingDaysPerWeek}</label><input type="range" min={3} max={7} value={form.trainingDaysPerWeek} onChange={e=>setForm({...form,trainingDaysPerWeek:e.target.value})} className="w-full accent-signal" /><div className="flex justify-between text-xs text-foreground-dim"><span>3</span><span>7</span></div></div>
         <div><label className="text-xs text-foreground-dim mb-1 block">Current fitness level</label><textarea rows={2} placeholder="e.g. Just getting back into running, feeling strong, recovering from injury..." value={form.fitnessNotes} onChange={e=>setForm({...form,fitnessNotes:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none focus:border-signal resize-none" /></div>
-        <button onClick={()=>setStep(2)} className="w-full py-2.5 rounded-full bg-signal text-background text-sm font-medium">Next â†’</button>
+        <button onClick={()=>setStep(2)} className="w-full py-2.5 rounded-full bg-signal text-background text-sm font-medium">Next ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢</button>
       </div>}
       {step===2 && <div className="space-y-4">
         <h2 className="text-sm font-medium">Your schedule</h2>
         <div><label className="text-xs text-foreground-dim mb-2 block">Preferred hard workout days</label><div className="flex flex-wrap gap-2">{DAYS.map(day=><button key={day} onClick={()=>toggleHardDay(day)} className={"text-xs px-3 py-1.5 rounded-full border transition-colors " + (form.hardDays.includes(day)?"bg-signal text-background border-signal":"border-border hover:bg-surface")}>{day.slice(0,3)}</button>)}</div><p className="text-xs text-foreground-dim mt-1">Leave blank and AI will decide</p></div>
         <div><label className="text-xs text-foreground-dim mb-1 block">Preferred long run day</label><select value={form.longRunDay} onChange={e=>setForm({...form,longRunDay:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none focus:border-signal">{DAYS.map(d=><option key={d}>{d}</option>)}</select></div>
         <div><label className="text-xs text-foreground-dim mb-1 block">What should the plan prioritize?</label><div className="grid grid-cols-3 gap-2">{[{v:"balanced",l:"Balanced"},{v:"speed",l:"Speed"},{v:"endurance",l:"Endurance"}].map(opt=><button key={opt.v} onClick={()=>setForm({...form,prioritize:opt.v})} className={"text-xs px-3 py-2 rounded-xl border transition-colors " + (form.prioritize===opt.v?"bg-signal text-background border-signal":"border-border hover:bg-surface")}>{opt.l}</button>)}</div></div>
-        <div className="flex gap-3"><button onClick={()=>setStep(1)} className="flex-1 py-2.5 rounded-full border border-border text-sm hover:bg-surface">â† Back</button><button onClick={()=>setStep(3)} className="flex-1 py-2.5 rounded-full bg-signal text-background text-sm font-medium">Next â†’</button></div>
+        <div className="flex gap-3"><button onClick={()=>setStep(1)} className="flex-1 py-2.5 rounded-full border border-border text-sm hover:bg-surface">ÃƒÂ¢Ã¢â‚¬Â Ã‚Â Back</button><button onClick={()=>setStep(3)} className="flex-1 py-2.5 rounded-full bg-signal text-background text-sm font-medium">Next ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢</button></div>
       </div>}
       {step===3 && <div className="space-y-4">
         <h2 className="text-sm font-medium">Injuries & limitations</h2>
         <div><label className="text-xs text-foreground-dim mb-1 block">Any injury concerns or limitations?</label><textarea rows={3} placeholder="e.g. Tight IT band, knee pain on downhills, no back-to-back hard days..." value={form.injuryConcerns} onChange={e=>setForm({...form,injuryConcerns:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none focus:border-signal resize-none" /></div>
-        <div className="rounded-xl bg-surface-raised border border-border p-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Plan summary</p><p className="text-sm">{form.currentWeeklyMileage||"?"} mi/week Â· {form.trainingDaysPerWeek} days Â· {form.prioritize}{form.longRunDay?` Â· Long run ${form.longRunDay}`:""}{form.hardDays.length>0?` Â· Hard: ${form.hardDays.map(d=>d.slice(0,3)).join(", ")}`:""}</p></div>
-        <div className="flex gap-3"><button onClick={()=>setStep(2)} className="flex-1 py-2.5 rounded-full border border-border text-sm hover:bg-surface">â† Back</button><button onClick={handleBuild} className="flex-1 py-2.5 rounded-full bg-signal text-background text-sm font-medium">Build my plan â†’</button></div>
+        <div className="rounded-xl bg-surface-raised border border-border p-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Plan summary</p><p className="text-sm">{form.currentWeeklyMileage||"?"} mi/week Ãƒâ€šÃ‚Â· {form.trainingDaysPerWeek} days Ãƒâ€šÃ‚Â· {form.prioritize}{form.longRunDay?` Ãƒâ€šÃ‚Â· Long run ${form.longRunDay}`:""}{form.hardDays.length>0?` Ãƒâ€šÃ‚Â· Hard: ${form.hardDays.map(d=>d.slice(0,3)).join(", ")}`:""}</p></div>
+        <div className="flex gap-3"><button onClick={()=>setStep(2)} className="flex-1 py-2.5 rounded-full border border-border text-sm hover:bg-surface">ÃƒÂ¢Ã¢â‚¬Â Ã‚Â Back</button><button onClick={handleBuild} className="flex-1 py-2.5 rounded-full bg-signal text-background text-sm font-medium">Build my plan ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢</button></div>
       </div>}
     </div>
   );
@@ -167,7 +197,23 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                         {workout.distanceKm&&<p>{(workout.distanceKm/1.60934).toFixed(1)} mi</p>}
                         {workout.durationMin&&!workout.distanceKm&&<p>{workout.durationMin} min</p>}
                       </button>
-                      {workout.completed ? <div className="mt-1 w-full text-xs py-1 rounded-lg text-center bg-signal text-background">Done</div>
+                      {!workout.completed && (
+          <div className="mb-4 border-t border-border pt-4">
+            {!showMove ? (
+              <button onClick={() => setShowMove(true)} className="text-xs text-foreground-dim hover:text-foreground transition-colors">Move to a different day</button>
+            ) : (
+              <div className="rounded-xl border border-border bg-surface p-3">
+                <p className="text-xs text-foreground-dim mb-2">Pick a new date for this workout:</p>
+                <div className="flex gap-2 flex-wrap">
+                  <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} className="flex-1 px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal"/>
+                  <button onClick={handleMove} disabled={moving||!moveDate} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-60">{moving ? "Moving..." : "Move"}</button>
+                  <button onClick={() => setShowMove(false)} className="text-xs text-foreground-dim px-2">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {workout.completed ? <div className="mt-1 w-full text-xs py-1 rounded-lg text-center bg-signal text-background">Done</div>
                        : isPast ? <button onClick={()=>setSelectedWorkout(workout)} className="mt-1 w-full text-xs py-1 rounded-lg border border-border hover:bg-surface-raised transition-colors">Log it</button>
                        : null}
                     </div>
