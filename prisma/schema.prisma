@@ -287,6 +287,8 @@ model MajorRace {
   createdAt    DateTime @default(now())
   registrations RaceRegistration[]
   @@index([raceDate])
+  teams         Team[]
+
   @@map("major_races")
 }
 
