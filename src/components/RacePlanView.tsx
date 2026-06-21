@@ -189,6 +189,23 @@ function getWeekDates(workouts: any[]): Record<string, string> {
   return result;
 }
 
+function getWeekDates(workouts: any[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  if (workouts.length === 0) return result;
+  const firstDate = new Date(workouts[0].date);
+  const firstDay = firstDate.getDay();
+  const mondayOffset = firstDay === 0 ? -6 : 1 - firstDay;
+  const monday = new Date(firstDate);
+  monday.setDate(firstDate.getDate() + mondayOffset);
+  days.forEach((day, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    result[day] = d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+  });
+  return result;
+}
+
 export function RacePlanView({ race, plan }: { race: any; plan: any }) {
   const router = useRouter();
   const [completing, setCompleting] = useState<string|null>(null);
@@ -217,6 +234,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
       <div className="space-y-6">
         {Object.entries(weeks).map(([weekNum, workouts]) => {
           const weekDone = workouts.filter(w=>w.completed).length;
+          const weekDates = getWeekDates(workouts);
           const weekDates = getWeekDates(workouts);
           const isCurrentWeek = workouts.some(w => { const d=new Date(w.date); d.setHours(0,0,0,0); const diff=(d.getTime()-today.getTime())/(1000*60*60*24); return diff>=0&&diff<7; });
           return (
