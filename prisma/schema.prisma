@@ -1,6 +1,5 @@
-// Vitality — database schema
+// Vitality - database schema
 // Normalizes Garmin / Whoop / Strava / Apple Health into one shared model
-// so the AI advice engine and chat coach only ever reason over one shape.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,9 +9,6 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-// ─────────────────────────────────────────────
-// Auth (NextAuth / Auth.js standard models)
-// ─────────────────────────────────────────────
 
 model User {
   id            String    @id @default(cuid())
@@ -20,18 +16,15 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  passwordHash  String? // for email+password credential login
+  passwordHash  String?
   createdAt     DateTime  @default(now())
-
-  // Profile fields used by the advice engine
   dateOfBirth     DateTime?
-  sex             String? // "male" | "female" | "other" | null — relevant for HR/HRV baselines
+  sex             String?
   heightCm        Float?
   weightKg        Float?
   timezone        String?  @default("America/Los_Angeles")
   goals           Goal[]
-  cardiacFlags    String[] @default([]) // self-reported, e.g. ["family_history_chd"], never diagnostic
-
+  cardiacFlags    String[] @default([])
   accounts        Account[]
   sessions        Session[]
   connections     DeviceConnection[]
@@ -42,7 +35,7 @@ model User {
   raceTargets     RaceTarget[]
   trainingPlans   TrainingPlan[]
   passwordResetTokens PasswordResetToken[]
-
+  raceRegistrations RaceRegistration[]
   @@map("users")
 }
 
@@ -59,9 +52,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
@@ -72,7 +63,6 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@map("sessions")
 }
 
@@ -80,14 +70,9 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
-
   @@unique([identifier, token])
   @@map("verification_tokens")
 }
-
-// ─────────────────────────────────────────────
-// Device connections (Garmin / Whoop / Strava / Apple Health)
-// ─────────────────────────────────────────────
 
 enum DataSource {
   GARMIN
@@ -101,39 +86,31 @@ model DeviceConnection {
   id            String     @id @default(cuid())
   userId        String
   source        DataSource
-  accessToken   String? // encrypted at rest in production (see lib/crypto)
+  accessToken   String?
   refreshToken  String?
   expiresAt     DateTime?
-  externalUserId String?   // provider's own user/athlete id
-  webhookSecret String?   // used for Apple Health inbound webhook auth
-  status        String     @default("active") // active | expired | revoked | error
+  externalUserId String?
+  webhookSecret String?
+  status        String     @default("active")
   lastSyncedAt  DateTime?
   lastError     String?
   createdAt     DateTime   @default(now())
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([userId, source])
   @@map("device_connections")
 }
 
-// ─────────────────────────────────────────────
-// Normalized health data
-// ─────────────────────────────────────────────
-
 model DailyMetrics {
   id     String   @id @default(cuid())
   userId String
-  date   DateTime // calendar day, normalized to user's local midnight
-
-  source DataSource // which connection produced this row (one row per source per day)
-
+  date   DateTime
+  source DataSource
   restingHeartRate   Float?
   avgHeartRate       Float?
   maxHeartRate       Float?
-  hrvMs              Float? // overnight HRV average, ms
+  hrvMs              Float?
   hrvSdnnMs          Float?
-  sleepScore         Float? // 0-100, vendor's own scoring
+  sleepScore         Float?
   sleepDurationMin    Float?
   sleepDeepMin        Float?
   sleepRemMin         Float?
@@ -141,20 +118,17 @@ model DailyMetrics {
   sleepAwakeMin       Float?
   respirationRate    Float?
   spo2Pct            Float?
-  bodyBatteryOrRecoveryPct Float? // Garmin Body Battery / Whoop Recovery %, 0-100
-  strainOrLoadScore  Float? // Whoop Strain (0-21) or Garmin Training Load equivalent
+  bodyBatteryOrRecoveryPct Float?
+  strainOrLoadScore  Float?
   steps              Int?
   activeCalories     Float?
   totalCalories      Float?
   vo2Max             Float?
   bodyWeightKg       Float?
-  stressLevel        Float? // 0-100 where available
-
-  raw    Json? // original vendor payload, for debugging/audit
+  stressLevel        Float?
+  raw    Json?
   createdAt DateTime @default(now())
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([userId, date, source])
   @@index([userId, date])
   @@map("daily_metrics")
@@ -164,8 +138,8 @@ model Activity {
   id            String     @id @default(cuid())
   userId        String
   source        DataSource
-  externalId    String // vendor's activity id, for de-duplication
-  type          String // "run" | "ride" | "swim" | "strength" | etc (normalized)
+  externalId    String
+  type          String
   startTime     DateTime
   durationSec   Int
   distanceM     Float?
@@ -175,33 +149,25 @@ model Activity {
   elevationGainM Float?
   calories      Float?
   trainingLoad  Float?
-  perceivedEffort Float? // RPE 1-10 if available
+  perceivedEffort Float?
   title         String?
   raw           Json?
   createdAt     DateTime   @default(now())
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([source, externalId])
   @@index([userId, startTime])
   @@map("activities")
 }
 
-// ─────────────────────────────────────────────
-// Goals, race targets
-// ─────────────────────────────────────────────
-
 model Goal {
   id          String   @id @default(cuid())
   userId      String
-  type        String // "race" | "general_health" | "cardiac_health" | "weight" | "custom"
+  type        String
   description String
   targetDate  DateTime?
-  status      String   @default("active") // active | completed | abandoned
+  status      String   @default("active")
   createdAt   DateTime @default(now())
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@map("goals")
 }
 
@@ -212,37 +178,29 @@ model RaceTarget {
   raceDate     DateTime
   distanceM    Float
   goalTimeSec  Int?
-  raceType         String?  // "main" | "training" | "fun"
+  raceType         String?
   weeklyMileageKm  Float?
   recentRaceTime   String?
   trainingDaysPerWeek Int?
   isTriathlon      Boolean? @default(false)
   trainingPlanJson Json?
   createdAt    DateTime @default(now())
-
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   trainingPlan TrainingPlan?
-
   @@map("race_targets")
 }
-
-// ─────────────────────────────────────────────
-// AI outputs
-// ─────────────────────────────────────────────
 
 model AdviceCard {
   id        String   @id @default(cuid())
   userId    String
-  date      DateTime // the day this advice is FOR
+  date      DateTime
   headline  String
-  body      String // markdown
-  category  String // "training" | "recovery" | "sleep" | "cardiac_flag" | "nutrition" | "general"
-  severity  String   @default("info") // info | suggestion | flag (flag = recommend seeing a doctor)
-  metricsSnapshotJson Json? // the inputs the AI used, for transparency/debugging
+  body      String
+  category  String
+  severity  String   @default("info")
+  metricsSnapshotJson Json?
   createdAt DateTime @default(now())
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([userId, date])
   @@map("advice_cards")
 }
@@ -250,15 +208,14 @@ model AdviceCard {
 model ChatMessage {
   id        String   @id @default(cuid())
   userId    String
-  role      String // "user" | "assistant"
+  role      String
   content   String
   createdAt DateTime @default(now())
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@index([userId, createdAt])
   @@map("chat_messages")
 }
+
 model InviteCode {
   id        String   @id @default(cuid())
   code      String   @unique
@@ -267,7 +224,6 @@ model InviteCode {
   createdAt DateTime @default(now())
   expiresAt DateTime?
   note      String?
-
   @@map("invite_codes")
 }
 
@@ -278,11 +234,10 @@ model PasswordResetToken {
   used      Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@map("password_reset_tokens")
 }
+
 model TrainingPlan {
   id          String            @id @default(cuid())
   userId      String
@@ -290,10 +245,8 @@ model TrainingPlan {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   workouts    TrainingWorkout[]
-
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   race        RaceTarget        @relation(fields: [raceId], references: [id], onDelete: Cascade)
-
   @@map("training_plans")
 }
 
@@ -311,9 +264,38 @@ model TrainingWorkout {
   completed    Boolean   @default(false)
   completedAt  DateTime?
   activityId   String?
-
   plan         TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-
   @@index([planId, date])
   @@map("training_workouts")
+}
+
+model MajorRace {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  city         String
+  country      String
+  raceDate     DateTime
+  distanceM    Float
+  isTriathlon  Boolean  @default(false)
+  series       String?
+  website      String?
+  createdAt    DateTime @default(now())
+  registrations RaceRegistration[]
+  @@index([raceDate])
+  @@map("major_races")
+}
+
+model RaceRegistration {
+  id           String   @id @default(cuid())
+  userId       String
+  majorRaceId  String
+  raceTargetId String?
+  isPublic     Boolean  @default(true)
+  goalTimeSec  Int?
+  createdAt    DateTime @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  majorRace    MajorRace  @relation(fields: [majorRaceId], references: [id], onDelete: Cascade)
+  @@unique([userId, majorRaceId])
+  @@map("race_registrations")
 }
