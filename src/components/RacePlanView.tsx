@@ -172,6 +172,23 @@ function RebuildModal({ race, onClose, onRebuilt, isFirstBuild = false }: { race
   );
 }
 
+function getWeekDates(workouts: any[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  if (workouts.length === 0) return result;
+  const firstDate = new Date(workouts[0].date);
+  const firstDay = firstDate.getDay();
+  const mondayOffset = firstDay === 0 ? -6 : 1 - firstDay;
+  const monday = new Date(firstDate);
+  monday.setDate(firstDate.getDate() + mondayOffset);
+  days.forEach((day, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    result[day] = d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+  });
+  return result;
+}
+
 export function RacePlanView({ race, plan }: { race: any; plan: any }) {
   const router = useRouter();
   const [completing, setCompleting] = useState<string|null>(null);
@@ -200,6 +217,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
       <div className="space-y-6">
         {Object.entries(weeks).map(([weekNum, workouts]) => {
           const weekDone = workouts.filter(w=>w.completed).length;
+          const weekDates = getWeekDates(workouts);
           const isCurrentWeek = workouts.some(w => { const d=new Date(w.date); d.setHours(0,0,0,0); const diff=(d.getTime()-today.getTime())/(1000*60*60*24); return diff>=0&&diff<7; });
           return (
             <div key={weekNum} className={"rounded-2xl border p-5 "+(isCurrentWeek?"border-signal bg-surface":"border-border bg-surface")}>
@@ -210,13 +228,13 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
               <div className="hidden md:grid md:grid-cols-7 gap-2">
                 {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day => {
                   const workout = workouts.find(w=>w.day===day);
-                  if (!workout) return <div key={day} className="rounded-xl p-2 text-center"><p className="text-xs text-foreground-dim">{day.slice(0,3)}</p></div>;
+                  if (!workout) return <div key={day} className="rounded-xl p-2 text-center"><p className="text-xs text-foreground-dim">{day.slice(0,3)}</p><p className="text-xs text-foreground-dim opacity-40">{weekDates[day]}</p></div>;
                   const workoutDate = new Date(workout.date); workoutDate.setHours(0,0,0,0);
                   const isPast = workoutDate < today;
                   const colorClass = TYPE_COLORS[workout.type]||"bg-surface border border-border";
                   return (
                     <div key={day} className={"rounded-xl p-2 "+(workout.completed?"opacity-60":"")}>
-                      <p className="text-xs text-foreground-dim mb-1">{day.slice(0,3)} {new Date(workout.date).toLocaleDateString("en-US",{month:"numeric",day:"numeric"})}</p>
+                      <p className="text-xs text-foreground-dim mb-1">{day.slice(0,3)} {weekDates[day]}</p>
                       <button onClick={()=>setSelectedWorkout(workout)} className={"w-full text-left rounded-lg p-2 text-xs "+colorClass+" hover:opacity-80 transition-opacity"}>
                         <p className="font-medium truncate">{workout.title}</p>
                         {workout.distanceKm&&<p>{(workout.distanceKm/1.60934).toFixed(1)} mi</p>}
