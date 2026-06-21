@@ -23,8 +23,6 @@ export default async function RacePlanPage({ params }: { params: Promise<{ id: s
   const plan = race.trainingPlan;
   const fmt = (d: any) => d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
 
-  const plan = race.trainingPlan;
-  const fmt = (d: any) => d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
 
   return (
     <div className="max-w-5xl px-8 py-10">
@@ -33,7 +31,7 @@ export default async function RacePlanPage({ params }: { params: Promise<{ id: s
         <h1 className="text-3xl font-semibold">{race.raceName}</h1>
         <p className="text-foreground-dim text-sm mt-1">
           {race.raceDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-          {race.goalTimeSec && ` Â· Goal: ${Math.floor(race.goalTimeSec/3600)}h ${Math.floor((race.goalTimeSec%3600)/60)}m`}
+          {race.goalTimeSec && ` Ãƒâ€šÃ‚Â· Goal: ${Math.floor(race.goalTimeSec/3600)}h ${Math.floor((race.goalTimeSec%3600)/60)}m`}
         </p>
         {plan?.startDate && plan?.endDate && (
           <div className="flex items-center gap-2 mt-2">
