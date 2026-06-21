@@ -287,6 +287,9 @@ model MajorRace {
   submittedBy  String?
   createdAt    DateTime @default(now())
   registrations RaceRegistration[]
+  teams         Team[]
+  messages      EventMessage[]
+
   @@index([raceDate])
   teams         Team[]
 
