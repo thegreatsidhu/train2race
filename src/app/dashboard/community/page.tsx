@@ -1,55 +1,85 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
 function formatGoal(sec){if(!sec)return null;const h=Math.floor(sec/3600);const m=Math.floor((sec%3600)/60);return h>0?`${h}h ${m}m`:`${m}m`;}
-function distanceLabel(m){if(m>=200000)return"140.6 Ironman";if(m>=100000)return"70.3";if(m>=40000)return"Marathon";if(m>=20000)return"Half Marathon";if(m>=9000)return"10K";return"5K";}
-export default function CommunityPage() {
-  const [search,setSearch]=useState("");const [races,setRaces]=useState([]);const [myRegs,setMyRegs]=useState([]);const [selected,setSelected]=useState(null);const [community,setCommunity]=useState([]);const [loading,setLoading]=useState(false);const [registering,setRegistering]=useState(false);const [goalH,setGoalH]=useState("");const [goalM,setGoalM]=useState("");const [isPublic,setIsPublic]=useState(true);const [tab,setTab]=useState("find");
+function distLabel(m){if(m>=200000)return"140.6 Ironman";if(m>=100000)return"70.3";if(m>=40000)return"Marathon";if(m>=20000)return"Half Marathon";if(m>=9000)return"10K";if(m>=4500)return"5K";return`${(m/1609.34).toFixed(1)}mi`;}
+const DFILTERS=[{label:"All",min:0,max:Infinity},{label:"5K/10K",min:0,max:15000},{label:"Half",min:15000,max:30000},{label:"Marathon",min:30000,max:50000},{label:"Ultra",min:50000,max:150000},{label:"Triathlon",min:0,max:Infinity,tri:true},{label:"Ironman",min:100000,max:Infinity,tri:true}];
+const DISTS={"5K":5000,"10K":10000,"Half Marathon":21097,"Marathon":42195,"Ultra (50K)":50000,"Sprint Triathlon":25750,"Olympic Triathlon":51500,"70.3 Half Ironman":113000,"140.6 Full Ironman":226000};
+const TRIS=["Sprint Triathlon","Olympic Triathlon","70.3 Half Ironman","140.6 Full Ironman"];
+export default function CommunityPage(){
+  const[search,setSearch]=useState("");const[df,setDf]=useState(0);const[races,setRaces]=useState([]);const[myRegs,setMyRegs]=useState([]);const[sel,setSel]=useState(null);const[comm,setComm]=useState([]);const[loading,setLoading]=useState(false);const[reging,setReging]=useState(false);const[goalH,setGoalH]=useState("");const[goalM,setGoalM]=useState("");const[pub,setPub]=useState(true);const[tab,setTab]=useState("find");
+  const[rName,setRName]=useState("");const[rDate,setRDate]=useState("");const[rDist,setRDist]=useState("Marathon");const[rCity,setRCity]=useState("");const[rCountry,setRCountry]=useState("USA");const[rWeb,setRWeb]=useState("");const[rTri,setRTri]=useState(false);const[subbing,setSubbing]=useState(false);const[subResult,setSubResult]=useState(null);
   useEffect(()=>{fetch("/api/major-races?upcoming=1").then(r=>r.json()).then(d=>setRaces(d.races||[]));fetch("/api/major-races/register").then(r=>r.json()).then(d=>setMyRegs(d.registrations||[]));}, []);
-  useEffect(()=>{if(!search)return;const t=setTimeout(()=>{fetch(`/api/major-races?search=${encodeURIComponent(search)}&upcoming=1`).then(r=>r.json()).then(d=>setRaces(d.races||[]));},300);return()=>clearTimeout(t);},[search]);
-  async function loadCommunity(race){setSelected(race);setLoading(true);const res=await fetch(`/api/major-races/community?raceId=${race.id}`);const data=await res.json();setCommunity(data.community||[]);setLoading(false);}
-  async function handleRegister(race){setRegistering(true);const sec=(goalH||goalM)?parseInt(goalH||"0")*3600+parseInt(goalM||"0")*60:null;await fetch("/api/major-races/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId:race.id,goalTimeSec:sec,isPublic})});const d=await fetch("/api/major-races/register").then(r=>r.json());setMyRegs(d.registrations||[]);setRegistering(false);loadCommunity(race);}
-  async function handleUnregister(majorRaceId){await fetch("/api/major-races/register",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId})});const d=await fetch("/api/major-races/register").then(r=>r.json());setMyRegs(d.registrations||[]);}
+  useEffect(()=>{const t=setTimeout(()=>{fetch(`/api/major-races?upcoming=1${search?`&search=${encodeURIComponent(search)}`:""}`).then(r=>r.json()).then(d=>setRaces(d.races||[]));},300);return()=>clearTimeout(t);},[search]);
+  async function loadComm(race){setSel(race);setLoading(true);const res=await fetch(`/api/major-races/community?raceId=${race.id}`);const data=await res.json();setComm(data.community||[]);setLoading(false);}
+  async function handleReg(race){setReging(true);const sec=(goalH||goalM)?parseInt(goalH||"0")*3600+parseInt(goalM||"0")*60:null;await fetch("/api/major-races/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId:race.id,goalTimeSec:sec,isPublic:pub})});const d=await fetch("/api/major-races/register").then(r=>r.json());setMyRegs(d.registrations||[]);setReging(false);loadComm(race);}
+  async function handleUnreg(majorRaceId){await fetch("/api/major-races/register",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId})});const d=await fetch("/api/major-races/register").then(r=>r.json());setMyRegs(d.registrations||[]);}
+  async function handleSub(){setSubbing(true);setSubResult(null);const res=await fetch("/api/major-races/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:rName,raceDate:rDate,distanceM:DISTS[rDist],city:rCity,country:rCountry,website:rWeb||null,isTriathlon:rTri})});const data=await res.json();setSubResult(data);setSubbing(false);if(data.duplicate){setTab("find");setSearch(data.race.name);}}
   const isReg=(id)=>myRegs.some(r=>r.majorRaceId===id);
-  const filtered=races.filter(r=>!search||r.name.toLowerCase().includes(search.toLowerCase()));
+  const f=DFILTERS[df];
+  const filtered=races.filter(r=>{const ms=!search||r.name.toLowerCase().includes(search.toLowerCase());const md=f.tri?r.isTriathlon:(r.distanceM>=f.min&&r.distanceM<=f.max);return ms&&md;});
   return(
     <div className="max-w-4xl px-4 md:px-8 py-6 md:py-10">
-      <header className="mb-6"><h1 className="text-3xl font-semibold tracking-tight mb-1">Community</h1><p className="text-foreground-dim text-sm">Find your race and see who else is training for it.</p></header>
-      <div className="flex gap-2 mb-6">{[{id:"find",label:"Find a race"},{id:"myraces",label:`My races (${myRegs.length})`}].map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(tab===t.id?"bg-signal text-background":"border border-border hover:bg-surface")}>{t.label}</button>)}</div>
+      <header className="mb-6"><h1 className="text-3xl font-semibold tracking-tight mb-1">Community</h1><p className="text-foreground-dim text-sm">Find your race, join the group, track training together.</p></header>
+      <div className="flex gap-2 mb-6 flex-wrap">{[{id:"find",label:"Find a race"},{id:"myraces",label:`My races (${myRegs.length})`},{id:"request",label:"Request a race"}].map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(tab===t.id?"bg-signal text-background":"border border-border hover:bg-surface")}>{t.label}</button>)}</div>
       {tab==="find"&&<div className="grid md:grid-cols-2 gap-6">
-        <div><input placeholder="Search races..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm mb-4" />
-          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">{filtered.map(race=>{const d=Math.ceil((new Date(race.raceDate).getTime()-Date.now())/(1000*60*60*24));return(
-            <button key={race.id} onClick={()=>loadCommunity(race)} className={"w-full text-left rounded-xl border p-3 transition-colors "+(selected?.id===race.id?"border-signal bg-signal/5":"border-border bg-surface hover:bg-surface-raised")}>
-              <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="font-medium text-sm truncate">{race.name}</p><p className="text-xs text-foreground-dim">{race.city}, {race.country} · {distanceLabel(race.distanceM)}</p><p className="text-xs text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} · {d}d away</p></div>
-              <div className="flex flex-col items-end gap-1 shrink-0">{isReg(race.id)&&<span className="text-xs bg-signal/20 text-signal px-2 py-0.5 rounded-full">Joined</span>}<span className="text-xs text-foreground-dim">{race._count?.registrations||0} athletes</span></div></div>
-            </button>);})}
+        <div>
+          <input placeholder="Search races..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm mb-3"/>
+          <div className="flex gap-1.5 flex-wrap mb-3">{DFILTERS.map((fi,i)=><button key={fi.label} onClick={()=>setDf(i)} className={"text-xs px-3 py-1 rounded-full border transition-colors "+(df===i?"bg-signal text-background border-signal":"border-border hover:bg-surface")}>{fi.label}</button>)}</div>
+          <p className="text-xs text-foreground-dim mb-2">{filtered.length} races</p>
+          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+            {filtered.map(race=>{const d=Math.ceil((new Date(race.raceDate).getTime()-Date.now())/(1000*60*60*24));return(
+              <button key={race.id} onClick={()=>loadComm(race)} className={"w-full text-left rounded-xl border p-3 transition-colors "+(sel?.id===race.id?"border-signal bg-signal/5":"border-border bg-surface hover:bg-surface-raised")}>
+                <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="font-medium text-sm truncate">{race.name}</p><p className="text-xs text-foreground-dim">{race.city}, {race.country} · {distLabel(race.distanceM)}</p><p className="text-xs text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} · {d}d away</p></div>
+                <div className="flex flex-col items-end gap-1 shrink-0">{isReg(race.id)&&<span className="text-xs bg-signal/20 text-signal px-2 py-0.5 rounded-full">Joined</span>}<span className="text-xs text-foreground-dim">{race._count?.registrations||0} athletes</span></div></div>
+              </button>);})}
+            {filtered.length===0&&<div className="text-center py-6"><p className="text-sm text-foreground-dim mb-2">No races found.</p><button onClick={()=>setTab("request")} className="text-sm text-signal hover:underline">Request this race</button></div>}
           </div>
         </div>
-        <div>{selected?(<div>
+        <div>{sel?(<div>
           <div className="rounded-2xl border border-border bg-surface p-5 mb-4">
-            <h2 className="font-semibold text-lg mb-0.5">{selected.name}</h2>
-            <p className="text-sm text-foreground-dim mb-4">{selected.city} · {new Date(selected.raceDate).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</p>
-            {isReg(selected.id)?<button onClick={()=>handleUnregister(selected.id)} className="text-sm text-red-400 hover:text-red-300">Leave this race</button>:(
-              <div className="space-y-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Join this race</p>
-                <div className="flex gap-2"><div className="flex-1"><label className="text-xs text-foreground-dim mb-1 block">Goal time</label><div className="flex gap-2"><input type="number" placeholder="h" value={goalH} onChange={e=>setGoalH(e.target.value)} className="w-14 px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none" /><input type="number" placeholder="m" value={goalM} onChange={e=>setGoalM(e.target.value)} className="w-14 px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none" /></div></div>
-                <div><label className="text-xs text-foreground-dim mb-1 block">Visible</label><button onClick={()=>setIsPublic(!isPublic)} className={"px-3 py-1.5 rounded-lg border text-xs "+(isPublic?"bg-signal text-background border-signal":"border-border")}>{isPublic?"Public":"Private"}</button></div></div>
-                <button onClick={()=>handleRegister(selected)} disabled={registering} className="w-full py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{registering?"Joining...":"Join race"}</button>
+            <div className="flex items-start justify-between mb-1"><h2 className="font-semibold text-lg">{sel.name}</h2>{sel.website&&<a href={sel.website} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline ml-2">Website</a>}</div>
+            <p className="text-sm text-foreground-dim mb-0.5">{sel.city}, {sel.country}</p>
+            <p className="text-sm text-foreground-dim mb-0.5">{distLabel(sel.distanceM)}{sel.series?` · ${sel.series}`:""}</p>
+            <p className="text-sm text-foreground-dim mb-4">{new Date(sel.raceDate).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}</p>
+            {isReg(sel.id)?<button onClick={()=>handleUnreg(sel.id)} className="text-sm text-red-400 hover:text-red-300">Leave this race</button>:(
+              <div className="space-y-3"><p className="text-xs text-foreground-dim uppercase tracking-wide">Join this race</p>
+                <div className="flex gap-2"><div className="flex-1"><label className="text-xs text-foreground-dim mb-1 block">Goal time (optional)</label><div className="flex gap-2"><input type="number" placeholder="h" value={goalH} onChange={e=>setGoalH(e.target.value)} className="w-14 px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none"/><input type="number" placeholder="m" value={goalM} onChange={e=>setGoalM(e.target.value)} className="w-14 px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none"/></div></div>
+                <div><label className="text-xs text-foreground-dim mb-1 block">Visible</label><button onClick={()=>setPub(!pub)} className={"px-3 py-1.5 rounded-lg border text-xs "+(pub?"bg-signal text-background border-signal":"border-border")}>{pub?"Public":"Private"}</button></div></div>
+                <button onClick={()=>handleReg(sel)} disabled={reging} className="w-full py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{reging?"Joining...":"Join race"}</button>
               </div>
             )}
           </div>
-          <h3 className="text-sm font-medium text-foreground-dim mb-3">{community.length} athlete{community.length!==1?"s":""} training</h3>
-          {loading?<p className="text-sm text-foreground-dim">Loading...</p>:community.length===0?<div className="rounded-xl border border-border bg-surface p-4 text-sm text-foreground-dim">No public athletes yet - be the first!</div>:(
-            <div className="space-y-2">{community.map((a,i)=>(
+          <h3 className="text-sm font-medium text-foreground-dim mb-3">{comm.length} athlete{comm.length!==1?"s":""} training</h3>
+          {loading?<p className="text-sm text-foreground-dim">Loading...</p>:comm.length===0?<div className="rounded-xl border border-border bg-surface p-4 text-sm text-foreground-dim">No public athletes yet - be the first!</div>:(
+            <div className="space-y-2">{comm.map((a,i)=>(
               <div key={a.userId} className={"rounded-xl border p-3 "+(a.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
                 <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="text-xs text-foreground-dim">#{i+1}</span><span className="text-sm font-medium">{a.name}{a.isMe?" (you)":""}</span></div><div className="flex gap-3 text-xs text-foreground-dim">{a.goalTimeSec&&<span>Goal: {formatGoal(a.goalTimeSec)}</span>}{a.weeklyMiles>0&&<span>{a.weeklyMiles}mi/wk</span>}</div></div>
-                {a.totalWorkouts>0&&<div><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{a.doneWorkouts}/{a.totalWorkouts}</span><span>{a.pct}%</span></div><div className="w-full h-1 bg-border rounded-full"><div className={"h-1 rounded-full "+(a.isMe?"bg-signal":"bg-foreground-dim")} style={{width:`${a.pct}%`}} /></div></div>}
+                {a.totalWorkouts>0&&<div><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{a.doneWorkouts}/{a.totalWorkouts}</span><span>{a.pct}%</span></div><div className="w-full h-1 bg-border rounded-full"><div className={"h-1 rounded-full "+(a.isMe?"bg-signal":"bg-foreground-dim")} style={{width:`${a.pct}%`}}/></div></div>}
               </div>
             ))}</div>
           )}
         </div>):<div className="rounded-2xl border border-border bg-surface p-8 text-center text-foreground-dim text-sm">Select a race to see who is training for it</div>}</div>
       </div>}
-      {tab==="myraces"&&<div className="space-y-3">{myRegs.length===0?<p className="text-sm text-foreground-dim">No races joined yet.</p>:myRegs.map(reg=>(
-        <div key={reg.id} className="rounded-2xl border border-border bg-surface p-5"><div className="flex items-start justify-between"><div><h3 className="font-medium">{reg.majorRace.name}</h3><p className="text-sm text-foreground-dim">{reg.majorRace.city} · {new Date(reg.majorRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>{reg.goalTimeSec&&<p className="text-xs text-foreground-dim mt-0.5">Goal: {formatGoal(reg.goalTimeSec)}</p>}</div><div className="flex gap-3"><button onClick={()=>{loadCommunity(reg.majorRace);setTab("find");}} className="text-xs text-signal hover:underline">View</button><button onClick={()=>handleUnregister(reg.majorRaceId)} className="text-xs text-red-400 hover:text-red-300">Leave</button></div></div></div>
+      {tab==="myraces"&&<div className="space-y-3">{myRegs.length===0?<div className="text-center py-8"><p className="text-sm text-foreground-dim mb-3">No races joined yet.</p><button onClick={()=>setTab("find")} className="text-sm text-signal hover:underline">Find a race</button></div>:myRegs.map(reg=>(
+        <div key={reg.id} className="rounded-2xl border border-border bg-surface p-5"><div className="flex items-start justify-between"><div><h3 className="font-medium">{reg.majorRace.name}</h3><p className="text-sm text-foreground-dim">{reg.majorRace.city}, {reg.majorRace.country} · {distLabel(reg.majorRace.distanceM)}</p><p className="text-sm text-foreground-dim">{new Date(reg.majorRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>{reg.goalTimeSec&&<p className="text-xs text-foreground-dim mt-0.5">Goal: {formatGoal(reg.goalTimeSec)}</p>}<p className="text-xs text-foreground-dim mt-0.5">{reg.isPublic?"Visible":"Private"}</p></div><div className="flex gap-3"><button onClick={()=>{loadComm(reg.majorRace);setTab("find");}} className="text-xs text-signal hover:underline">View</button><button onClick={()=>handleUnreg(reg.majorRaceId)} className="text-xs text-red-400 hover:text-red-300">Leave</button></div></div></div>
       ))}</div>}
+      {tab==="request"&&<div className="max-w-lg">
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <h2 className="font-semibold mb-1">Request a race</h2>
+          <p className="text-sm text-foreground-dim mb-5">Submit a race and we will review and add it within 24 hours.</p>
+          {subResult?(subResult.duplicate?<div className="rounded-xl border border-signal/30 bg-signal/5 p-4"><p className="text-sm font-medium text-signal mb-1">This race already exists!</p><p className="text-sm text-foreground-dim">Found <strong>{subResult.race.name}</strong> - switching you to find it now...</p></div>:<div className="rounded-xl border border-signal/30 bg-signal/5 p-4"><p className="text-sm font-medium text-signal mb-1">Race submitted!</p><p className="text-sm text-foreground-dim">We will review <strong>{subResult.race.name}</strong> and add it within 24 hours.</p><button onClick={()=>{setSubResult(null);setRName("");setRDate("");setRCity("");setRWeb("");}} className="text-xs text-signal hover:underline mt-2">Submit another</button></div>):(
+            <div className="space-y-4">
+              <div><label className="block text-xs text-foreground-dim mb-1">Race name *</label><input value={rName} onChange={e=>setRName(e.target.value)} placeholder="e.g. Austin Marathon" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"/></div>
+              <div><label className="block text-xs text-foreground-dim mb-1">Race date *</label><input type="date" value={rDate} onChange={e=>setRDate(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"/></div>
+              <div><label className="block text-xs text-foreground-dim mb-1">Distance *</label><select value={rDist} onChange={e=>{setRDist(e.target.value);setRTri(TRIS.includes(e.target.value));}} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm">{Object.keys(DISTS).map(d=><option key={d}>{d}</option>)}</select></div>
+              <div className="grid grid-cols-2 gap-3"><div><label className="block text-xs text-foreground-dim mb-1">City *</label><input value={rCity} onChange={e=>setRCity(e.target.value)} placeholder="Austin" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"/></div><div><label className="block text-xs text-foreground-dim mb-1">Country *</label><input value={rCountry} onChange={e=>setRCountry(e.target.value)} placeholder="USA" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"/></div></div>
+              <div><label className="block text-xs text-foreground-dim mb-1">Website (optional)</label><input value={rWeb} onChange={e=>setRWeb(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"/></div>
+              <button onClick={handleSub} disabled={subbing||!rName||!rDate||!rCity||!rCountry} className="w-full py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{subbing?"Checking for duplicates...":"Submit race request"}</button>
+              <p className="text-xs text-foreground-dim text-center">All submissions are reviewed before going public.</p>
+            </div>
+          )}
+        </div>
+      </div>}
     </div>
   );
 }

@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") || "";
   const upcoming = searchParams.get("upcoming") === "1";
   const races = await prisma.majorRace.findMany({
-    where: { ...(upcoming ? { raceDate: { gte: new Date() } } : {}), ...(search ? { name: { contains: search, mode: "insensitive" } } : {}) },
+    where: { status: "active", ...(upcoming ? { raceDate: { gte: new Date() } } : {}), ...(search ? { name: { contains: search, mode: "insensitive" } } : {}) },
     orderBy: { raceDate: "asc" },
     take: 50,
     include: { _count: { select: { registrations: true } } },
