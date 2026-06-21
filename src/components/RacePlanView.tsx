@@ -56,7 +56,7 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
         {!workout.completed && (
           <div className="mb-4 border-t border-border pt-4">
             {!showMove ? (
-              <button onClick={() => setShowMove(true)} className="text-xs text-foreground-dim hover:text-foreground">Move to a different day</button>
+              <button onClick={() => setShowMove(true)} className="w-full mt-2 py-2 rounded-full border border-signal text-signal text-sm font-medium hover:bg-signal hover:text-background transition-colors">Move to a different day</button>
             ) : (
               <div className="rounded-xl border border-border bg-surface p-3">
                 <p className="text-xs text-foreground-dim mb-2">Pick a new date:</p>
