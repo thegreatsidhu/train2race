@@ -28,6 +28,8 @@ export function MobileNav({ email }: { email: string }) {
               { href: "/dashboard/nutrition", label: "Nutrition" },
               { href: "/dashboard/races", label: "Race plans" },
               { href: "/dashboard/community", label: "Community" },
+              { href: "/dashboard/teams", label: "Teams" },
+              { href: "/dashboard/teams", label: "Teams" },
               { href: "/dashboard/connections", label: "Connections" },
               { href: "/dashboard/profile", label: "Profile" },
             ].map((link) => (
@@ -49,6 +51,8 @@ export function MobileNav({ email }: { email: string }) {
     </>
   );
 }
+
+
 
 
 

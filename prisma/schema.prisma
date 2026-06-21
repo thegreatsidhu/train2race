@@ -36,6 +36,8 @@ model User {
   trainingPlans   TrainingPlan[]
   passwordResetTokens PasswordResetToken[]
   raceRegistrations RaceRegistration[]
+  teamMembers       TeamMember[]
+  teamMessages      TeamMessage[]
   @@map("users")
 }
 
@@ -300,4 +302,40 @@ model RaceRegistration {
   majorRace    MajorRace  @relation(fields: [majorRaceId], references: [id], onDelete: Cascade)
   @@unique([userId, majorRaceId])
   @@map("race_registrations")
+}
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  inviteCode  String   @unique
+  createdBy   String
+  majorRaceId String?
+  isPrivate   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  members     TeamMember[]
+  messages    TeamMessage[]
+  majorRace   MajorRace?   @relation(fields: [majorRaceId], references: [id])
+  @@map("teams")
+}
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+model TeamMessage {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([teamId, createdAt])
+  @@map("team_messages")
 }
