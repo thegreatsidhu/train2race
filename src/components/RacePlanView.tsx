@@ -113,6 +113,7 @@ function BuildPlanForm({ race, onBuilt }: { race: any; onBuilt: () => void }) {
 }
 
 export function RacePlanView({ race, plan }: { race: any; plan: any }) {
+  const router = useRouter();
   const [selectedWorkout, setSelectedWorkout] = useState<any|null>(null);
   const [showRebuild, setShowRebuild] = useState(false);
 
@@ -171,6 +172,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
     </div>
   );
 }
+
 
 
 
