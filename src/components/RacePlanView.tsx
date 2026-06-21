@@ -216,7 +216,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                   const colorClass = TYPE_COLORS[workout.type]||"bg-surface border border-border";
                   return (
                     <div key={day} className={"rounded-xl p-2 "+(workout.completed?"opacity-60":"")}>
-                      <p className="text-xs text-foreground-dim mb-1">{day.slice(0,3)}</p>
+                      <p className="text-xs text-foreground-dim mb-1">{day.slice(0,3)} {new Date(workout.date).toLocaleDateString("en-US",{month:"numeric",day:"numeric"})}</p>
                       <button onClick={()=>setSelectedWorkout(workout)} className={"w-full text-left rounded-lg p-2 text-xs "+colorClass+" hover:opacity-80 transition-opacity"}>
                         <p className="font-medium truncate">{workout.title}</p>
                         {workout.distanceKm&&<p>{(workout.distanceKm/1.60934).toFixed(1)} mi</p>}
