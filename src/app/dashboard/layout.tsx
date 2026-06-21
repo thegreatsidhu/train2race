@@ -24,6 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </nav>
         <div className="px-2">
           <p className="text-xs text-foreground-dim mb-2 truncate">{session.user.email}</p>
+          <a href="mailto:support@train2race.com" className="block text-xs text-foreground-dim hover:text-foreground transition-colors mb-2">Get support</a>
           <SignOutButton />
         </div>
       </aside>
@@ -49,6 +50,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
     </Link>
   );
 }
+
 
 
 

@@ -79,3 +79,4 @@ function Pillar({ eyebrow, title, body }: { eyebrow: string; title: string; body
   return <div><p className="font-data text-xs uppercase tracking-[0.14em] text-load mb-3">{eyebrow}</p><h3 className="text-xl font-semibold mb-3 tracking-tight">{title}</h3><p className="text-foreground-dim leading-relaxed text-sm">{body}</p></div>;
 }
 
+
