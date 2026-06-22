@@ -7,9 +7,9 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const { name, description, majorRaceId } = await req.json();
+  const { name, description, majorRaceId, isPrivate } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Team name required" }, { status: 400 });
-  const team = await prisma.team.create({ data: { name: name.trim(), description: description||null, majorRaceId: majorRaceId||null, inviteCode: generateInviteCode(), createdBy: userId, members: { create: { userId, role: "admin" } } }, include: { members: true, majorRace: { select: { name: true } } } });
+  const team = await prisma.team.create({ data: { name: name.trim(), description: description||null, majorRaceId: majorRaceId||null, isPrivate: isPrivate !== false, inviteCode: generateInviteCode(), createdBy: userId, members: { create: { userId, role: "admin" } } }, include: { members: true, majorRace: { select: { name: true } } } });
   return NextResponse.json({ team }, { status: 201 });
 }
 export async function GET(req: NextRequest) {

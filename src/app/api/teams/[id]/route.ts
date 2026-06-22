@@ -22,6 +22,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }).sort((a,b)=>b.pct-a.pct);
   return NextResponse.json({ team: { ...team, members: membersWithStats, isAdmin: team.members.find(m=>m.userId===userId)?.role==="admin" } });
 }
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } } });
+  if (!member || member.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { isPrivate } = await req.json();
+  const team = await prisma.team.update({ where: { id }, data: { isPrivate } });
+  return NextResponse.json({ team });
+}
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
