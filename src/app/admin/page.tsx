@@ -138,7 +138,7 @@ export default function AdminPage() {
                 <p className="text-sm text-foreground-dim">{user.email}</p>
                 <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(user.createdAt).toLocaleDateString()} - {user.raceTargets?.length || 0} races</p>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {user.deviceConnections?.map((c) => (
+                  {user.connections?.map((c) => (
                     <span key={c.source} className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border">{c.source}</span>
                   ))}
                 </div>
@@ -158,7 +158,7 @@ export default function AdminPage() {
               </div>
               {newCodes.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs text-foreground-dim mb-2">New codes â€” click to copy</p>
+                  <p className="text-xs text-foreground-dim mb-2">New codes Ã¢â‚¬â€ click to copy</p>
                   <div className="flex flex-wrap gap-2">
                     {newCodes.map(code => <button key={code} onClick={() => copyCode(code)} className="px-3 py-1.5 rounded-xl bg-background border border-signal text-sm font-mono">{copied===code?"Copied!":code}</button>)}
                   </div>
