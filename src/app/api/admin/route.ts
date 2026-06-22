@@ -2,23 +2,17 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-
 export async function POST(req: Request) {
   const body = await req.json();
   const { password, action } = body;
-  const ADMIN_PASSWORD = "train2race2024";
-  if (password !== ADMIN_PASSWORD) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (password !== "train2race2024") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   if (action === "getData") {
     const [users, inviteCodes, activityCount, raceCount, pendingRaces, recentMessages] = await Promise.all([
-      prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true, name: true, email: true, createdAt: true,
-          deviceConnections: { select: { source: true } },
-          raceTargets: { select: { id: true } },
-        },
-      }),
+      prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, deviceConnections: { select: { source: true } }, raceTargets: { select: { id: true } } } }),
       prisma.inviteCode.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, usedBy: true } }),
       prisma.activity.count(),
       prisma.raceTarget.count(),
