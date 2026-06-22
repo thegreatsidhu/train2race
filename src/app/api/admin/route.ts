@@ -9,12 +9,16 @@ export async function POST(req: Request) {
   if (action === "getData") {
     try {
       const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, connections: { select: { source: true } }, raceTargets: { select: { id: true } } } });
-      const inviteCodes = await prisma.inviteCode.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, usedBy: true } });
+      const inviteCodes = await prisma.inviteCode.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, usedBy: true, usedAt: true } });
+      const usedByIds = inviteCodes.map((c) => c.usedBy).filter(Boolean) as string[];
+      const inviteUsers = usedByIds.length > 0 ? await prisma.user.findMany({ where: { id: { in: usedByIds } }, select: { id: true, name: true, email: true } }) : [];
+      const inviteUserMap = Object.fromEntries(inviteUsers.map((u) => [u.id, u]));
+      const inviteCodesWithUser = inviteCodes.map((c) => ({ ...c, usedByUser: c.usedBy ? inviteUserMap[c.usedBy] ?? null : null }));
       const activityCount = await prisma.activity.count();
       const raceCount = await prisma.raceTarget.count();
       const pendingRaces = await prisma.majorRace.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" } });
       const recentMessages = await prisma.eventMessage.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" }, take: 50, include: { user: { select: { name: true } }, majorRace: { select: { name: true } } } });
-      return NextResponse.json({ users, inviteCodes, activityCount, raceCount, pendingRaces, recentMessages });
+      return NextResponse.json({ users, inviteCodes: inviteCodesWithUser, activityCount, raceCount, pendingRaces, recentMessages });
     } catch (e) { return NextResponse.json({ error: e.message }, { status: 500 }); }
   }
   if (action === "createInviteCode") { const code = Math.random().toString(36).substring(2,10).toUpperCase(); const invite = await prisma.inviteCode.create({ data: { code } }); return NextResponse.json({ invite }); }

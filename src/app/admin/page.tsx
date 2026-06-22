@@ -165,7 +165,7 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 mb-6">
               {unusedCodes.map((invite) => (
                 <div key={invite.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -176,6 +176,28 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
+            {usedCodes.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-foreground-dim mb-2">Used ({usedCodes.length})</h3>
+                <div className="space-y-2">
+                  {usedCodes.map((invite) => (
+                    <div key={invite.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-sm text-foreground-dim line-through">{invite.code}</span>
+                        <div className="text-xs text-foreground-dim">
+                          {invite.usedByUser ? (
+                            <span>{invite.usedByUser.name || "No name"} &middot; {invite.usedByUser.email}</span>
+                          ) : (
+                            <span>Unknown user</span>
+                          )}
+                        </div>
+                      </div>
+                      {invite.usedAt && <span className="text-xs text-foreground-dim">{new Date(invite.usedAt).toLocaleDateString()}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

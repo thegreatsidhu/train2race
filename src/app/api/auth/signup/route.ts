@@ -7,6 +7,7 @@ const SignupSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(8).max(200),
+  inviteCode: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -20,7 +21,20 @@ export async function POST(req: Request) {
     );
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, inviteCode } = parsed.data;
+
+  if (inviteCode) {
+    const invite = await prisma.inviteCode.findUnique({ where: { code: inviteCode } });
+    if (!invite) {
+      return NextResponse.json({ error: "Invalid invite code." }, { status: 400 });
+    }
+    if (invite.usedBy) {
+      return NextResponse.json({ error: "Invite code has already been used." }, { status: 400 });
+    }
+    if (invite.expiresAt && invite.expiresAt < new Date()) {
+      return NextResponse.json({ error: "Invite code has expired." }, { status: 400 });
+    }
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -36,6 +50,13 @@ export async function POST(req: Request) {
     data: { name, email, passwordHash },
     select: { id: true, name: true, email: true },
   });
+
+  if (inviteCode) {
+    await prisma.inviteCode.update({
+      where: { code: inviteCode },
+      data: { usedBy: user.id, usedAt: new Date() },
+    });
+  }
 
   return NextResponse.json({ user }, { status: 201 });
 }
