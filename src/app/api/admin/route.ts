@@ -1,11 +1,12 @@
 // @ts-nocheck
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "train2race2024";
+
 
 export async function POST(req: Request) {
   const body = await req.json();
   const { password, action } = body;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "train2race2024";
   if (password !== ADMIN_PASSWORD) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (action === "getData") {
