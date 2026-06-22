@@ -82,7 +82,6 @@ export default function AdminPage() {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
-            <p className="text-xs text-foreground-dim mb-4">Password: train2race2024</p>
             {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
             <button onClick={handleLogin} disabled={loading||!password} className="w-full py-3 rounded-full bg-signal text-background font-medium disabled:opacity-60">
               {loading ? "Checking..." : "Enter"}
@@ -159,7 +158,7 @@ export default function AdminPage() {
               </div>
               {newCodes.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs text-foreground-dim mb-2">New codes — click to copy</p>
+                  <p className="text-xs text-foreground-dim mb-2">New codes â€” click to copy</p>
                   <div className="flex flex-wrap gap-2">
                     {newCodes.map(code => <button key={code} onClick={() => copyCode(code)} className="px-3 py-1.5 rounded-xl bg-background border border-signal text-sm font-mono">{copied===code?"Copied!":code}</button>)}
                   </div>
