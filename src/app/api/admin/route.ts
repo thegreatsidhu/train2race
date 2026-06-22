@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   if (password !== "train2race2024") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (action === "getData") {
     try {
-      const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, deviceConnections: { select: { source: true } }, raceTargets: { select: { id: true } } } });
+      const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, connections: { select: { source: true } }, raceTargets: { select: { id: true } } } });
       const inviteCodes = await prisma.inviteCode.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, usedBy: true } });
       const activityCount = await prisma.activity.count();
       const raceCount = await prisma.raceTarget.count();
