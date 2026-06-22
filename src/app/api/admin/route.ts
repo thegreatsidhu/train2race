@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       prisma.activity.count(),
       prisma.raceTarget.count(),
       prisma.majorRace.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" } }),
-      prisma.eventMessage.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" }, take: 50, include: { user: { select: { name: true } }, majorRace: { select: { name: true } } } }),
+      Promise.resolve([]),
     ]);
     return NextResponse.json({ users, inviteCodes, activityCount, raceCount, pendingRaces, recentMessages });
   }
