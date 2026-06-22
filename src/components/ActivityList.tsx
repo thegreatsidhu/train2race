@@ -1,8 +1,6 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
 interface Activity {
   id: string;
   title: string | null;
@@ -12,7 +10,6 @@ interface Activity {
   distanceM: number | null;
   source: string;
 }
-
 export function ActivityList({ activities }: { activities: Activity[] }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -25,8 +22,17 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
     router.refresh();
   }
 
+  function formatDistance(distanceM: number | null, type: string) {
+    if (!distanceM) return null;
+    if (type === "swim") {
+      return distanceM >= 1000 ? `${(distanceM/1000).toFixed(2)} km` : `${Math.round(distanceM)} m`;
+    }
+    const miles = distanceM / 1609.34;
+    return `${miles.toFixed(1)} mi`;
+  }
+
   if (activities.length === 0) {
-    return <p className="text-sm text-foreground-dim">No activities synced yet.</p>;
+    return <p className="text-sm text-foreground-dim">No activities yet. Log your first workout!</p>;
   }
 
   return (
@@ -43,14 +49,21 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
           <div className="flex items-center gap-3">
             <span className="font-data text-sm text-foreground-dim">
               {Math.round(a.durationSec / 60)} min
-              {a.distanceM ? ` · ${(a.distanceM / 1000).toFixed(1)} km` : ""}
+              {formatDistance(a.distanceM, a.type) ? ` · ${formatDistance(a.distanceM, a.type)}` : ""}
             </span>
+            {a.source === "MANUAL" && (
+              <button
+                onClick={() => router.push(`/dashboard/log-workout/edit/${a.id}`)}
+                className="text-xs text-foreground-dim hover:text-signal transition-colors"
+                title="Edit workout">
+                ✎
+              </button>
+            )}
             <button
               onClick={() => handleDelete(a.id)}
               disabled={deleting === a.id}
               className="text-xs text-foreground-dim hover:text-alert transition-colors disabled:opacity-40"
-              title="Delete workout"
-            >
+              title="Delete workout">
               {deleting === a.id ? "…" : "✕"}
             </button>
           </div>

@@ -1,4 +1,4 @@
-export const revalidate = 3600;
+export const revalidate = 0;
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMergedDailyMetrics, computeBaselineComparisons } from "@/lib/ai/metrics";
