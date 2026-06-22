@@ -5,6 +5,7 @@ import { getMergedDailyMetrics, computeBaselineComparisons } from "@/lib/ai/metr
 import { Waveform } from "@/components/Waveform";
 import { TrendChart } from "@/components/TrendChart";
 import { ActivityList } from "@/components/ActivityList";
+import { WeatherWidget } from "@/components/WeatherWidget";
 import Link from "next/link";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -37,6 +38,20 @@ function computeFlags(comparisons: any[]) {
   return flags;
 }
 
+function greeting(timezone: string | null) {
+  try {
+    const h = parseInt(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: timezone || "America/New_York" }));
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  } catch { return "Welcome back"; }
+}
+
+function milesLabel(distanceM: number) {
+  const mi = distanceM / 1609.34;
+  return mi >= 26 ? "Marathon" : mi >= 13 ? "Half marathon" : mi >= 6 ? `${mi.toFixed(0)}mi` : `${mi.toFixed(1)}mi`;
+}
+
 export default async function TodayPage() {
   const session = await auth();
   const userId = (session!.user as {id:string}).id;
@@ -44,13 +59,30 @@ export default async function TodayPage() {
   const todayDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][today.getDay()];
   const weekStart = new Date(today); weekStart.setDate(today.getDate()-today.getDay()+1);
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6);
+  const yearOut = new Date(today); yearOut.setFullYear(today.getFullYear()+1);
 
-  const [history, hasConnection, recentActivities, activeRace, weeklyActivities] = await Promise.all([
+  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:5,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:weekStart,lte:weekEnd}},select:{distanceM:true,durationSec:true,type:true}}),
+    prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true}}),
+    prisma.raceRegistration.findFirst({where:{userId,majorRace:{raceDate:{gte:today},status:"active"}},orderBy:{majorRace:{raceDate:"asc"}},include:{majorRace:{select:{id:true,name:true,city:true,country:true,raceDate:true}}}}),
+  ]);
+
+  const country = raceReg?.majorRace?.country ?? null;
+  const [upcomingRaces, primaryTeam] = await Promise.all([
+    prisma.majorRace.findMany({
+      where:{status:"active",raceDate:{gte:today,lte:yearOut},...(country?{country}:{})},
+      orderBy:{raceDate:"asc"},take:6,
+      select:{id:true,name:true,city:true,country:true,raceDate:true,distanceM:true,_count:{select:{registrations:true}}},
+    }),
+    prisma.team.findFirst({
+      where:{members:{some:{userId}}},
+      orderBy:{createdAt:"desc"},
+      include:{members:{include:{user:{select:{id:true,name:true,trainingPlans:{take:1,orderBy:{createdAt:"desc"},select:{_count:{select:{workouts:true}},workouts:{where:{completed:true},select:{id:true}}}}}}},orderBy:{joinedAt:"asc"}}},
+    }),
   ]);
 
   const comparisons = computeBaselineComparisons(history);
@@ -72,15 +104,58 @@ export default async function TodayPage() {
   const sleepComparison = comparisons.find(c=>c.field==="sleepScore");
   const recoveryComparison = comparisons.find(c=>c.field==="bodyBatteryOrRecoveryPct");
   const rhrComparison = comparisons.find(c=>c.field==="restingHeartRate");
+  const userName = user?.name?.split(" ")[0] ?? "Athlete";
+  const greetingText = greeting(user?.timezone ?? null);
+
+  const leaderboard = primaryTeam ? primaryTeam.members.map(m => {
+    const p = m.user.trainingPlans[0];
+    const total = p?._count?.workouts ?? 0;
+    const done = p?.workouts?.length ?? 0;
+    return { userId: m.user.id, name: m.user.name || "Anonymous", pct: total > 0 ? Math.round((done/total)*100) : 0, isMe: m.userId === userId };
+  }).sort((a,b)=>b.pct-a.pct).slice(0,5) : [];
+
+  const isNewUser = !hasConnection && !activeRace && !hasData && recentActivities.length === 0;
 
   return (
     <div className="max-w-4xl px-4 md:px-8 py-6 md:py-10">
-      <header className="mb-6 md:mb-8">
-        <p className="font-data text-xs uppercase tracking-[0.16em] text-foreground-dim mb-2">{today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Today</h1>
+
+      {/* Welcome */}
+      <header className="mb-8">
+        <p className="font-data text-xs uppercase tracking-[0.16em] text-foreground-dim mb-1">
+          {today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+        </p>
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">{greetingText}, {userName}</h1>
+        {isNewUser && <p className="text-foreground-dim text-sm mt-2">Let's get your training set up.</p>}
       </header>
 
-      {activeRace&&(
+      {/* Getting started — shown to brand new users with nothing connected */}
+      {isNewUser && (
+        <section className="mb-6">
+          <div className="rounded-2xl border border-border bg-surface p-6">
+            <h2 className="font-semibold mb-1">Welcome to Train2Race</h2>
+            <p className="text-sm text-foreground-dim mb-4">Get the most out of your training by completing these steps.</p>
+            <div className="space-y-2">
+              {[
+                { href:"/dashboard/races", label:"Add a target race", desc:"Set your goal race and generate a training plan" },
+                { href:"/dashboard/connections", label:"Connect a device", desc:"Sync your Garmin, Whoop, or Apple Watch for recovery insights" },
+                { href:"/dashboard/log-workout", label:"Log your first workout", desc:"Manually record a run, ride, or swim" },
+                { href:"/dashboard/teams", label:"Join or create a team", desc:"Train alongside your crew and see the leaderboard" },
+              ].map(item=>(
+                <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 hover:bg-surface-raised transition-colors group">
+                  <div>
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="text-xs text-foreground-dim">{item.desc}</p>
+                  </div>
+                  <span className="text-foreground-dim group-hover:text-foreground ml-3 transition-colors">→</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Race training card */}
+      {activeRace && (
         <section className="mb-6">
           <div className="rounded-2xl border border-border bg-surface overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -96,16 +171,16 @@ export default async function TodayPage() {
                 <span>{doneWorkouts}/{totalWorkouts} workouts</span><span>{pct}%</span>
               </div>
               <div className="w-full h-1.5 bg-border rounded-full">
-                <div className="h-1.5 bg-signal rounded-full" style={{width:pct+"%"}}/>
+                <div className="h-1.5 bg-signal rounded-full transition-all" style={{width:pct+"%"}}/>
               </div>
             </div>
             <div className="px-5 py-4">
-              {(!plan || totalWorkouts === 0) ? (
+              {(!plan||totalWorkouts===0)?(
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-foreground-dim">No training plan yet.</p>
-                  <a href={"/dashboard/races/"+activeRace.id} className="text-xs text-signal hover:underline">Build a plan</a>
+                  <Link href={"/dashboard/races/"+activeRace.id} className="text-xs text-signal hover:underline">Build a plan</Link>
                 </div>
-              ) : todaysWorkout?(
+              ):todaysWorkout?(
                 <div>
                   <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Today</p>
                   <div className={"rounded-xl border p-3 "+(TYPE_COLORS[todaysWorkout.type]||"bg-surface border-border")+" "+(todaysWorkout.completed?"opacity-50":"")}>
@@ -118,7 +193,7 @@ export default async function TodayPage() {
                     </div>
                   </div>
                 </div>
-              ):<p className="text-sm text-foreground-dim">No workout today.</p>}
+              ):<p className="text-sm text-foreground-dim">Rest day — no workout scheduled today.</p>}
               {upcomingWorkouts.length>0&&(
                 <div className="mt-3">
                   <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Coming up</p>
@@ -138,21 +213,91 @@ export default async function TodayPage() {
         </section>
       )}
 
-      {!activeRace&&(
+      {!activeRace&&!isNewUser&&(
         <div className="rounded-2xl border border-border bg-surface p-5 mb-6 flex items-center justify-between">
-          <p className="text-sm text-foreground-dim">No upcoming race.</p>
-          <Link href="/dashboard/races" className="text-sm text-signal hover:underline ml-4">Add race</Link>
+          <p className="text-sm text-foreground-dim">No upcoming race set.</p>
+          <Link href="/dashboard/races" className="text-sm text-signal hover:underline ml-4">Add a race →</Link>
         </div>
       )}
 
-      {!hasConnection&&(
-        <div className="rounded-2xl border border-border bg-surface p-6 mb-6">
-          <h2 className="font-medium mb-1">Connect a device</h2>
-          <p className="text-sm text-foreground-dim mb-3">Connect your wearable to see your recovery metrics.</p>
-          <Link href="/dashboard/connections" className="inline-block px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">Connect device</Link>
+      {/* Weather + Team leaderboard */}
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <WeatherWidget raceCity={raceReg?.majorRace?.city ?? null} raceCountry={raceReg?.majorRace?.country ?? null} />
+
+        {primaryTeam && leaderboard.length > 0 && (
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide">Team leaderboard</p>
+              <Link href={"/dashboard/teams/"+primaryTeam.id} className="text-xs text-signal hover:underline">{primaryTeam.name} →</Link>
+            </div>
+            <div className="space-y-2">
+              {leaderboard.map((m,i)=>(
+                <div key={m.userId} className={"flex items-center justify-between rounded-lg px-3 py-2 "+(m.isMe?"bg-signal/10 border border-signal/20":"bg-background border border-border")}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm w-5 text-center">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span>
+                    <p className="text-sm font-medium">{m.name.split(" ")[0]}{m.isMe?" (you)":""}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 bg-border rounded-full hidden sm:block">
+                      <div className={"h-1.5 rounded-full "+(m.isMe?"bg-signal":i===0?"bg-yellow-400":"bg-foreground-dim")} style={{width:m.pct+"%"}}/>
+                    </div>
+                    <span className="text-xs text-foreground-dim w-8 text-right">{m.pct}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!primaryTeam && (
+          <Link href="/dashboard/teams" className="rounded-2xl border border-border bg-surface p-5 hover:bg-surface-raised transition-colors block">
+            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Team leaderboard</p>
+            <p className="text-sm text-foreground-dim mb-3">Join or create a team to see how you stack up against your training partners.</p>
+            <span className="text-xs text-signal">Find a team →</span>
+          </Link>
+        )}
+      </div>
+
+      {/* Upcoming races */}
+      {upcomingRaces.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-sm font-medium text-foreground-dim mb-3">
+            Upcoming races{country ? ` in ${country}` : ""}
+          </h2>
+          <div className="space-y-2">
+            {upcomingRaces.map(race=>{
+              const isRegistered = raceReg?.majorRace?.id === race.id;
+              const daysAway = Math.ceil((new Date(race.raceDate).getTime()-today.getTime())/(1000*60*60*24));
+              return (
+                <div key={race.id} className={"rounded-xl border bg-surface px-4 py-3 flex items-center justify-between "+(isRegistered?"border-signal/40":"border-border")}>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{race.name}</p>
+                      {isRegistered && <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">Registered</span>}
+                    </div>
+                    <p className="text-xs text-foreground-dim mt-0.5">{race.city}, {race.country} · {milesLabel(race.distanceM)}</p>
+                    <p className="text-xs text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} · {daysAway} days away · {race._count.registrations} registered</p>
+                  </div>
+                  <Link href={`/community/${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">View →</Link>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Connect device prompt — shown when user has activity but no device */}
+      {!hasConnection && !isNewUser && (
+        <div className="rounded-2xl border border-border bg-surface p-5 mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Connect a wearable</p>
+            <p className="text-xs text-foreground-dim mt-0.5">Sync Garmin, Whoop, or Apple Watch to unlock recovery insights.</p>
+          </div>
+          <Link href="/dashboard/connections" className="px-4 py-2 rounded-full bg-signal text-background text-xs font-medium ml-4 shrink-0">Connect</Link>
         </div>
       )}
 
+      {/* Health metrics */}
       {hasData&&(
         <>
           {flags.length===0?(
@@ -173,7 +318,6 @@ export default async function TodayPage() {
               ))}
             </div>
           )}
-
           <section className="mb-6">
             <div className="grid grid-cols-3 gap-3">
               <MetricTile label="HRV" value={latest?.hrvMs} unit="ms" comparison={hrvComparison}/>
@@ -181,7 +325,6 @@ export default async function TodayPage() {
               <MetricTile label="Recovery" value={latest?.bodyBatteryOrRecoveryPct} unit="%" comparison={recoveryComparison}/>
             </div>
           </section>
-
           <section className="mb-6">
             <div className="rounded-2xl border border-border bg-surface p-4 md:p-6">
               <div className="flex items-center justify-between mb-3">
@@ -191,7 +334,6 @@ export default async function TodayPage() {
               <Waveform restingHeartRate={latest?.restingHeartRate??60} className="h-14"/>
             </div>
           </section>
-
           <section className="mb-6">
             <h2 className="text-sm font-medium text-foreground-dim mb-3">This week</h2>
             <div className="grid grid-cols-3 gap-3">
@@ -200,20 +342,29 @@ export default async function TodayPage() {
               <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Activities</p><p className="font-data text-xl">{weeklyActivities.length}</p></div>
             </div>
           </section>
-
           <section className="mb-6 md:mb-8">
             <h2 className="text-sm font-medium text-foreground-dim mb-3">30-day trend</h2>
             <TrendChart history={history}/>
           </section>
-
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-foreground-dim">Recent activity</h2>
-              <Link href="/dashboard/log-workout" className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">+ Log workout</Link>
-            </div>
-            <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source}))}/>
-          </section>
         </>
+      )}
+
+      {/* Recent activity */}
+      {recentActivities.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-foreground-dim">Recent activity</h2>
+            <Link href="/dashboard/log-workout" className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">+ Log workout</Link>
+          </div>
+          <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source}))}/>
+        </section>
+      )}
+
+      {!hasData && !isNewUser && recentActivities.length === 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-foreground-dim">No activities yet.</p>
+          <Link href="/dashboard/log-workout" className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">+ Log workout</Link>
+        </div>
       )}
     </div>
   );
@@ -224,7 +375,7 @@ function MetricTile({label,value,unit,comparison,invertGood=false}:{label:string
   const isGood=invertGood?direction==="down":direction==="up";
   const isBad=invertGood?direction==="up":direction==="down";
   const color=isGood?"text-signal":isBad?"text-alert":"text-foreground-dim";
-  const arrow=direction==="up"?"up":direction==="down"?"dn":direction==="flat"?"->":"";
+  const arrow=direction==="up"?"↑":direction==="down"?"↓":direction==="flat"?"→":"";
   return(
     <div className="rounded-xl border border-border bg-surface px-3 md:px-4 py-3">
       <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">{label}</p>
