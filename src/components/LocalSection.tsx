@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { WeatherWidget } from "./WeatherWidget";
-import { UpcomingRacesNearby } from "./UpcomingRacesNearby";
 
 const STORAGE_KEY = "t2r-location";
 
@@ -21,13 +20,11 @@ type LeaderboardEntry = { userId: string; name: string; pct: number; isMe: boole
 
 export function LocalSection({
   defaultCity,
-  registeredRaceId,
   leaderboard,
   teamId,
   teamName,
 }: {
   defaultCity: string | null;
-  registeredRaceId?: string | null;
   leaderboard: LeaderboardEntry[];
   teamId?: string | null;
   teamName?: string | null;
@@ -81,45 +78,43 @@ export function LocalSection({
 
   return (
     <div>
-      {/* Location row */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-foreground-dim">📍</span>
-          {editing ? (
-            <form onSubmit={e => { e.preventDefault(); saveCity(input); }} className="flex items-center gap-2">
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder="City name, e.g. Los Angeles"
-                className="px-3 py-1 rounded-lg bg-background border border-signal text-sm outline-none w-44"
-              />
-              <button type="submit" className="text-xs text-signal font-medium hover:underline">Save</button>
-              <button type="button" onClick={() => setEditing(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button>
-            </form>
-          ) : (
-            <>
-              <span className="text-sm font-medium">{city || "No location set"}</span>
-              <button onClick={openEdit} className="text-xs text-signal hover:underline">Change</button>
-            </>
-          )}
-        </div>
-        {editing && (
-          <button
-            onClick={useMyLocation}
-            disabled={geoLoading}
-            className="text-xs text-foreground-dim hover:text-foreground disabled:opacity-50 transition-colors"
-          >
-            {geoLoading ? "Detecting…" : "Use my location"}
-          </button>
-        )}
-      </div>
-      {geoError && <p className="text-xs text-red-400 mb-3 -mt-2">{geoError}</p>}
-
       {/* Weather + Team leaderboard grid */}
       <div className="grid md:grid-cols-2 gap-4 mb-6">
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Weather · {city || "—"}</p>
+          {/* Location inside weather card */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs text-foreground-dim">📍</span>
+              {editing ? (
+                <form onSubmit={e => { e.preventDefault(); saveCity(input); }} className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    placeholder="City name"
+                    className="px-2 py-0.5 rounded-lg bg-background border border-signal text-sm outline-none w-32"
+                  />
+                  <button type="submit" className="text-xs text-signal font-medium hover:underline">Save</button>
+                  <button type="button" onClick={() => setEditing(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button>
+                </form>
+              ) : (
+                <>
+                  <span className="text-xs font-medium uppercase tracking-wide text-foreground-dim truncate">{city || "Set location"}</span>
+                  <button onClick={openEdit} className="text-xs text-signal hover:underline shrink-0">Change</button>
+                </>
+              )}
+            </div>
+            {editing && (
+              <button
+                onClick={useMyLocation}
+                disabled={geoLoading}
+                className="text-xs text-foreground-dim hover:text-foreground disabled:opacity-50 transition-colors shrink-0 ml-2"
+              >
+                {geoLoading ? "Detecting…" : "Use my location"}
+              </button>
+            )}
+          </div>
+          {geoError && <p className="text-xs text-red-400 mb-2 -mt-1">{geoError}</p>}
           <WeatherWidget city={city || null} />
         </div>
 
@@ -155,13 +150,6 @@ export function LocalSection({
         )}
       </div>
 
-      {/* Upcoming races */}
-      <section className="mb-6">
-        <h2 className="text-sm font-medium text-foreground-dim mb-3">
-          Upcoming races in {city || "your area"}
-        </h2>
-        <UpcomingRacesNearby city={city || null} registeredRaceId={registeredRaceId} />
-      </section>
     </div>
   );
 }

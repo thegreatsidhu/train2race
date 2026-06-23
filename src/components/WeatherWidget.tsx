@@ -30,7 +30,10 @@ function wmoLabel(code: number): [string, string] {
   return ["🌡️", "Unknown"];
 }
 
-type WeatherState = { temp: number; feels: number; wind: number; code: number };
+type ForecastDay = { day: string; code: number; hi: number; lo: number };
+type WeatherState = { temp: number; feels: number; wind: number; code: number; forecast: ForecastDay[] };
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function WeatherWidget({ city }: { city: string | null }) {
   const [weather, setWeather] = useState<WeatherState | null>(null);
@@ -48,10 +51,17 @@ export function WeatherWidget({ city }: { city: string | null }) {
         const geoData = await geoRes.json();
         const r = geoData.results?.[0];
         if (!r) return;
-        const wxRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${r.latitude}&longitude=${r.longitude}&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph`);
+        const wxRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${r.latitude}&longitude=${r.longitude}&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m&daily=weathercode,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
         const wx = await wxRes.json();
         const c = wx.current;
-        if (c && !cancelled) setWeather({ temp: Math.round(c.temperature_2m), feels: Math.round(c.apparent_temperature), wind: Math.round(c.windspeed_10m), code: c.weathercode });
+        const d = wx.daily;
+        const forecast: ForecastDay[] = (d?.time || []).slice(1, 5).map((dateStr: string, i: number) => ({
+          day: DAY_NAMES[new Date(dateStr + "T12:00:00").getDay()],
+          code: d.weathercode[i + 1],
+          hi: Math.round(d.temperature_2m_max[i + 1]),
+          lo: Math.round(d.temperature_2m_min[i + 1]),
+        }));
+        if (c && !cancelled) setWeather({ temp: Math.round(c.temperature_2m), feels: Math.round(c.apparent_temperature), wind: Math.round(c.windspeed_10m), code: c.weathercode, forecast });
       } catch { /* hide */ } finally { if (!cancelled) setLoading(false); }
     }
     load();
@@ -65,6 +75,9 @@ export function WeatherWidget({ city }: { city: string | null }) {
       <div className="h-8 bg-border rounded-lg w-24" />
       <div className="h-3 bg-border rounded-lg w-36" />
       <div className="h-3 bg-border rounded-lg w-28" />
+      <div className="flex gap-1 pt-2 mt-1 border-t border-border">
+        {[1,2,3,4].map(i => <div key={i} className="flex-1 h-14 bg-border rounded-lg" />)}
+      </div>
     </div>
   );
 
@@ -79,8 +92,23 @@ export function WeatherWidget({ city }: { city: string | null }) {
         <span className="text-3xl leading-none">{emoji}</span>
         <p className="text-3xl font-data font-semibold">{weather.temp}°F</p>
       </div>
-      <p className="text-sm text-foreground-dim">{label} · Feels like {weather.feels}°F · Wind {weather.wind} mph</p>
+      <p className="text-sm text-foreground-dim">{label} · Feels {weather.feels}°F · {weather.wind} mph</p>
       {goodRunning && <p className="text-xs text-signal mt-1">Great conditions for a run today.</p>}
+      {weather.forecast.length > 0 && (
+        <div className="flex gap-1 mt-3 pt-3 border-t border-border">
+          {weather.forecast.map((f, i) => {
+            const [fEmoji] = wmoLabel(f.code);
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                <span className="text-xs text-foreground-dim">{f.day}</span>
+                <span className="text-base leading-none">{fEmoji}</span>
+                <span className="text-xs font-medium">{f.hi}°</span>
+                <span className="text-xs text-foreground-dim">{f.lo}°</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

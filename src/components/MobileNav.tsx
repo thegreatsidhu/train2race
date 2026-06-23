@@ -16,9 +16,12 @@ export function MobileNav({ email }: { email: string }) {
       {open && (
         <div className="fixed inset-0 z-50 bg-background">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="font-semibold text-lg">Train2Race</span>
-            <button onClick={() => setOpen(false)} className="p-2 text-foreground-dim hover:text-foreground">
-              ?
+            <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2">
+              <img src="/logo.png" alt="Train2Race" className="w-7 h-7 rounded-md" />
+              <span className="font-semibold text-lg">Train2Race</span>
+            </Link>
+            <button onClick={() => setOpen(false)} className="p-2 text-foreground-dim hover:text-foreground text-xl leading-none">
+              ✕
             </button>
           </div>
           <nav className="flex flex-col gap-1 p-4 text-lg">

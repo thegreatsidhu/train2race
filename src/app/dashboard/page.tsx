@@ -2,10 +2,9 @@ export const revalidate = 0;
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMergedDailyMetrics, computeBaselineComparisons } from "@/lib/ai/metrics";
-import { Waveform } from "@/components/Waveform";
-import { TrendChart } from "@/components/TrendChart";
 import { ActivityList } from "@/components/ActivityList";
 import { LocalSection } from "@/components/LocalSection";
+import { UpcomingRacesSection } from "@/components/UpcomingRacesSection";
 import { TeamInvitations } from "@/components/TeamInvitations";
 import Link from "next/link";
 
@@ -279,10 +278,9 @@ export default async function TodayPage() {
         </section>
       )}
 
-      {/* Weather, leaderboard, upcoming races — city from timezone, user-editable */}
+      {/* Weather + team leaderboard */}
       <LocalSection
         defaultCity={timezoneCity ?? raceCity}
-        registeredRaceId={raceReg?.majorRace?.id ?? null}
         leaderboard={leaderboard}
         teamId={primaryTeam?.id ?? null}
         teamName={primaryTeam?.name ?? null}
@@ -366,6 +364,12 @@ export default async function TodayPage() {
         </div>
       )}
 
+      {/* Upcoming races nearby */}
+      <UpcomingRacesSection
+        defaultCity={timezoneCity ?? raceCity}
+        registeredRaceId={raceReg?.majorRace?.id ?? null}
+      />
+
       {/* Active challenges */}
       {activeChallenges.length > 0 && (
         <section className="mb-6">
@@ -418,38 +422,18 @@ export default async function TodayPage() {
       {/* Health metrics */}
       {hasData&&(
         <>
-          {flags.length===0?(
-            <div className="rounded-2xl border border-border bg-surface px-5 py-3 mb-6 flex items-center gap-2">
-              <span className="text-signal">✓</span>
-              <p className="text-sm text-foreground-dim">All metrics within your normal range. Green light to train hard today.</p>
-            </div>
-          ):(
-            <div className="space-y-2 mb-6">
-              {flags.map((flag,i)=>(
-                <div key={i} className={"rounded-2xl border px-5 py-3 flex items-start gap-3 "+(flag.type==="warning"?"border-yellow-600/40 bg-yellow-900/10":"border-border bg-surface")}>
-                  <span className={"text-sm shrink-0 "+(flag.type==="warning"?"text-yellow-400":"text-foreground-dim")}>{flag.type==="warning"?"⚠":"ℹ"}</span>
-                  <div>
-                    <p className={"text-xs font-medium mb-0.5 "+(flag.type==="warning"?"text-yellow-400":"text-foreground-dim")}>{flag.metric}</p>
-                    <p className="text-sm text-foreground-dim">{flag.message}</p>
-                  </div>
-                </div>
-              ))}
+          {flags.length>0&&(
+            <div className={"rounded-2xl border px-4 py-3 mb-4 flex items-center gap-2 flex-wrap "+(flags.some(f=>f.type==="warning")?"border-yellow-600/40 bg-yellow-900/10":"border-border bg-surface")}>
+              <span className={flags.some(f=>f.type==="warning")?"text-yellow-400 text-sm":"text-foreground-dim text-sm"}>{flags.some(f=>f.type==="warning")?"⚠":"ℹ"}</span>
+              <p className="text-sm text-foreground-dim">{flags[0].message}{flags.length>1?` · +${flags.length-1} more`:""}</p>
             </div>
           )}
           <section className="mb-6">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricTile label="HRV" value={latest?.hrvMs} unit="ms" comparison={hrvComparison}/>
               <MetricTile label="Sleep" value={latest?.sleepScore} unit="" comparison={sleepComparison}/>
               <MetricTile label="Recovery" value={latest?.bodyBatteryOrRecoveryPct} unit="%" comparison={recoveryComparison}/>
-            </div>
-          </section>
-          <section className="mb-6">
-            <div className="rounded-2xl border border-border bg-surface p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-data text-xs text-foreground-dim uppercase tracking-wide">Resting heart rate</span>
-                <span className="font-data text-2xl text-signal">{latest?.restingHeartRate??"--"} <span className="text-sm text-foreground-dim">bpm</span></span>
-              </div>
-              <Waveform restingHeartRate={latest?.restingHeartRate??60} className="h-14"/>
+              <MetricTile label="Resting HR" value={latest?.restingHeartRate} unit="bpm" comparison={rhrComparison} invertGood={true}/>
             </div>
           </section>
           <section className="mb-6">
@@ -459,10 +443,6 @@ export default async function TodayPage() {
               <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Time</p><p className="font-data text-xl">{weeklyTime>0?formatDuration(weeklyTime):"--"}</p></div>
               <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Activities</p><p className="font-data text-xl">{weeklyActivities.length}</p></div>
             </div>
-          </section>
-          <section className="mb-6 md:mb-8">
-            <h2 className="text-sm font-medium text-foreground-dim mb-3">30-day trend</h2>
-            <TrendChart history={history}/>
           </section>
         </>
       )}
