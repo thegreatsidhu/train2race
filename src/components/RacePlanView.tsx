@@ -17,12 +17,13 @@ const WORKOUT_TYPES = [
 ];
 
 function AddWorkoutForm({ raceId, onAdded, onCancel }: { raceId: string; onAdded: () => void; onCancel?: () => void }) {
-  const [form, setForm] = useState({ date: "", type: "easy_run", title: "", distance: "", duration: "", description: "" });
+  const [form, setForm] = useState({ date: "", type: "easy_run", title: "", distance: "", durationHours: "", durationMins: "", description: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   async function handleAdd() {
     if (!form.date || !form.title.trim()) { setError("Date and title are required."); return; }
+    const totalMin = Number(form.durationHours || 0) * 60 + Number(form.durationMins || 0);
     setSaving(true); setError("");
     const res = await fetch(`/api/races/${raceId}/workouts`, {
       method: "POST",
@@ -31,12 +32,12 @@ function AddWorkoutForm({ raceId, onAdded, onCancel }: { raceId: string; onAdded
         date: form.date, type: form.type, title: form.title,
         description: form.description,
         distanceKm: form.distance || null,
-        durationMin: form.duration || null,
+        durationMin: totalMin || null,
       }),
     });
     setSaving(false);
     if (res.ok) {
-      setForm({ date: "", type: "easy_run", title: "", distance: "", duration: "", description: "" });
+      setForm({ date: "", type: "easy_run", title: "", distance: "", durationHours: "", durationMins: "", description: "" });
       onAdded();
     } else {
       const d = await res.json().catch(() => ({}));
@@ -70,9 +71,13 @@ function AddWorkoutForm({ raceId, onAdded, onCancel }: { raceId: string; onAdded
             placeholder="e.g. 6.0" value={form.distance} onChange={e => setForm(f => ({ ...f, distance: e.target.value }))} />
         </div>
         <div>
-          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Duration (min, optional)</label>
-          <input type="number" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
-            placeholder="e.g. 50" value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} />
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Duration (optional)</label>
+          <div className="flex gap-2">
+            <input type="number" min="0" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              placeholder="0 hr" value={form.durationHours} onChange={e => setForm(f => ({ ...f, durationHours: e.target.value }))} />
+            <input type="number" min="0" max="59" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              placeholder="0 min" value={form.durationMins} onChange={e => setForm(f => ({ ...f, durationMins: e.target.value }))} />
+          </div>
         </div>
         <div className="col-span-2">
           <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Notes / description (optional)</label>
