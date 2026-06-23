@@ -9,12 +9,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
 
-  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
-  if (!member || member.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
+  const [member, team, challenge] = await Promise.all([
+    prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } }),
+    prisma.team.findUnique({ where: { id: teamId }, select: { createdBy: true } }),
+    prisma.teamChallenge.findUnique({ where: { id: cid } }),
+  ]);
 
-  const challenge = await prisma.teamChallenge.findUnique({ where: { id: cid } });
+  const isCaptain = team?.createdBy === userId;
+  const isAdmin = member?.role === "admin";
+  if (!isCaptain && !isAdmin) return NextResponse.json({ error: "Admins only" }, { status: 403 });
   if (!challenge || challenge.teamId !== teamId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  await prisma.teamChallengeEntry.deleteMany({ where: { challengeId: cid } });
   await prisma.teamChallenge.delete({ where: { id: cid } });
   return NextResponse.json({ ok: true });
 }

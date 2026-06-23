@@ -32,6 +32,17 @@ export default function AdminPage() {
   const [teams, setTeams] = useState([]);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
   const [teamActionKey, setTeamActionKey] = useState(null);
+  const [confirmActionKey, setConfirmActionKey] = useState(null);
+  const [confirmDeleteTeam, setConfirmDeleteTeam] = useState(null);
+  const [deletingTeamId, setDeletingTeamId] = useState(null);
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamDesc, setNewTeamDesc] = useState("");
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [addMemberTeamId, setAddMemberTeamId] = useState(null);
+  const [addMemberEmail, setAddMemberEmail] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
+  const [addMemberMsg, setAddMemberMsg] = useState("");
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
 
@@ -133,8 +144,7 @@ export default function AdminPage() {
   }
 
   async function handleTeamAction(action, teamId, userId, extra = {}) {
-    if (action === "removeMember" && !confirm("Remove this member from the team?")) return;
-    if (action === "banUser" && !confirm("Ban this user? They will not be able to join teams.")) return;
+    setConfirmActionKey(null);
     const key = `${teamId}:${userId}:${action === "banUser" || action === "unbanUser" ? "ban" : action}`;
     setTeamActionKey(key);
     await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action, teamId, userId, ...extra }) });
@@ -143,6 +153,35 @@ export default function AdminPage() {
     if (action === "setRole") setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: t.members.map(m => m.userId === userId ? { ...m, role: extra.role } : m) } : t));
     if (action === "banUser") setTeams(prev => prev.map(t => ({ ...t, members: t.members.map(m => m.userId === userId ? { ...m, isBanned: true } : m) })));
     if (action === "unbanUser") setTeams(prev => prev.map(t => ({ ...t, members: t.members.map(m => m.userId === userId ? { ...m, isBanned: false } : m) })));
+  }
+
+  async function deleteTeam(teamId) {
+    setDeletingTeamId(teamId);
+    const res = await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "deleteTeam", teamId }) });
+    setDeletingTeamId(null);
+    setConfirmDeleteTeam(null);
+    if (res.ok) setTeams(prev => prev.filter(t => t.id !== teamId));
+  }
+
+  async function createTeam() {
+    if (!newTeamName.trim()) return;
+    setCreatingTeam(true);
+    const res = await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createTeam", name: newTeamName.trim(), description: newTeamDesc.trim() || null }) });
+    const d = await res.json().catch(() => ({}));
+    setCreatingTeam(false);
+    if (res.ok && d.team) { setTeams(prev => [{ ...d.team, members: [] }, ...prev]); setNewTeamName(""); setNewTeamDesc(""); setShowCreateTeam(false); }
+  }
+
+  async function addMemberToTeam(teamId) {
+    if (!addMemberEmail.trim()) return;
+    setAddingMember(true); setAddMemberMsg("");
+    const res = await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "addMember", teamId, email: addMemberEmail.trim() }) });
+    const d = await res.json().catch(() => ({}));
+    setAddingMember(false);
+    if (res.ok && d.member) {
+      setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: [...t.members, d.member] } : t));
+      setAddMemberEmail(""); setAddMemberTeamId(null);
+    } else { setAddMemberMsg(d.error || "User not found"); }
   }
 
   async function deleteUser(userId) {
@@ -494,7 +533,21 @@ export default function AdminPage() {
 
         {activeTab === "teams" && (
           <div>
-            <h2 className="font-medium mb-4">All Teams ({teams.length})</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-medium">All Teams ({teams.length})</h2>
+              <button onClick={() => setShowCreateTeam(v => !v)} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create team</button>
+            </div>
+            {showCreateTeam && (
+              <div className="rounded-2xl border border-signal/30 bg-surface p-4 mb-4 space-y-3">
+                <p className="text-sm font-medium">New team</p>
+                <input value={newTeamName} onChange={e=>setNewTeamName(e.target.value)} placeholder="Team name" className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                <input value={newTeamDesc} onChange={e=>setNewTeamDesc(e.target.value)} placeholder="Description (optional)" className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                <div className="flex gap-2">
+                  <button onClick={createTeam} disabled={creatingTeam || !newTeamName.trim()} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingTeam ? "Creating..." : "Create"}</button>
+                  <button onClick={() => { setShowCreateTeam(false); setNewTeamName(""); setNewTeamDesc(""); }} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                </div>
+              </div>
+            )}
             {!teamsLoaded ? (
               <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
             ) : teams.length === 0 ? (
@@ -503,48 +556,78 @@ export default function AdminPage() {
               <div className="space-y-4">
                 {teams.map(t => (
                   <div key={t.id} className="rounded-2xl border border-border bg-surface p-4">
-                    <div className="mb-3">
-                      <p className="font-medium">{t.name}</p>
-                      <p className="text-xs text-foreground-dim mt-0.5">
-                        {t.members.length} member{t.members.length !== 1 ? "s" : ""} · {t.isPrivate ? "Private" : "Public"} · {new Date(t.createdAt).toLocaleDateString()}
-                      </p>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-medium">{t.name}</p>
+                        <p className="text-xs text-foreground-dim mt-0.5">
+                          {t.members.length} member{t.members.length !== 1 ? "s" : ""} · {t.isPrivate ? "Private" : "Public"} · {new Date(t.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => setAddMemberTeamId(addMemberTeamId === t.id ? null : t.id)} className="text-xs px-2.5 py-1 rounded-full border border-signal/40 text-signal hover:border-signal transition-colors">+ Member</button>
+                        {confirmDeleteTeam === t.id ? (
+                          <>
+                            <button onClick={() => deleteTeam(t.id)} disabled={deletingTeamId === t.id} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">{deletingTeamId === t.id ? "..." : "Confirm delete"}</button>
+                            <button onClick={() => setConfirmDeleteTeam(null)} className="text-xs px-2.5 py-1 rounded-full border border-border">Cancel</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteTeam(t.id)} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">Delete team</button>
+                        )}
+                      </div>
                     </div>
+                    {addMemberTeamId === t.id && (
+                      <div className="flex gap-2 mb-3">
+                        <input value={addMemberEmail} onChange={e=>{setAddMemberEmail(e.target.value);setAddMemberMsg("");}} placeholder="User email" className="flex-1 px-3 py-1.5 rounded-xl bg-background border border-border text-xs focus:border-signal outline-none" />
+                        <button onClick={() => addMemberToTeam(t.id)} disabled={addingMember || !addMemberEmail.trim()} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{addingMember ? "..." : "Add"}</button>
+                      </div>
+                    )}
+                    {addMemberMsg && addMemberTeamId === t.id && <p className="text-xs text-red-400 mb-2">{addMemberMsg}</p>}
                     <div className="space-y-2">
-                      {t.members.map(m => (
-                        <div key={m.userId} className={"flex items-center justify-between rounded-xl border px-3 py-2 " + (m.isBanned ? "border-red-800/40 bg-red-900/10" : "border-border bg-background")}>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-medium">{m.name}</p>
-                              {m.role === "admin" && <span className="text-xs px-1.5 py-0.5 rounded bg-signal/20 text-signal">admin</span>}
-                              {m.isBanned && <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">banned</span>}
+                      {t.members.map(m => {
+                        const removeKey = `${t.id}:${m.userId}:removeMember`;
+                        const banKey = `${t.id}:${m.userId}:ban`;
+                        return (
+                          <div key={m.userId} className={"flex items-center justify-between rounded-xl border px-3 py-2 " + (m.isBanned ? "border-red-800/40 bg-red-900/10" : "border-border bg-background")}>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-medium">{m.name}</p>
+                                {m.role === "admin" && <span className="text-xs px-1.5 py-0.5 rounded bg-signal/20 text-signal">admin</span>}
+                                {m.isBanned && <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">banned</span>}
+                              </div>
+                              <p className="text-xs text-foreground-dim">{m.email}</p>
                             </div>
-                            <p className="text-xs text-foreground-dim">{m.email}</p>
+                            <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                              <button
+                                onClick={() => handleTeamAction("setRole", t.id, m.userId, { role: m.role === "admin" ? "member" : "admin" })}
+                                disabled={teamActionKey === `${t.id}:${m.userId}:setRole`}
+                                className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-40"
+                              >
+                                {teamActionKey === `${t.id}:${m.userId}:setRole` ? "..." : m.role === "admin" ? "Remove admin" : "Make admin"}
+                              </button>
+                              {!m.isBanned ? (
+                                confirmActionKey === banKey ? (
+                                  <>
+                                    <button onClick={() => handleTeamAction("banUser", t.id, m.userId)} disabled={teamActionKey === banKey} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">{teamActionKey === banKey ? "..." : "Confirm ban"}</button>
+                                    <button onClick={() => setConfirmActionKey(null)} className="text-xs px-2.5 py-1 rounded-full border border-border">Cancel</button>
+                                  </>
+                                ) : (
+                                  <button onClick={() => setConfirmActionKey(banKey)} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">Ban</button>
+                                )
+                              ) : (
+                                <button onClick={() => handleTeamAction("unbanUser", t.id, m.userId)} disabled={teamActionKey === banKey} className="text-xs px-2.5 py-1 rounded-full border border-green-700/40 text-green-400 hover:border-green-500 transition-colors disabled:opacity-40">{teamActionKey === banKey ? "..." : "Unban"}</button>
+                              )}
+                              {confirmActionKey === removeKey ? (
+                                <>
+                                  <button onClick={() => handleTeamAction("removeMember", t.id, m.userId)} disabled={teamActionKey === removeKey} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">{teamActionKey === removeKey ? "..." : "Confirm"}</button>
+                                  <button onClick={() => setConfirmActionKey(null)} className="text-xs px-2.5 py-1 rounded-full border border-border">Cancel</button>
+                                </>
+                              ) : (
+                                <button onClick={() => setConfirmActionKey(removeKey)} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors disabled:opacity-40">Remove</button>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
-                            <button
-                              onClick={() => handleTeamAction("setRole", t.id, m.userId, { role: m.role === "admin" ? "member" : "admin" })}
-                              disabled={teamActionKey === `${t.id}:${m.userId}:setRole`}
-                              className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-40"
-                            >
-                              {teamActionKey === `${t.id}:${m.userId}:setRole` ? "..." : m.role === "admin" ? "Remove admin" : "Make admin"}
-                            </button>
-                            <button
-                              onClick={() => handleTeamAction(m.isBanned ? "unbanUser" : "banUser", t.id, m.userId)}
-                              disabled={teamActionKey === `${t.id}:${m.userId}:ban`}
-                              className={"text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-40 " + (m.isBanned ? "border-green-700/40 text-green-400 hover:border-green-500" : "border-red-700/40 text-red-400 hover:border-red-500")}
-                            >
-                              {teamActionKey === `${t.id}:${m.userId}:ban` ? "..." : m.isBanned ? "Unban" : "Ban"}
-                            </button>
-                            <button
-                              onClick={() => handleTeamAction("removeMember", t.id, m.userId)}
-                              disabled={teamActionKey === `${t.id}:${m.userId}:removeMember`}
-                              className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors disabled:opacity-40"
-                            >
-                              {teamActionKey === `${t.id}:${m.userId}:removeMember` ? "..." : "Remove"}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
