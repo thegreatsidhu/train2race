@@ -20,6 +20,7 @@ model User {
   createdAt     DateTime  @default(now())
   dateOfBirth     DateTime?
   sex             String?
+  city            String?
   heightCm        Float?
   weightKg        Float?
   timezone        String?  @default("America/Los_Angeles")

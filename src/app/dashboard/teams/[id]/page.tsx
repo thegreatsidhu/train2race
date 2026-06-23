@@ -1,10 +1,18 @@
 ﻿"use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+
+const LB_TYPES   = [{ v: "all", l: "All" }, { v: "run", l: "Run" }, { v: "bike", l: "Bike" }, { v: "swim", l: "Swim" }, { v: "walk", l: "Walk" }, { v: "strength", l: "Strength" }];
+const LB_PERIODS = [{ v: "week", l: "Week" }, { v: "month", l: "Month" }, { v: "year", l: "Year" }, { v: "all", l: "All time" }];
+const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Duration" }, { v: "count", l: "Count" }];
+
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [newMessage,setNewMessage]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"leaderboard"|"chat"|"challenges">("leaderboard");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
   const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);
+  const [lbView,setLbView]=useState<"plan"|"activity"|"challenge">("plan");
+  const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
+  const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbChallengeId,setLbChallengeId]=useState<string|null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);});}, []);
   async function loadTeam(tid:string){const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);}
@@ -26,6 +34,24 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function submitEntry(){if(!logEntry||!logEntry.value)return;setSavingEntry(true);const todayStr=new Date().toISOString().split("T")[0];const res=await fetch(`/api/teams/${id}/challenges/${logEntry.challengeId}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:logEntry.value,date:todayStr,note:logEntry.note})});if(res.ok){const d=await res.json();setChallenges(prev=>prev.map(c=>c.id===logEntry.challengeId?{...c,entries:[...c.entries,d.entry]}:c));setLogEntry(null);}setSavingEntry(false);}
   function handleChallengesTab(){if(!challengesLoaded&&id){loadChallenges(id);}setActiveTab("challenges");}
   const METRIC_UNITS:{[k:string]:string[]}={distance:["mi","km"],duration:["min"],count:["sessions","steps"]};
+
+  const loadLbData = useCallback(async()=>{
+    if(!id)return;
+    setLbLoading(true);
+    const p=new URLSearchParams({period:lbPeriod,metric:lbMetric,type:lbType});
+    const res=await fetch(`/api/teams/${id}/leaderboard?${p}`);
+    const d=await res.json().catch(()=>({}));
+    setLbData(d.entries||[]);
+    setLbLoading(false);
+  },[id,lbPeriod,lbMetric,lbType]);
+
+  useEffect(()=>{if(lbView==="activity"&&id)loadLbData();},[lbView,loadLbData,id]);
+
+  function formatLbValue(e:any){
+    if(lbMetric==="distance")return`${e.distanceMi} mi`;
+    if(lbMetric==="duration"){const h=Math.floor(e.durationMin/60);const m=e.durationMin%60;return h>0?`${h}h ${m}m`:`${m}m`;}
+    return`${e.activityCount} activities`;
+  }
   function onMetricChange(metric:string){const firstUnit=METRIC_UNITS[metric]?.[0]??"mi";setChallengeForm(f=>({...f,metric,unit:firstUnit}));}
   if(!team)return<div className="max-w-3xl px-8 py-10"><p className="text-foreground-dim text-sm">Loading...</p></div>;
   const myUserId = team.members.find((m:any)=>m.isMe)?.userId;
@@ -51,17 +77,88 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
         <button onClick={()=>setActiveTab("chat")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="chat"?"bg-signal text-background":"border border-border hover:bg-surface")}>Chat ({messages.length})</button>
       </div>
-      {activeTab==="leaderboard"&&<div className="space-y-3">
-        {team.members.map((member:any,i:number)=>(
-          <div key={member.userId} className={"rounded-2xl border p-4 "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3"><span className={"text-lg font-bold "+(i===0?"text-yellow-400":i===1?"text-gray-400":i===2?"text-amber-600":"text-foreground-dim")}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span><div><p className="font-medium text-sm">{member.name}{member.isMe?" (you)":""}</p><div className="flex items-center gap-2">{member.role==="admin"&&<span className="text-xs text-foreground-dim">Admin</span>}{isCreator&&!member.isMe&&<button onClick={()=>toggleMemberRole(member.userId,member.role)} disabled={promotingId===member.userId} className="text-xs text-signal hover:underline disabled:opacity-40">{promotingId===member.userId?"...":(member.role==="admin"?"Remove admin":"Make admin")}</button>}</div></div></div>
-              <div className="flex gap-4 text-xs text-foreground-dim">{member.weeklyMiles>0&&<span>{member.weeklyMiles}mi/wk</span>}<span className="font-semibold text-sm">{member.pct}%</span></div>
+      {activeTab==="leaderboard"&&<div>
+        {/* Sub-view toggle */}
+        <div className="flex gap-2 mb-5 flex-wrap">
+          {([["plan","Training plan"],["activity","Activity"],["challenge","Challenges"]] as const).map(([v,l])=>(
+            <button key={v} onClick={()=>{setLbView(v);if(v==="activity"&&id)loadLbData();if(v==="challenge"&&!challengesLoaded&&id){loadChallenges(id);setChallengesLoaded(true);}}}
+              className={"px-3 py-1.5 rounded-full text-sm font-medium transition-colors "+(lbView===v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{l}</button>
+          ))}
+        </div>
+
+        {/* Plan progress view */}
+        {lbView==="plan"&&<div className="space-y-3">
+          {team.members.map((member:any,i:number)=>(
+            <div key={member.userId} className={"rounded-2xl border p-4 "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <span className={"text-lg font-bold "+(i===0?"text-yellow-400":i===1?"text-gray-400":i===2?"text-amber-600":"text-foreground-dim text-sm")}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span>
+                  <div><p className="font-medium text-sm">{member.name}{member.isMe?" (you)":""}</p><div className="flex items-center gap-2">{member.role==="admin"&&<span className="text-xs text-foreground-dim">Admin</span>}{isCreator&&!member.isMe&&<button onClick={()=>toggleMemberRole(member.userId,member.role)} disabled={promotingId===member.userId} className="text-xs text-signal hover:underline disabled:opacity-40">{promotingId===member.userId?"...":(member.role==="admin"?"Remove admin":"Make admin")}</button>}</div></div>
+                </div>
+                <div className="flex gap-4 text-xs text-foreground-dim">{member.weeklyMiles>0&&<span>{member.weeklyMiles}mi/wk</span>}<span className="font-semibold text-sm">{member.pct}%</span></div>
+              </div>
+              {member.totalWorkouts>0?<div><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{member.doneWorkouts}/{member.totalWorkouts} workouts</span></div><div className="w-full h-2 bg-border rounded-full"><div className={"h-2 rounded-full transition-all "+(member.isMe?"bg-signal":i===0?"bg-yellow-400":"bg-foreground-dim")} style={{width:`${member.pct}%`}}/></div></div>:<p className="text-xs text-foreground-dim">No training plan yet</p>}
             </div>
-            {member.totalWorkouts>0?<div><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{member.doneWorkouts}/{member.totalWorkouts} workouts</span></div><div className="w-full h-2 bg-border rounded-full"><div className={"h-2 rounded-full transition-all "+(member.isMe?"bg-signal":i===0?"bg-yellow-400":"bg-foreground-dim")} style={{width:`${member.pct}%`}}/></div></div>:<p className="text-xs text-foreground-dim">No training plan yet</p>}
+          ))}
+        </div>}
+
+        {/* Activity leaderboard view */}
+        {lbView==="activity"&&<div>
+          <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex flex-wrap gap-1.5">
+              {LB_PERIODS.map(p=><button key={p.v} onClick={()=>setLbPeriod(p.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors "+(lbPeriod===p.v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{p.l}</button>)}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {LB_METRICS.map(m=><button key={m.v} onClick={()=>setLbMetric(m.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors "+(lbMetric===m.v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{m.l}</button>)}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {LB_TYPES.map(t=><button key={t.v} onClick={()=>setLbType(t.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors "+(lbType===t.v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{t.l}</button>)}
+            </div>
           </div>
-        ))}
-        <div className="pt-4 border-t border-border"><button onClick={handleLeave} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button></div>
+          {lbLoading?<div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-14 rounded-2xl bg-surface animate-pulse"/>)}</div>:lbData.length===0?<p className="text-sm text-foreground-dim py-6 text-center">No activity logged for this period yet.</p>:(
+            <div className="space-y-2">
+              {lbData.map((e:any)=>(
+                <div key={e.userId} className={"flex items-center gap-3 rounded-2xl border px-4 py-3 "+(e.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
+                  <span className={"w-7 text-center font-bold shrink-0 "+(e.rank===1?"text-yellow-400 text-base":e.rank===2?"text-gray-400 text-base":e.rank===3?"text-amber-600 text-base":"text-foreground-dim text-xs")}>{e.rank<=3?["🥇","🥈","🥉"][e.rank-1]:`#${e.rank}`}</span>
+                  <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{e.name}{e.isMe?" (you)":""}</p><p className="text-xs text-foreground-dim">{e.activityCount} {e.activityCount===1?"activity":"activities"}</p></div>
+                  <p className="font-semibold text-sm shrink-0">{formatLbValue(e)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>}
+
+        {/* Challenge leaderboard view */}
+        {lbView==="challenge"&&<div>
+          {!challengesLoaded?<p className="text-sm text-foreground-dim">Loading...</p>:challenges.length===0?<p className="text-sm text-foreground-dim py-6 text-center">No challenges yet.</p>:(
+            <div className="space-y-2 mb-4">
+              {challenges.map((c:any)=><button key={c.id} onClick={()=>setLbChallengeId(c.id===lbChallengeId?null:c.id)} className={"w-full text-left rounded-xl border px-4 py-3 transition-colors "+(lbChallengeId===c.id?"border-signal bg-signal/5":"border-border bg-surface hover:bg-surface-raised")}>
+                <p className="font-medium text-sm">{c.title}</p>
+                <p className="text-xs text-foreground-dim capitalize mt-0.5">{c.type} · {c.metric} · {c.unit}{c.goal?` · Goal: ${c.goal}`:""}</p>
+              </button>)}
+            </div>
+          )}
+          {lbChallengeId&&(()=>{
+            const c=challenges.find((x:any)=>x.id===lbChallengeId);
+            if(!c)return null;
+            const totals:{[uid:string]:{name:string;total:number}}={};
+            c.entries.forEach((e:any)=>{if(!totals[e.userId])totals[e.userId]={name:e.user?.name||"?",total:0};totals[e.userId].total+=e.value;});
+            const sorted=Object.entries(totals).sort((a:any,b:any)=>b[1].total-a[1].total);
+            return sorted.length===0?<p className="text-sm text-foreground-dim text-center py-4">No entries yet.</p>:(
+              <div className="space-y-2">
+                {sorted.map(([uid,d]:any,i)=>(
+                  <div key={uid} className={"flex items-center gap-3 rounded-2xl border px-4 py-3 "+(uid===myUserId?"border-signal bg-signal/5":"border-border bg-surface")}>
+                    <span className={"w-7 text-center font-bold shrink-0 "+(i===0?"text-yellow-400 text-base":i===1?"text-gray-400 text-base":i===2?"text-amber-600 text-base":"text-foreground-dim text-xs")}>{i<=2?["🥇","🥈","🥉"][i]:`#${i+1}`}</span>
+                    <p className="flex-1 font-medium text-sm">{d.name}{uid===myUserId?" (you)":""}</p>
+                    <p className="font-semibold text-sm">{d.total} {c.unit}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>}
+
+        <div className="pt-6 border-t border-border mt-6"><button onClick={handleLeave} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button></div>
       </div>}
       {activeTab==="challenges"&&<div>
         {/* New challenge form */}
