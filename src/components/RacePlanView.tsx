@@ -1,6 +1,96 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+const WORKOUT_TYPES = [
+  { value: "easy_run", label: "Easy run" },
+  { value: "long_run", label: "Long run" },
+  { value: "tempo", label: "Tempo" },
+  { value: "intervals", label: "Intervals" },
+  { value: "cross_train", label: "Cross-train" },
+  { value: "swim", label: "Swim" },
+  { value: "bike", label: "Bike" },
+  { value: "strength", label: "Strength" },
+  { value: "rest", label: "Rest" },
+  { value: "race", label: "Race" },
+  { value: "other", label: "Other" },
+];
+
+function AddWorkoutForm({ raceId, onAdded, onCancel }: { raceId: string; onAdded: () => void; onCancel?: () => void }) {
+  const [form, setForm] = useState({ date: "", type: "easy_run", title: "", distance: "", duration: "", description: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleAdd() {
+    if (!form.date || !form.title.trim()) { setError("Date and title are required."); return; }
+    setSaving(true); setError("");
+    const res = await fetch(`/api/races/${raceId}/workouts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: form.date, type: form.type, title: form.title,
+        description: form.description,
+        distanceKm: form.distance || null,
+        durationMin: form.duration || null,
+      }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setForm({ date: "", type: "easy_run", title: "", distance: "", duration: "", description: "" });
+      onAdded();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error || "Failed to save.");
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Date</label>
+          <input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+            value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Type</label>
+          <select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+            value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+            {WORKOUT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+        <div className="col-span-2">
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label>
+          <input className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+            placeholder="e.g. Easy 6 miles" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Distance (mi, optional)</label>
+          <input type="number" step="0.1" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+            placeholder="e.g. 6.0" value={form.distance} onChange={e => setForm(f => ({ ...f, distance: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Duration (min, optional)</label>
+          <input type="number" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+            placeholder="e.g. 50" value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} />
+        </div>
+        <div className="col-span-2">
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Notes / description (optional)</label>
+          <textarea rows={2} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal resize-none"
+            placeholder="e.g. Keep heart rate in zone 2" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+        </div>
+      </div>
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      <div className="flex gap-2">
+        <button onClick={handleAdd} disabled={saving}
+          className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">
+          {saving ? "Saving..." : "Add workout"}
+        </button>
+        {onCancel && <button onClick={onCancel} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button>}
+      </div>
+    </div>
+  );
+}
 const TYPE_COLORS: Record<string, string> = {
   easy_run: "bg-green-900 text-green-300",
   tempo: "bg-yellow-900 text-yellow-300",
@@ -192,14 +282,59 @@ function getWeekDates(workouts: any[]): Record<string, string> {
 
 export function RacePlanView({ race, plan }: { race: any; plan: any }) {
   const router = useRouter();
-  const [completing, setCompleting] = useState<string|null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<any|null>(null);
   const [showRebuild, setShowRebuild] = useState(false);
+  const [buildMode, setBuildMode] = useState<"ai"|"manual"|null>(null);
+  const [addingToWeek, setAddingToWeek] = useState<number|null>(null);
+  const [deletingId, setDeletingId] = useState<string|null>(null);
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this workout?")) return;
+    setDeletingId(id);
+    await fetch(`/api/races/workouts/${id}`, { method: "DELETE" });
+    setDeletingId(null);
+    router.refresh();
+  }
 
   if (!plan) {
+    if (buildMode === "manual") {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">Build your plan manually</h3>
+            <button onClick={() => setBuildMode(null)} className="text-xs text-foreground-dim hover:text-foreground">Back</button>
+          </div>
+          <p className="text-sm text-foreground-dim">Add workouts one at a time. When you're done, click "View plan" to see the full schedule.</p>
+          <AddWorkoutForm raceId={race.id} onAdded={() => {}} />
+          <button onClick={() => router.refresh()} className="w-full py-2.5 rounded-full border border-signal text-signal text-sm font-medium hover:bg-signal hover:text-background transition-colors">View plan</button>
+        </div>
+      );
+    }
+
+    if (buildMode === "ai") {
+      return (
+        <div>
+          <RebuildModal race={race} onClose={() => setBuildMode(null)} onRebuilt={() => router.refresh()} isFirstBuild />
+        </div>
+      );
+    }
+
     return (
-      <div>
-        <RebuildModal race={race} onClose={()=>{}} onRebuilt={()=>router.refresh()} isFirstBuild/>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <h3 className="font-semibold mb-1">No training plan yet</h3>
+          <p className="text-sm text-foreground-dim mb-5">How would you like to build your plan for {race.name}?</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onClick={() => setBuildMode("ai")} className="flex flex-col items-start gap-1 rounded-xl border border-border bg-background hover:border-signal hover:bg-surface transition-colors p-4 text-left">
+              <span className="text-sm font-medium">Generate with AI</span>
+              <span className="text-xs text-foreground-dim">Answer a few questions and get a full periodised plan instantly.</span>
+            </button>
+            <button onClick={() => setBuildMode("manual")} className="flex flex-col items-start gap-1 rounded-xl border border-border bg-background hover:border-signal hover:bg-surface transition-colors p-4 text-left">
+              <span className="text-sm font-medium">Build manually</span>
+              <span className="text-xs text-foreground-dim">Add workouts yourself, one at a time, with full control over every session.</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -217,6 +352,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
 
       <div className="space-y-6">
         {Object.entries(weeks).map(([weekNum, workouts]) => {
+          const wn = Number(weekNum);
           const weekDone = workouts.filter(w=>w.completed).length;
           const weekDates = getWeekDates(workouts);
           const isCurrentWeek = workouts.some(w => { const d=new Date(w.date); d.setHours(0,0,0,0); const diff=(d.getTime()-today.getTime())/(1000*60*60*24); return diff>=0&&diff<7; });
@@ -224,8 +360,16 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
             <div key={weekNum} className={"rounded-2xl border p-5 "+(isCurrentWeek?"border-signal bg-surface":"border-border bg-surface")}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium">Week {weekNum}{isCurrentWeek&&<span className="ml-2 text-xs bg-signal text-background px-2 py-0.5 rounded-full">Current</span>}</h3>
-                <span className="text-xs text-foreground-dim">{weekDone}/{workouts.length} done</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-foreground-dim">{weekDone}/{workouts.length} done</span>
+                  <button onClick={() => setAddingToWeek(addingToWeek===wn ? null : wn)} className="text-xs text-signal hover:underline">+ Add workout</button>
+                </div>
               </div>
+              {addingToWeek===wn && (
+                <div className="mb-4">
+                  <AddWorkoutForm raceId={race.id} onAdded={() => { setAddingToWeek(null); router.refresh(); }} onCancel={() => setAddingToWeek(null)} />
+                </div>
+              )}
               <div className="hidden md:grid md:grid-cols-7 gap-2">
                 {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day => {
                   const workout = workouts.find(w=>w.day===day);
@@ -235,7 +379,10 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                   const colorClass = TYPE_COLORS[workout.type]||"bg-surface border border-border";
                   return (
                     <div key={day} className={"rounded-xl p-2 "+(workout.completed?"opacity-60":"")}>
-                      <p className="text-xs text-foreground-dim mb-1">{day.slice(0,3)} {weekDates[day]}</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs text-foreground-dim">{day.slice(0,3)} {weekDates[day]}</p>
+                        <button onClick={() => handleDelete(workout.id)} disabled={deletingId===workout.id} className="text-foreground-dim hover:text-red-400 text-xs leading-none disabled:opacity-40">x</button>
+                      </div>
                       <button onClick={()=>setSelectedWorkout(workout)} className={"w-full text-left rounded-lg p-2 text-xs "+colorClass+" hover:opacity-80 transition-opacity"}>
                         <p className="font-medium truncate">{workout.title}</p>
                         {workout.distanceKm&&<p>{(workout.distanceKm/1.60934).toFixed(1)} mi</p>}
@@ -261,6 +408,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                         <div className="flex items-center justify-between gap-2"><p className="font-medium">{workout.title}</p><p className="shrink-0 opacity-75">{workout.distanceKm?(workout.distanceKm/1.60934).toFixed(1)+"mi":workout.durationMin?workout.durationMin+"min":""}</p></div>
                       </button>
                       {workout.completed?<span className="text-xs text-signal shrink-0">Done</span>:isPast?<button onClick={()=>setSelectedWorkout(workout)} className="text-xs text-foreground-dim hover:text-foreground shrink-0 border border-border rounded-lg px-2 py-1">Log</button>:null}
+                      <button onClick={() => handleDelete(workout.id)} disabled={deletingId===workout.id} className="text-foreground-dim hover:text-red-400 text-xs shrink-0 disabled:opacity-40">x</button>
                     </div>
                   );
                 })}
@@ -268,6 +416,13 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
             </div>
           );
         })}
+        <div className="rounded-2xl border border-dashed border-border p-4">
+          {addingToWeek === -1 ? (
+            <AddWorkoutForm raceId={race.id} onAdded={() => { setAddingToWeek(null); router.refresh(); }} onCancel={() => setAddingToWeek(null)} />
+          ) : (
+            <button onClick={() => setAddingToWeek(-1)} className="w-full text-sm text-foreground-dim hover:text-foreground transition-colors py-2">+ Add a workout outside existing weeks</button>
+          )}
+        </div>
       </div>
 
       {selectedWorkout&&<WorkoutModal workout={selectedWorkout} onClose={()=>setSelectedWorkout(null)} onLogged={()=>{setSelectedWorkout(null);router.refresh();}} onMoved={()=>{setSelectedWorkout(null);router.refresh();}}/>}
