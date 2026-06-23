@@ -14,6 +14,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
   const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbChallengeId,setLbChallengeId]=useState<string|null>(null);
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
+  const [removingId,setRemovingId]=useState<string|null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);});}, []);
   async function loadTeam(tid:string){const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);}
@@ -22,6 +23,13 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function handleLeave(){if(!confirm("Leave this team?"))return;await fetch(`/api/teams/${id}/leave`,{method:"POST"});router.push("/dashboard/teams");}
   function copyInviteCode(){navigator.clipboard.writeText(team.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
   function copyInviteLink(){navigator.clipboard.writeText(`${window.location.origin}/join/${team.inviteCode}`);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
+  async function removeMember(memberId:string, name:string){
+    if(!confirm(`Remove ${name} from this team?`))return;
+    setRemovingId(memberId);
+    const res=await fetch(`/api/teams/${id}/members/${memberId}`,{method:"DELETE"});
+    setRemovingId(null);
+    if(res.ok){setTeam((t:any)=>({...t,members:t.members.filter((m:any)=>m.userId!==memberId)}));}
+  }
   async function toggleMemberRole(memberId:string, currentRole:string){
     setPromotingId(memberId);
     const newRole = currentRole==="admin"?"member":"admin";
@@ -156,7 +164,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <span className={"text-lg font-bold "+(i===0?"text-yellow-400":i===1?"text-gray-400":i===2?"text-amber-600":"text-foreground-dim text-sm")}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span>
-                  <div><p className="font-medium text-sm">{member.name}{member.isMe?" (you)":""}</p><div className="flex items-center gap-2">{member.role==="admin"&&<span className="text-xs text-foreground-dim">Admin</span>}{isCreator&&!member.isMe&&<button onClick={()=>toggleMemberRole(member.userId,member.role)} disabled={promotingId===member.userId} className="text-xs text-signal hover:underline disabled:opacity-40">{promotingId===member.userId?"...":(member.role==="admin"?"Remove admin":"Make admin")}</button>}</div></div>
+                  <div><p className="font-medium text-sm">{member.name}{member.isMe?" (you)":""}</p><div className="flex items-center gap-2">{member.role==="admin"&&<span className="text-xs text-foreground-dim">Admin</span>}{isCreator&&!member.isMe&&<button onClick={()=>toggleMemberRole(member.userId,member.role)} disabled={promotingId===member.userId} className="text-xs text-signal hover:underline disabled:opacity-40">{promotingId===member.userId?"...":(member.role==="admin"?"Remove admin":"Make admin")}</button>}{team.isAdmin&&!member.isMe&&member.userId!==team.createdBy&&<button onClick={()=>removeMember(member.userId,member.name)} disabled={removingId===member.userId} className="text-xs text-red-400 hover:text-red-300 hover:underline disabled:opacity-40">{removingId===member.userId?"Removing...":"Remove"}</button>}</div></div>
                 </div>
                 <div className="flex gap-4 text-xs text-foreground-dim">{member.weeklyMiles>0&&<span>{member.weeklyMiles}mi/wk</span>}<span className="font-semibold text-sm">{member.pct}%</span></div>
               </div>

@@ -25,3 +25,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId: targetUserId } }, data: { role } });
   return NextResponse.json({ ok: true, role });
 }
+
+// DELETE /api/teams/[id]/members/[userId] — remove a member (admin or creator only)
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string; userId: string }> }) {
+  const { id: teamId, userId: targetUserId } = await params;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const requesterId = (session.user as { id: string }).id;
+
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { createdBy: true } });
+  if (!team) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const myMembership = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: requesterId } } });
+  if (!myMembership || (myMembership.role !== "admin" && team.createdBy !== requesterId)) {
+    return NextResponse.json({ error: "Only admins can remove members" }, { status: 403 });
+  }
+  if (targetUserId === team.createdBy) {
+    return NextResponse.json({ error: "Cannot remove the team creator" }, { status: 400 });
+  }
+
+  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: targetUserId } } });
+  if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+
+  await prisma.teamMember.delete({ where: { teamId_userId: { teamId, userId: targetUserId } } });
+  return NextResponse.json({ ok: true });
+}
