@@ -121,19 +121,21 @@ export default async function TodayPage() {
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
   ]);
 
-  const [primaryTeam, activeChallenges] = await Promise.all([
-  prisma.team.findFirst({
+  const primaryTeam = await prisma.team.findFirst({
     where:{members:{some:{userId}}},
     orderBy:{createdAt:"desc"},
     include:{members:{include:{user:{select:{id:true,name:true,trainingPlans:{take:1,orderBy:{createdAt:"desc"},select:{_count:{select:{workouts:true}},workouts:{where:{completed:true},select:{id:true}}}}}}},orderBy:{joinedAt:"asc"}}},
-  }),
-  prisma.teamChallenge.findMany({
-    where:{team:{members:{some:{userId}}},startDate:{lte:new Date()},endDate:{gte:today}},
-    include:{team:{select:{id:true,name:true}},entries:{where:{userId},select:{value:true}}},
-    orderBy:{endDate:"asc"},
-    take:10,
-  }),
-  ]);
+  });
+
+  let activeChallenges: any[] = [];
+  try {
+    activeChallenges = await (prisma as any).teamChallenge.findMany({
+      where:{team:{members:{some:{userId}}},endDate:{gte:today}},
+      include:{team:{select:{id:true,name:true}},entries:{where:{userId},select:{value:true}}},
+      orderBy:{endDate:"asc"},
+      take:10,
+    });
+  } catch {}
 
   const comparisons = computeBaselineComparisons(history);
   const latest = history[history.length-1];
