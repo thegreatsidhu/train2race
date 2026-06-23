@@ -106,30 +106,11 @@ export default function Home() {
         </section>
 
         {/* Motivation callout */}
-        <section className="py-16 border-t border-border grid md:grid-cols-2 gap-12 items-center">
-          <div>
-            <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Why it works</p>
-            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-4">Accountability changes everything</h2>
-            <p className="text-foreground-dim leading-relaxed mb-4">Athletes who train with a team are more consistent, push harder on tough days, and are less likely to skip workouts. Train2Race makes that accountability visible — you can see exactly how your training compares to your teammates, every single week.</p>
-            <p className="text-foreground-dim leading-relaxed text-sm">Knowing your crew can see your mileage is the best motivation to lace up when you do not feel like it.</p>
-          </div>
-          <div className="space-y-3">
-            {[
-              { quote: "Seeing Marcus ahead of me on the leaderboard made me do my Tuesday run when I really didn't want to.", name: "Sarah K.", race: "Chicago Marathon" },
-              { quote: "We've been training together for 12 weeks and nobody has missed more than one workout. The group chat keeps us going.", name: "Priya S.", race: "NYC Marathon" },
-            ].map(t => (
-              <div key={t.name} className="rounded-2xl border border-border bg-surface p-5">
-                <p className="text-sm text-foreground-dim leading-relaxed mb-3">"{t.quote}"</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-signal/20 flex items-center justify-center text-xs font-semibold text-signal">{t.name[0]}</div>
-                  <div>
-                    <p className="text-xs font-medium">{t.name}</p>
-                    <p className="text-xs text-foreground-dim">{t.race}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+        <section className="py-16 border-t border-border max-w-2xl">
+          <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Why it works</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-4">Accountability changes everything</h2>
+          <p className="text-foreground-dim leading-relaxed mb-4">Athletes who train with a team are more consistent, push harder on tough days, and are less likely to skip workouts. Train2Race makes that accountability visible — you can see exactly how your training compares to your teammates, every single week.</p>
+          <p className="text-foreground-dim leading-relaxed text-sm">Knowing your crew can see your mileage is the best motivation to lace up when you do not feel like it.</p>
         </section>
 
         {/* CTA */}
