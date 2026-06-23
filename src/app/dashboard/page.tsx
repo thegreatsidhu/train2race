@@ -5,8 +5,7 @@ import { getMergedDailyMetrics, computeBaselineComparisons } from "@/lib/ai/metr
 import { Waveform } from "@/components/Waveform";
 import { TrendChart } from "@/components/TrendChart";
 import { ActivityList } from "@/components/ActivityList";
-import { WeatherWidget } from "@/components/WeatherWidget";
-import { UpcomingRacesNearby } from "@/components/UpcomingRacesNearby";
+import { LocalSection } from "@/components/LocalSection";
 import Link from "next/link";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -311,44 +310,14 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {/* Weather + Team leaderboard */}
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        <WeatherWidget raceCity={raceCity} timezoneCity={timezoneCity} />
-
-        {primaryTeam && leaderboard.length > 0 ? (
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-foreground-dim uppercase tracking-wide">Team leaderboard</p>
-              <Link href={"/dashboard/teams/"+primaryTeam.id} className="text-xs text-signal hover:underline">{primaryTeam.name} →</Link>
-            </div>
-            <div className="space-y-2">
-              {leaderboard.map((m,i)=>(
-                <div key={m.userId} className={"flex items-center justify-between rounded-lg px-3 py-2 "+(m.isMe?"bg-signal/10 border border-signal/20":"bg-background border border-border")}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm w-5 text-center">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span>
-                    <p className="text-sm font-medium">{m.name.split(" ")[0]}{m.isMe?" (you)":""}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-16 h-1.5 bg-border rounded-full hidden sm:block">
-                      <div className={"h-1.5 rounded-full "+(m.isMe?"bg-signal":i===0?"bg-yellow-400":"bg-foreground-dim")} style={{width:m.pct+"%"}}/>
-                    </div>
-                    <span className="text-xs text-foreground-dim w-8 text-right">{m.pct}%</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <Link href="/dashboard/teams" className="rounded-2xl border border-dashed border-border bg-surface/50 p-5 hover:bg-surface-raised transition-colors block">
-            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Team leaderboard</p>
-            <p className="text-sm text-foreground-dim mb-3">Join a team to race your training partners to the finish line.</p>
-            <span className="text-xs text-signal">Find a team →</span>
-          </Link>
-        )}
-      </div>
-
-      {/* Upcoming races nearby — client component, uses geolocation */}
-      <UpcomingRacesNearby fallbackCity={raceCity ?? timezoneCity} registeredRaceId={raceReg?.majorRace?.id ?? null} />
+      {/* Weather, leaderboard, upcoming races — city from timezone, user-editable */}
+      <LocalSection
+        defaultCity={timezoneCity ?? raceCity}
+        registeredRaceId={raceReg?.majorRace?.id ?? null}
+        leaderboard={leaderboard}
+        teamId={primaryTeam?.id ?? null}
+        teamName={primaryTeam?.name ?? null}
+      />
 
       {/* Connect device prompt */}
       {!hasConnection && !isNewUser && (
