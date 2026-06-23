@@ -23,10 +23,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <NavLink href="/dashboard/leaderboard" label="Leaderboard" />
           <NavLink href="/dashboard/connections" label="Connections" />
           <NavLink href="/dashboard/profile" label="Profile" />
+          <NavLink href="/dashboard/support" label="Help & Support" />
         </nav>
         <div className="px-2">
           <p className="text-xs text-foreground-dim mb-2 truncate">{session.user.email}</p>
-          <a href="mailto:support@train2race.com" className="block text-xs text-foreground-dim hover:text-foreground transition-colors mb-2">Get support</a>
           <SignOutButton />
         </div>
       </aside>
