@@ -96,6 +96,96 @@ function AddWorkoutForm({ raceId, onAdded, onCancel }: { raceId: string; onAdded
     </div>
   );
 }
+function EditWorkoutModal({ workout, onClose, onSaved }: { workout: any; onClose: () => void; onSaved: () => void }) {
+  const totalMin = workout.durationMin || 0;
+  const [form, setForm] = useState({
+    date: workout.date ? new Date(workout.date).toISOString().slice(0, 10) : "",
+    type: workout.type || "easy_run",
+    title: workout.title || "",
+    distance: workout.distanceKm ? (workout.distanceKm / 1.60934).toFixed(1) : "",
+    durationHours: totalMin ? String(Math.floor(totalMin / 60)) : "",
+    durationMins: totalMin ? String(totalMin % 60) : "",
+    description: workout.description || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    if (!form.date || !form.title.trim()) { setError("Date and title are required."); return; }
+    const durationMin = Number(form.durationHours || 0) * 60 + Number(form.durationMins || 0);
+    setSaving(true); setError("");
+    const res = await fetch(`/api/races/workouts/${workout.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: form.date, type: form.type, title: form.title,
+        description: form.description,
+        distanceKm: form.distance || null,
+        durationMin: durationMin || null,
+      }),
+    });
+    setSaving(false);
+    if (res.ok) { onSaved(); onClose(); }
+    else { const d = await res.json().catch(() => ({})); setError(d.error || "Failed to save."); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold">Edit workout</h2>
+          <button onClick={onClose} className="text-foreground-dim hover:text-foreground text-xl leading-none">x</button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Date</label>
+            <input type="date" className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Type</label>
+            <select className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+              {WORKOUT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label>
+            <input className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Distance (mi)</label>
+            <input type="number" step="0.1" className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+              placeholder="optional" value={form.distance} onChange={e => setForm(f => ({ ...f, distance: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Duration</label>
+            <div className="flex gap-2">
+              <input type="number" min="0" className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+                placeholder="0 hr" value={form.durationHours} onChange={e => setForm(f => ({ ...f, durationHours: e.target.value }))} />
+              <input type="number" min="0" max="59" className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+                placeholder="0 min" value={form.durationMins} onChange={e => setForm(f => ({ ...f, durationMins: e.target.value }))} />
+            </div>
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Coach notes / description</label>
+            <textarea rows={3} className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal resize-none"
+              value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+          </div>
+        </div>
+        {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-full border border-border text-sm">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">
+            {saving ? "Saving..." : "Save changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TYPE_COLORS: Record<string, string> = {
   easy_run: "bg-green-900 text-green-300",
   tempo: "bg-yellow-900 text-yellow-300",
@@ -288,6 +378,7 @@ function getWeekDates(workouts: any[]): Record<string, string> {
 export function RacePlanView({ race, plan }: { race: any; plan: any }) {
   const router = useRouter();
   const [selectedWorkout, setSelectedWorkout] = useState<any|null>(null);
+  const [editingWorkout, setEditingWorkout] = useState<any|null>(null);
   const [showRebuild, setShowRebuild] = useState(false);
   const [buildMode, setBuildMode] = useState<"ai"|"manual"|null>(null);
   const [addingToWeek, setAddingToWeek] = useState<number|null>(null);
@@ -386,7 +477,10 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                     <div key={day} className={"rounded-xl p-2 "+(workout.completed?"opacity-60":"")}>
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-xs text-foreground-dim">{day.slice(0,3)} {weekDates[day]}</p>
-                        <button onClick={() => handleDelete(workout.id)} disabled={deletingId===workout.id} className="text-foreground-dim hover:text-red-400 text-xs leading-none disabled:opacity-40">x</button>
+                        <div className="flex gap-1">
+                          <button onClick={() => setEditingWorkout(workout)} className="text-foreground-dim hover:text-signal text-xs leading-none" title="Edit">✎</button>
+                          <button onClick={() => handleDelete(workout.id)} disabled={deletingId===workout.id} className="text-foreground-dim hover:text-red-400 text-xs leading-none disabled:opacity-40">x</button>
+                        </div>
                       </div>
                       <button onClick={()=>setSelectedWorkout(workout)} className={"w-full text-left rounded-lg p-2 text-xs "+colorClass+" hover:opacity-80 transition-opacity"}>
                         <p className="font-medium truncate">{workout.title}</p>
@@ -413,6 +507,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
                         <div className="flex items-center justify-between gap-2"><p className="font-medium">{workout.title}</p><p className="shrink-0 opacity-75">{workout.distanceKm?(workout.distanceKm/1.60934).toFixed(1)+"mi":workout.durationMin?workout.durationMin+"min":""}</p></div>
                       </button>
                       {workout.completed?<span className="text-xs text-signal shrink-0">Done</span>:isPast?<button onClick={()=>setSelectedWorkout(workout)} className="text-xs text-foreground-dim hover:text-foreground shrink-0 border border-border rounded-lg px-2 py-1">Log</button>:null}
+                      <button onClick={() => setEditingWorkout(workout)} className="text-foreground-dim hover:text-signal text-xs shrink-0" title="Edit">✎</button>
                       <button onClick={() => handleDelete(workout.id)} disabled={deletingId===workout.id} className="text-foreground-dim hover:text-red-400 text-xs shrink-0 disabled:opacity-40">x</button>
                     </div>
                   );
@@ -431,6 +526,7 @@ export function RacePlanView({ race, plan }: { race: any; plan: any }) {
       </div>
 
       {selectedWorkout&&<WorkoutModal workout={selectedWorkout} onClose={()=>setSelectedWorkout(null)} onLogged={()=>{setSelectedWorkout(null);router.refresh();}} onMoved={()=>{setSelectedWorkout(null);router.refresh();}}/>}
+      {editingWorkout&&<EditWorkoutModal workout={editingWorkout} onClose={()=>setEditingWorkout(null)} onSaved={()=>{setEditingWorkout(null);router.refresh();}}/>}
       {showRebuild&&<RebuildModal race={race} onClose={()=>setShowRebuild(false)} onRebuilt={()=>{setShowRebuild(false);router.refresh();}}/>}
     </div>
   );

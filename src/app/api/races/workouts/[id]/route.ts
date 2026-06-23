@@ -17,15 +17,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const session = await auth();
   const userId = (session!.user as { id: string }).id;
-  const { completed } = await req.json();
 
-  const workout = await prisma.trainingWorkout.update({
-    where: { id },
-    data: {
-      completed,
-      completedAt: completed ? new Date() : null,
-    },
-  });
+  const existing = await prisma.trainingWorkout.findUnique({ where: { id }, include: { plan: { select: { userId: true } } } });
+  if (!existing || existing.plan.userId !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const body = await req.json();
+  const data: any = {};
+
+  if ("completed" in body) {
+    data.completed = body.completed;
+    data.completedAt = body.completed ? new Date() : null;
+  }
+  if ("type" in body) data.type = body.type;
+  if ("title" in body) data.title = body.title?.trim();
+  if ("description" in body) data.description = body.description?.trim() ?? "";
+  if ("distanceKm" in body) data.distanceKm = body.distanceKm ? Number(body.distanceKm) * 1.60934 : null;
+  if ("durationMin" in body) data.durationMin = body.durationMin ? Number(body.durationMin) : null;
+  if ("date" in body) {
+    const d = new Date(body.date);
+    data.date = d;
+    data.day = d.toLocaleDateString("en-US", { weekday: "long" });
+  }
+
+  const workout = await prisma.trainingWorkout.update({ where: { id }, data });
   return NextResponse.json({ workout });
 }
