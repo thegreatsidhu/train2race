@@ -7,17 +7,54 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const team = await prisma.team.findUnique({ where: { id }, include: { majorRace: { select: { id: true, name: true, raceDate: true, distanceM: true } }, members: { include: { user: { select: { id: true, name: true, trainingPlans: { take: 1, orderBy: { createdAt: "desc" }, select: { _count: { select: { workouts: true } }, workouts: { where: { completed: true }, select: { completed: true, distanceKm: true, date: true } } } } } } }, orderBy: { joinedAt: "asc" } } } });
+  const weekAgo = new Date(Date.now()-7*24*60*60*1000);
+  // Fetch team + members without nesting all workout objects
+  const team = await prisma.team.findUnique({
+    where: { id },
+    include: {
+      majorRace: { select: { id: true, name: true, raceDate: true, distanceM: true } },
+      members: {
+        include: {
+          user: {
+            select: {
+              id: true, name: true,
+              trainingPlans: {
+                take: 1,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  id: true,
+                  _count: { select: { workouts: true } },
+                  // Only recent completed workouts — for weekly mileage only
+                  workouts: { where: { completed: true, date: { gte: weekAgo } }, select: { distanceKm: true } },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { joinedAt: "asc" },
+      },
+    },
+  });
   if (!team) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const isMember = team.members.some(m => m.userId === userId);
   if (!isMember) return NextResponse.json({ error: "Not a member" }, { status: 403 });
-  const weekAgo = new Date(Date.now()-7*24*60*60*1000);
+
+  // Batch-fetch completed workout counts for all member plans in one query
+  const planIds = team.members.flatMap(m => m.user.trainingPlans.map(p => p.id));
+  const doneCounts = planIds.length > 0
+    ? await prisma.trainingWorkout.groupBy({
+        by: ["planId"],
+        where: { planId: { in: planIds }, completed: true },
+        _count: { planId: true },
+      })
+    : [];
+  const doneMap = Object.fromEntries(doneCounts.map(r => [r.planId, r._count.planId]));
+
   const membersWithStats = team.members.map(m => {
     const plan = m.user.trainingPlans[0];
-    const workouts = plan?.workouts??[];
-    const total = plan?._count?.workouts??0;
-    const done = workouts.filter(w=>w.completed).length;
-    const weeklyMiles = workouts.filter(w=>w.completed&&w.distanceKm&&new Date(w.date)>=weekAgo).reduce((s,w)=>s+(w.distanceKm||0)/1.60934,0);
+    const total = plan?._count?.workouts ?? 0;
+    const done = plan ? (doneMap[plan.id] ?? 0) : 0;
+    const weeklyMiles = (plan?.workouts ?? []).reduce((s: number, w: any) => s + (w.distanceKm || 0) / 1.60934, 0);
     return { userId: m.user.id, name: m.user.name||"Anonymous", role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles: Math.round(weeklyMiles*10)/10 };
   }).sort((a,b)=>b.pct-a.pct);
   return NextResponse.json({ team: { ...team, members: membersWithStats, isAdmin: team.members.find(m=>m.userId===userId)?.role==="admin" } });

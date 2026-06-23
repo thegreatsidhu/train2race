@@ -42,6 +42,8 @@ model User {
   teamMembers              TeamMember[]
   teamMessages             TeamMessage[]
   teamChallengeEntries     TeamChallengeEntry[]
+  teamInvitations          TeamInvitation[] @relation("InvitationReceived")
+  sentInvitations          TeamInvitation[] @relation("InvitationSent")
   @@map("users")
 }
 
@@ -189,7 +191,8 @@ model RaceTarget {
   recentRaceTime   String?
   trainingDaysPerWeek Int?
   isTriathlon      Boolean? @default(false)
-  trainingPlanJson Json?
+  trainingPlanJson     Json?
+  nutritionPlanCache   Json?
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   trainingPlan TrainingPlan?
@@ -311,6 +314,7 @@ model RaceRegistration {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   majorRace    MajorRace  @relation(fields: [majorRaceId], references: [id], onDelete: Cascade)
   @@unique([userId, majorRaceId])
+  @@index([majorRaceId, isPublic])
   @@map("race_registrations")
 }
 model Team {
@@ -325,6 +329,7 @@ model Team {
   members     TeamMember[]
   messages    TeamMessage[]
   challenges  TeamChallenge[]
+  invitations TeamInvitation[]
   majorRace   MajorRace?   @relation(fields: [majorRaceId], references: [id])
   @@map("teams")
 }
@@ -370,6 +375,20 @@ model TeamMember {
   @@unique([teamId, userId])
   @@map("team_members")
 }
+model TeamInvitation {
+  id          String   @id @default(cuid())
+  teamId      String
+  userId      String
+  invitedBy   String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user        User     @relation("InvitationReceived", fields: [userId], references: [id], onDelete: Cascade)
+  inviter     User     @relation("InvitationSent",     fields: [invitedBy], references: [id], onDelete: Cascade)
+  @@unique([teamId, userId])
+  @@map("team_invitations")
+}
+
 model TeamMessage {
   id        String   @id @default(cuid())
   teamId    String

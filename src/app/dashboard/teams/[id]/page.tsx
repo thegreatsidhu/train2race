@@ -83,12 +83,13 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     setAddingMember(null);
     if(res.ok){
       setInviteResults(r=>r.filter(u=>u.id!==userId));
-      setInviteMsg(`${name} added to the team!`);
+      setInviteMsg(`Invitation sent to ${name}!`);
       setTimeout(()=>setInviteMsg(""),3000);
-      // Refresh team data to show new member
-      loadTeam(id);
+    } else if(d.alreadyInvited){
+      setInviteMsg(`${name} already has a pending invitation.`);
+      setTimeout(()=>setInviteMsg(""),3000);
     } else {
-      setInviteMsg(d.error||"Failed to add member.");
+      setInviteMsg(d.error||"Failed to invite member.");
       setTimeout(()=>setInviteMsg(""),3000);
     }
   }
@@ -112,7 +113,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       {/* Member invite panel */}
       {showInvitePanel&&team.isAdmin&&(
         <div className="rounded-2xl border border-border bg-surface p-5 mb-6">
-          <h3 className="font-medium text-sm mb-3">Add members by name</h3>
+          <h3 className="font-medium text-sm mb-3">Invite members by name</h3>
           <input
             value={inviteQuery} onChange={e=>setInviteQuery(e.target.value)}
             placeholder="Search athletes by name..."
@@ -129,7 +130,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                   <div><p className="text-sm font-medium">{u.name}</p>{u.city&&<p className="text-xs text-foreground-dim">{u.city}</p>}</div>
                   <button onClick={()=>addMember(u.id,u.name)} disabled={addingMember===u.id}
                     className="px-3 py-1 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-50">
-                    {addingMember===u.id?"Adding...":"Add"}
+                    {addingMember===u.id?"Inviting...":"Invite"}
                   </button>
                 </div>
               ))}

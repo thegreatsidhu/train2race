@@ -25,15 +25,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+  // Check if already a member
+  const existing = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
+  if (existing) return NextResponse.json({ error: "Already a member", alreadyMember: true }, { status: 409 });
+
+  // Check if there's already a pending invitation
   try {
-    const member = await prisma.teamMember.create({
-      data: { teamId, userId, role: "member" },
+    const existingInvite = await (prisma as any).teamInvitation.findUnique({
+      where: { teamId_userId: { teamId, userId } },
     });
-    return NextResponse.json({ member, name: target.name }, { status: 201 });
-  } catch (e: any) {
-    if (e?.code === "P2002") {
-      return NextResponse.json({ error: "Already a member", alreadyMember: true }, { status: 409 });
+    if (existingInvite && existingInvite.status === "pending") {
+      return NextResponse.json({ error: "Invitation already sent", alreadyInvited: true }, { status: 409 });
     }
+
+    // Upsert invitation (re-invite if previously declined)
+    const invitation = await (prisma as any).teamInvitation.upsert({
+      where: { teamId_userId: { teamId, userId } },
+      create: { teamId, userId, invitedBy: requesterId, status: "pending" },
+      update: { status: "pending", invitedBy: requesterId },
+    });
+    return NextResponse.json({ invitation, name: target.name }, { status: 201 });
+  } catch (e: any) {
     throw e;
   }
 }

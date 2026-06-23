@@ -51,7 +51,7 @@ export default function LeaderboardPage() {
       setTeams(t);
       setAdminTeams(t.filter((tm: any) => tm.members?.[0]?.role === "admin" || tm.isAdmin));
     }).catch(() => {});
-    fetch("/api/major-races").then(r => r.json()).then(d => setRaces(d.races || [])).catch(() => {});
+    fetch("/api/major-races?upcoming=1").then(r => r.json()).then(d => setRaces(d.races || [])).catch(() => {});
   }, []);
 
   // Close invite popover on outside click
@@ -85,9 +85,10 @@ export default function LeaderboardPage() {
     const d = await res.json().catch(() => ({}));
     setAddingTo(null);
     setInviting(null);
-    if (res.ok) setAddedMsg(`Added to team!`);
+    if (res.ok) setAddedMsg(`Invitation sent!`);
     else if (d.alreadyMember) setAddedMsg("Already a member of that team.");
-    else setAddedMsg(d.error || "Failed to add.");
+    else if (d.alreadyInvited) setAddedMsg("Invitation already pending.");
+    else setAddedMsg(d.error || "Failed to invite.");
     setTimeout(() => setAddedMsg(""), 3000);
   }
 
@@ -165,18 +166,23 @@ export default function LeaderboardPage() {
               {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-          <div className="sm:col-span-2">
-            <p className="text-xs text-foreground-dim mb-2">Event / Race</p>
-            <select
-              className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
-              value={raceId} onChange={e => setRaceId(e.target.value)}>
-              <option value="">All events</option>
-              {races.map((r: any) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} · {new Date(r.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                </option>
-              ))}
-            </select>
+          <div>
+            <p className="text-xs text-foreground-dim mb-2">Event / Race <span className="text-foreground-dim/50">(optional)</span></p>
+            <div className="flex gap-2">
+              <select
+                className="flex-1 bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
+                value={raceId} onChange={e => setRaceId(e.target.value)}>
+                <option value="">All events</option>
+                {races.map((r: any) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} · {new Date(r.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </option>
+                ))}
+              </select>
+              {raceId && (
+                <button onClick={() => setRaceId("")} className="text-xs text-foreground-dim hover:text-foreground px-2" title="Clear event filter">✕</button>
+              )}
+            </div>
           </div>
         </div>
         {activeFilters > 0 && (

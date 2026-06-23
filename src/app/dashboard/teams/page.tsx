@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { TeamInvitations } from "@/components/TeamInvitations";
 
 export default function TeamsPage() {
   const router = useRouter();
@@ -90,6 +91,8 @@ export default function TeamsPage() {
         <h1 className="text-3xl font-semibold tracking-tight mb-1">Teams</h1>
         <p className="text-foreground-dim text-sm">Train together, compete together.</p>
       </header>
+
+      <TeamInvitations />
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {([

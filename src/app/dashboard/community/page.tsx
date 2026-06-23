@@ -50,7 +50,7 @@ function CommunityPageInner() {
       }
     });
   }, []);
-  useEffect(()=>{const t=setTimeout(()=>{fetch("/api/major-races?upcoming=1"+(search?"&search="+encodeURIComponent(search):"")).then(r=>r.json()).then(d=>setRaces(d.races||[]));},300);return()=>clearTimeout(t);},[search]);
+  // Filter client-side — no need to re-hit the API on every keystroke
 
   async function loadEvent(race) {
     setSel(race);setLoading(true);setMessages([]);

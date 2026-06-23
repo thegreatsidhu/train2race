@@ -43,13 +43,30 @@ export async function POST(req: Request) {
   const comparisons = computeBaselineComparisons(history);
   const flags = detectCardiacFlags(comparisons);
 
-  const contextPrimer = `[Context for this turn — not shown to the user verbatim]
+  // Compress metrics to a summary string — avoids sending hundreds of tokens of raw JSON
+  const latest = history[history.length - 1];
+  const metricsSummary = latest
+    ? [
+        latest.hrvMs != null && `HRV ${Math.round(latest.hrvMs)}ms`,
+        latest.restingHeartRate != null && `RHR ${Math.round(latest.restingHeartRate)}bpm`,
+        latest.sleepScore != null && `sleep ${Math.round(latest.sleepScore)}`,
+        latest.bodyBatteryOrRecoveryPct != null && `recovery ${Math.round(latest.bodyBatteryOrRecoveryPct)}%`,
+        latest.sleepDurationMin != null && `slept ${Math.round(latest.sleepDurationMin / 60 * 10) / 10}h`,
+      ].filter(Boolean).join(", ")
+    : "no recent metrics";
+
+  const trendSummary = comparisons
+    .filter((c) => c.deltaPct != null && Math.abs(c.deltaPct) >= 5)
+    .map((c) => `${c.field} ${c.direction} ${Math.abs(c.deltaPct!)}% vs baseline`)
+    .join("; ") || "all metrics near baseline";
+
+  const contextPrimer = `[Athlete context]
 User: ${user?.name ?? "unknown"}
-Active goals: ${user?.goals.map((g) => g.description).join("; ") || "none"}
-Race targets: ${raceTargets.map((r) => `${r.raceName} on ${r.raceDate.toISOString().slice(0, 10)}, distance ${r.distanceM}m`).join("; ") || "none"}
-Last 7 days of metrics: ${JSON.stringify(history.slice(-7))}
-30-day baseline comparisons: ${JSON.stringify(comparisons)}
-${flags.length ? `Notable flags vs personal baseline: ${flags.join(" | ")}` : "No notable flags."}`;
+Goals: ${user?.goals.map((g) => g.description).join("; ") || "none"}
+Races: ${raceTargets.map((r) => `${r.raceName} ${r.raceDate.toISOString().slice(0, 10)}`).join("; ") || "none"}
+Today: ${metricsSummary}
+Trends (30d): ${trendSummary}
+${flags.length ? `Flags: ${flags.join(" | ")}` : ""}`;
 
   const chronological = recentMessages
     .slice()

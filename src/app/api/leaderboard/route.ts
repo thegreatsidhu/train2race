@@ -122,29 +122,26 @@ export async function GET(req: Request) {
 
     if (grouped.length === 0) return NextResponse.json({ entries: [] });
 
-    // 4. Fetch user profiles (city select guarded)
+    // 4 + 5. Fetch user profiles and team memberships in parallel
     const userIds = grouped.map((g: any) => g.userId);
-    let users: any[] = [];
-    try {
-      users = await (prisma as any).user.findMany({
+    const [users, memberships] = await Promise.all([
+      (prisma as any).user.findMany({
         where: { id: { in: userIds } },
         select: { id: true, name: true, sex: true, dateOfBirth: true, city: true },
-      });
-    } catch {
-      users = await prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, name: true, sex: true, dateOfBirth: true },
-      });
-    }
-    const userMap = Object.fromEntries(users.map((u: any) => [u.id, u]));
-
-    // 5. First team for each user
-    const memberships = await prisma.teamMember.findMany({
-      where: { userId: { in: userIds } },
-      select: { userId: true, team: { select: { id: true, name: true } } },
-      distinct: ["userId"],
-    });
-    const teamMap = Object.fromEntries(memberships.map((m: any) => [m.userId, m.team]));
+      }).catch(() =>
+        prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, sex: true, dateOfBirth: true },
+        })
+      ),
+      prisma.teamMember.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, team: { select: { id: true, name: true } } },
+        distinct: ["userId"],
+      }),
+    ]);
+    const userMap = Object.fromEntries((users as any[]).map((u: any) => [u.id, u]));
+    const teamMap = Object.fromEntries((memberships as any[]).map((m: any) => [m.userId, m.team]));
 
     const now = new Date();
     let entries = grouped.map((g: any, i: number) => {

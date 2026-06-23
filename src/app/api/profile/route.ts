@@ -13,7 +13,17 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone } = await req.json();
-  const user = await (prisma as any).user.update({ where: { id: userId }, data: { name: name||null, weightKg: weightKg??null, heightCm: heightCm??null, dateOfBirth: dateOfBirth?new Date(dateOfBirth):null, sex: sex||null, city: city||null, isPrivate: isPrivate??false, timezone: timezone||null }, select: { name: true, weightKg: true, heightCm: true, dateOfBirth: true, sex: true, city: true, isPrivate: true, timezone: true } });
+  const body = await req.json();
+  const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone } = body;
+  const data: any = {};
+  if ("name" in body)             data.name = name || null;
+  if ("weightKg" in body)         data.weightKg = weightKg ?? null;
+  if ("heightCm" in body)         data.heightCm = heightCm ?? null;
+  if ("dateOfBirth" in body)      data.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+  if ("sex" in body)              data.sex = sex || null;
+  if ("city" in body)             data.city = city || null;
+  if ("isPrivate" in body)        data.isPrivate = isPrivate ?? false;
+  if ("timezone" in body)         data.timezone = timezone || null;
+  const user = await (prisma as any).user.update({ where: { id: userId }, data, select: { name: true, weightKg: true, heightCm: true, dateOfBirth: true, sex: true, city: true, isPrivate: true, timezone: true } });
   return NextResponse.json({ user });
 }

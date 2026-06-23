@@ -6,6 +6,7 @@ import { Waveform } from "@/components/Waveform";
 import { TrendChart } from "@/components/TrendChart";
 import { ActivityList } from "@/components/ActivityList";
 import { LocalSection } from "@/components/LocalSection";
+import { TeamInvitations } from "@/components/TeamInvitations";
 import Link from "next/link";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -240,6 +241,9 @@ export default async function TodayPage() {
         )}
       </header>
 
+      {/* Team invitations */}
+      <TeamInvitations />
+
       {/* Quote of the day */}
       {!isNewUser && (
         <div className="mb-6 px-1">
@@ -470,7 +474,7 @@ export default async function TodayPage() {
           <Link href="/dashboard/log-workout" className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">+ Log workout</Link>
         </div>
         {recentActivities.length > 0
-          ? <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source,raw:a.raw}))}/>
+          ? <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source,raw:a.raw?.notes?{notes:a.raw.notes}:null}))}/>
           : <p className="text-sm text-foreground-dim">No activities yet — log your first workout and start the streak.</p>
         }
       </section>
