@@ -8,7 +8,7 @@ const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Durat
 
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [newMessage,setNewMessage]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"leaderboard"|"chat"|"challenges">("leaderboard");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
+  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [newMessage,setNewMessage]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"leaderboard"|"chat"|"challenges"|"members">("leaderboard");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
   const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [createMsg,setCreateMsg]=useState("");const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);const [approvingChallenge,setApprovingChallenge]=useState<string|null>(null);
   const [lbView,setLbView]=useState<"plan"|"activity"|"challenge">("plan");
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
@@ -150,6 +150,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <button onClick={()=>setActiveTab("leaderboard")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="leaderboard"?"bg-signal text-background":"border border-border hover:bg-surface")}>Leaderboard</button>
         <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
         <button onClick={()=>setActiveTab("chat")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="chat"?"bg-signal text-background":"border border-border hover:bg-surface")}>Chat ({messages.length})</button>
+        <button onClick={()=>setActiveTab("members")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
       </div>
       {activeTab==="leaderboard"&&<div>
         {/* Sub-view toggle */}
@@ -314,6 +315,26 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           <div ref={messagesEndRef}/>
         </div>
         <div className="flex gap-2"><input value={newMessage} onChange={e=>setNewMessage(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()} placeholder="Message your team..." className="flex-1 px-4 py-2.5 rounded-full bg-surface border border-border focus:border-signal outline-none text-sm"/><button onClick={sendMessage} disabled={sending||!newMessage.trim()} className="px-4 py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">Send</button></div>
+      </div>}
+      {activeTab==="members"&&<div className="space-y-2">
+        {team.members.map((member:any)=>(
+          <div key={member.userId} className={"flex items-center justify-between rounded-2xl border px-4 py-3 "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium text-sm">{member.name}{member.isMe?" (you)":""}</p>
+                {member.role==="admin"&&<span className="text-xs px-1.5 py-0.5 rounded bg-signal/20 text-signal">Admin</span>}
+                {member.userId===team.createdBy&&<span className="text-xs text-foreground-dim">Owner</span>}
+              </div>
+              <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(member.joinedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
+            </div>
+            {team.isAdmin&&!member.isMe&&(
+              <div className="flex gap-2 shrink-0">
+                {isCreator&&<button onClick={()=>toggleMemberRole(member.userId,member.role)} disabled={promotingId===member.userId} className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-40">{promotingId===member.userId?"...":(member.role==="admin"?"Remove admin":"Make admin")}</button>}
+                {member.userId!==team.createdBy&&<button onClick={()=>removeMember(member.userId,member.name)} disabled={removingId===member.userId} className="text-xs px-3 py-1.5 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors disabled:opacity-40">{removingId===member.userId?"Removing...":"Remove"}</button>}
+              </div>
+            )}
+          </div>
+        ))}
       </div>}
     </div>
   );

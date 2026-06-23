@@ -27,3 +27,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   return NextResponse.json({ entry }, { status: 201 });
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string; cid: string }> }) {
+  const { id: teamId, cid: challengeId } = await params;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
+  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
+  await prisma.teamChallengeEntry.deleteMany({ where: { challengeId, userId } });
+  return NextResponse.json({ ok: true });
+}

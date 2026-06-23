@@ -22,6 +22,7 @@ model User {
   sex             String?
   city            String?
   isPrivate       Boolean   @default(false)
+  isBanned        Boolean   @default(false)
   heightCm        Float?
   weightKg        Float?
   timezone        String?  @default("America/Los_Angeles")

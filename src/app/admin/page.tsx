@@ -29,6 +29,11 @@ export default function AdminPage() {
   const [pendingChallenges, setPendingChallenges] = useState([]);
   const [challengesLoaded, setChallengesLoaded] = useState(false);
   const [approvingChallenge, setApprovingChallenge] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [teamActionKey, setTeamActionKey] = useState(null);
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(null);
 
   async function handleLogin() {
     setLoading(true); setError("");
@@ -119,10 +124,43 @@ export default function AdminPage() {
     setTicketsLoaded(true);
   }
 
+  async function loadTeams() {
+    if (teamsLoaded) return;
+    const res = await fetch(`/api/admin/teams?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setTeams(d.teams || []);
+    setTeamsLoaded(true);
+  }
+
+  async function handleTeamAction(action, teamId, userId, extra = {}) {
+    if (action === "removeMember" && !confirm("Remove this member from the team?")) return;
+    if (action === "banUser" && !confirm("Ban this user? They will not be able to join teams.")) return;
+    const key = `${teamId}:${userId}:${action === "banUser" || action === "unbanUser" ? "ban" : action}`;
+    setTeamActionKey(key);
+    await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action, teamId, userId, ...extra }) });
+    setTeamActionKey(null);
+    if (action === "removeMember") setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: t.members.filter(m => m.userId !== userId) } : t));
+    if (action === "setRole") setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: t.members.map(m => m.userId === userId ? { ...m, role: extra.role } : m) } : t));
+    if (action === "banUser") setTeams(prev => prev.map(t => ({ ...t, members: t.members.map(m => m.userId === userId ? { ...m, isBanned: true } : m) })));
+    if (action === "unbanUser") setTeams(prev => prev.map(t => ({ ...t, members: t.members.map(m => m.userId === userId ? { ...m, isBanned: false } : m) })));
+  }
+
+  async function deleteUser(userId) {
+    setDeletingUser(userId);
+    const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "deleteUser", userId }) });
+    setDeletingUser(null);
+    setConfirmDeleteUser(null);
+    if (res.ok) {
+      setData(prev => ({ ...prev, users: prev.users.filter(u => u.id !== userId) }));
+      setTeams(prev => prev.map(t => ({ ...t, members: t.members.filter(m => m.userId !== userId) })));
+    }
+  }
+
   function switchTab(id) {
     setActiveTab(id);
     if (id === "challenges") loadChallenges();
     if (id === "tickets") loadTickets();
+    if (id === "teams") loadTeams();
   }
 
   if (!authed) {
@@ -192,6 +230,7 @@ export default function AdminPage() {
             { id: "chat", label: "Chat" },
             { id: "challenges", label: "Challenges" + (pendingChallenges.length > 0 ? " (" + pendingChallenges.length + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
+            { id: "teams", label: "Teams (" + teams.length + ")" },
             { id: "settings", label: "Settings" },
           ].map(tab => (
             <button key={tab.id} onClick={() => switchTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
@@ -229,6 +268,20 @@ export default function AdminPage() {
                     >
                       {sendingResetFor === user.id ? "Sending..." : "Send reset"}
                     </button>
+                    {confirmDeleteUser === user.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => deleteUser(user.id)} disabled={deletingUser === user.id}
+                          className="px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-medium disabled:opacity-50">
+                          {deletingUser === user.id ? "Deleting..." : "Confirm delete"}
+                        </button>
+                        <button onClick={() => setConfirmDeleteUser(null)} className="px-3 py-1.5 rounded-full border border-border text-xs">Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteUser(user.id)}
+                        className="px-3 py-1.5 rounded-full border border-red-700/40 text-red-400 text-xs hover:border-red-500 transition-colors">
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
                 {settingPwFor === user.id && (
@@ -434,6 +487,67 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "teams" && (
+          <div>
+            <h2 className="font-medium mb-4">All Teams ({teams.length})</h2>
+            {!teamsLoaded ? (
+              <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
+            ) : teams.length === 0 ? (
+              <p className="text-sm text-foreground-dim">No teams yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {teams.map(t => (
+                  <div key={t.id} className="rounded-2xl border border-border bg-surface p-4">
+                    <div className="mb-3">
+                      <p className="font-medium">{t.name}</p>
+                      <p className="text-xs text-foreground-dim mt-0.5">
+                        {t.members.length} member{t.members.length !== 1 ? "s" : ""} · {t.isPrivate ? "Private" : "Public"} · {new Date(t.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {t.members.map(m => (
+                        <div key={m.userId} className={"flex items-center justify-between rounded-xl border px-3 py-2 " + (m.isBanned ? "border-red-800/40 bg-red-900/10" : "border-border bg-background")}>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-medium">{m.name}</p>
+                              {m.role === "admin" && <span className="text-xs px-1.5 py-0.5 rounded bg-signal/20 text-signal">admin</span>}
+                              {m.isBanned && <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">banned</span>}
+                            </div>
+                            <p className="text-xs text-foreground-dim">{m.email}</p>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                            <button
+                              onClick={() => handleTeamAction("setRole", t.id, m.userId, { role: m.role === "admin" ? "member" : "admin" })}
+                              disabled={teamActionKey === `${t.id}:${m.userId}:setRole`}
+                              className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-40"
+                            >
+                              {teamActionKey === `${t.id}:${m.userId}:setRole` ? "..." : m.role === "admin" ? "Remove admin" : "Make admin"}
+                            </button>
+                            <button
+                              onClick={() => handleTeamAction(m.isBanned ? "unbanUser" : "banUser", t.id, m.userId)}
+                              disabled={teamActionKey === `${t.id}:${m.userId}:ban`}
+                              className={"text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-40 " + (m.isBanned ? "border-green-700/40 text-green-400 hover:border-green-500" : "border-red-700/40 text-red-400 hover:border-red-500")}
+                            >
+                              {teamActionKey === `${t.id}:${m.userId}:ban` ? "..." : m.isBanned ? "Unban" : "Ban"}
+                            </button>
+                            <button
+                              onClick={() => handleTeamAction("removeMember", t.id, m.userId)}
+                              disabled={teamActionKey === `${t.id}:${m.userId}:removeMember`}
+                              className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors disabled:opacity-40"
+                            >
+                              {teamActionKey === `${t.id}:${m.userId}:removeMember` ? "..." : "Remove"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

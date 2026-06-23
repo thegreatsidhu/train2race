@@ -30,6 +30,7 @@ export default function ChallengesPage() {
   const [myChallenges, setMyChallenges] = useState<any[]>([]);
   const [loadingMine, setLoadingMine] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [leavingId, setLeavingId] = useState<string | null>(null);
 
   // ── Discover state ──────────────────────────────────────────────────────────
   const [challenges, setChallenges] = useState<any[]>([]);
@@ -103,6 +104,14 @@ export default function ChallengesPage() {
     const res = await fetch(`/api/teams/${c.teamId}/challenges/${c.id}`, { method: "DELETE" });
     setDeletingId(null);
     if (res.ok) setMyChallenges(prev => prev.filter(x => x.id !== c.id));
+  }
+
+  async function leaveChallenge(c: any) {
+    if (!confirm(`Leave "${c.title}"? This will remove all your logged entries for this challenge.`)) return;
+    setLeavingId(c.id);
+    await fetch(`/api/teams/${c.teamId}/challenges/${c.id}/entries`, { method: "DELETE" });
+    setLeavingId(null);
+    setMyChallenges(prev => prev.map(x => x.id === c.id ? { ...x, myTotal: 0 } : x));
   }
 
   async function joinTeam(teamId: string, challengeId: string) {
@@ -251,6 +260,12 @@ export default function ChallengesPage() {
                           <button onClick={() => deleteChallenge(c)} disabled={deletingId === c.id}
                             className="text-xs text-red-400 hover:text-red-300 hover:underline disabled:opacity-40">
                             {deletingId === c.id ? "…" : "Delete"}
+                          </button>
+                        )}
+                        {!c.isAdmin && (
+                          <button onClick={() => leaveChallenge(c)} disabled={leavingId === c.id}
+                            className="text-xs text-foreground-dim hover:text-red-400 hover:underline disabled:opacity-40">
+                            {leavingId === c.id ? "…" : "Leave"}
                           </button>
                         )}
                       </div>

@@ -77,5 +77,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (action === "deleteUser") {
+    const { userId } = body;
+    if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    await prisma.user.delete({ where: { id: userId } });
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ ok: true });
 }
