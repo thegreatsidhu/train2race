@@ -33,6 +33,7 @@ export default function ChallengesPage() {
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmLeaveId, setConfirmLeaveId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // ── Discover state ──────────────────────────────────────────────────────────
   const [challenges, setChallenges] = useState<any[]>([]);
@@ -101,7 +102,7 @@ export default function ChallengesPage() {
   }, [tab]);
 
   async function deleteChallenge(c: any) {
-    if (!confirm(`Delete "${c.title}"? This cannot be undone.`)) return;
+    setConfirmDeleteId(null);
     setDeletingId(c.id);
     const res = await fetch(`/api/teams/${c.teamId}/challenges/${c.id}`, { method: "DELETE" });
     setDeletingId(null);
@@ -298,10 +299,23 @@ export default function ChallengesPage() {
                             )
                           )}
                           {c.isAdmin && (
-                            <button onClick={() => deleteChallenge(c)} disabled={deletingId === c.id}
-                              className="px-4 py-2 rounded-full border border-red-700/40 text-red-400 text-xs font-medium hover:border-red-500 transition-colors disabled:opacity-40">
-                              {deletingId === c.id ? "Deleting…" : "Delete challenge"}
-                            </button>
+                            confirmDeleteId === c.id ? (
+                              <>
+                                <button onClick={() => deleteChallenge(c)} disabled={deletingId === c.id}
+                                  className="px-4 py-2 rounded-full bg-red-600 text-white text-xs font-medium disabled:opacity-50">
+                                  {deletingId === c.id ? "Deleting…" : "Yes, delete"}
+                                </button>
+                                <button onClick={() => setConfirmDeleteId(null)}
+                                  className="px-4 py-2 rounded-full border border-border text-xs">
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => setConfirmDeleteId(c.id)}
+                                className="px-4 py-2 rounded-full border border-red-700/40 text-red-400 text-xs font-medium hover:border-red-500 transition-colors">
+                                Delete challenge
+                              </button>
+                            )
                           )}
                         </div>
                       </div>
