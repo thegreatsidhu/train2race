@@ -33,7 +33,7 @@ export default function LoginPage() {
         </div>
 
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Welcome back</h1>
-        <p className="text-foreground-dim text-sm mb-6">Log in to see today&apos;s advice.</p>
+        <p className="text-foreground-dim text-sm mb-6">Log in to your team and training dashboard.</p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
