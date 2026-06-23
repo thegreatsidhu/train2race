@@ -207,6 +207,18 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
   const [moving, setMoving] = useState(false);
   const [moveDate, setMoveDate] = useState("");
   const [showMove, setShowMove] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const totalMin = workout.durationMin || 0;
+  const [editForm, setEditForm] = useState({
+    type: workout.type || "easy_run",
+    title: workout.title || "",
+    distance: workout.distanceKm ? (workout.distanceKm / 1.60934).toFixed(1) : "",
+    durationHours: totalMin ? String(Math.floor(totalMin / 60)) : "",
+    durationMins: totalMin ? String(totalMin % 60) : "",
+    description: workout.description || "",
+  });
   const [form, setForm] = useState({ feel: "", effort: 3, actualDistanceMi: workout.distanceKm ? (workout.distanceKm/1.60934).toFixed(2) : "", actualDurationMin: workout.durationMin ? String(workout.durationMin) : "", notes: "" });
 
   async function handleMove() {
@@ -223,64 +235,134 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
     setTimeout(() => { onLogged(); onClose(); }, 800);
   }
 
+  async function handleEditSave() {
+    if (!editForm.title.trim()) { setEditError("Title is required."); return; }
+    const durationMin = Number(editForm.durationHours || 0) * 60 + Number(editForm.durationMins || 0);
+    setEditSaving(true); setEditError("");
+    const res = await fetch("/api/races/workouts/" + workout.id, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: editForm.type,
+        title: editForm.title,
+        description: editForm.description,
+        distanceKm: editForm.distance || null,
+        durationMin: durationMin || null,
+      }),
+    });
+    setEditSaving(false);
+    if (res.ok) { onLogged(); onClose(); }
+    else { const d = await res.json().catch(() => ({})); setEditError(d.error || "Failed to save."); }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-4">
           <div>
             <span className={"text-xs font-medium px-2 py-0.5 rounded-full " + (TYPE_COLORS[workout.type] || "bg-surface border border-border text-foreground-dim")}>{workout.type.replace(/_/g, " ")}</span>
             <h2 className="text-lg font-semibold mt-2">{workout.title}</h2>
             <p className="text-xs text-foreground-dim mt-0.5">{workout.day} - Week {workout.week} - {workout.date ? new Date(workout.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : ""}{workout.distanceKm ? " - " + (workout.distanceKm/1.60934).toFixed(1) + " mi planned" : ""}{workout.durationMin && !workout.distanceKm ? " - " + workout.durationMin + " min planned" : ""}</p>
           </div>
-          <button onClick={onClose} className="text-foreground-dim hover:text-foreground text-xl leading-none ml-4">x</button>
+          <div className="flex items-center gap-2 ml-4 shrink-0">
+            <button onClick={() => { setEditing(e => !e); setEditError(""); }} className={"text-xs px-3 py-1 rounded-full border transition-colors " + (editing ? "bg-surface border-signal text-signal" : "border-border text-foreground-dim hover:text-foreground hover:bg-surface")}>
+              {editing ? "Cancel edit" : "Edit"}
+            </button>
+            <button onClick={onClose} className="text-foreground-dim hover:text-foreground text-xl leading-none">x</button>
+          </div>
         </div>
-        <div className="rounded-xl bg-surface border border-border p-3 mb-4">
-          <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Coach notes</p>
-          <p className="text-sm leading-relaxed">{workout.description}</p>
-        </div>
-        {!workout.completed && (
-          <div className="mb-4 border-t border-border pt-4">
-            {!showMove ? (
-              <button onClick={() => setShowMove(true)} className="w-full mt-2 py-2 rounded-full border border-signal text-signal text-sm font-medium hover:bg-signal hover:text-background transition-colors">Move to a different day</button>
-            ) : (
-              <div className="rounded-xl border border-border bg-surface p-3">
-                <p className="text-xs text-foreground-dim mb-2">Pick a new date:</p>
-                <div className="flex gap-2 flex-wrap">
-                  <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} className="flex-1 px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal"/>
-                  <button onClick={handleMove} disabled={moving||!moveDate} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-60">{moving ? "Moving..." : "Move"}</button>
-                  <button onClick={() => setShowMove(false)} className="text-xs text-foreground-dim px-2">Cancel</button>
+
+        {editing ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Type</label>
+                <select className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+                  value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}>
+                  {WORKOUT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label>
+                <input className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+                  value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Distance (mi)</label>
+                <input type="number" step="0.1" placeholder="optional" className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+                  value={editForm.distance} onChange={e => setEditForm(f => ({ ...f, distance: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Duration</label>
+                <div className="flex gap-2">
+                  <input type="number" min="0" placeholder="0 hr" className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+                    value={editForm.durationHours} onChange={e => setEditForm(f => ({ ...f, durationHours: e.target.value }))} />
+                  <input type="number" min="0" max="59" placeholder="0 min" className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"
+                    value={editForm.durationMins} onChange={e => setEditForm(f => ({ ...f, durationMins: e.target.value }))} />
                 </div>
               </div>
-            )}
-          </div>
-        )}
-        {workout.completed ? (
-          <p className="text-sm text-signal text-center font-medium py-2">Logged to your activity feed</p>
-        ) : (
-          <>
-            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Log this workout</p>
-            <div className="mb-4">
-              <label className="text-xs text-foreground-dim mb-2 block">How did it feel?</label>
-              <div className="flex flex-wrap gap-2">
-                {FEEL_OPTIONS.map(opt => (
-                  <button key={opt.value} onClick={() => setForm({...form, feel: opt.value})} className={"text-xs px-3 py-1.5 rounded-full border transition-colors " + (form.feel===opt.value ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>{opt.label}</button>
-                ))}
+              <div className="col-span-2">
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Notes / description</label>
+                <textarea rows={3} className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal resize-none"
+                  value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
               </div>
             </div>
-            <div className="mb-4">
-              <label className="text-xs text-foreground-dim mb-1 block">Effort (RPE): {form.effort} - {EFFORT_LABELS[form.effort]}</label>
-              <input type="range" min={1} max={7} value={form.effort} onChange={e => setForm({...form, effort: Number(e.target.value)})} className="w-full accent-signal"/>
-              <div className="flex justify-between text-xs text-foreground-dim mt-0.5"><span>Easy</span><span>Max</span></div>
+            {editError && <p className="text-red-400 text-xs">{editError}</p>}
+            <button onClick={handleEditSave} disabled={editSaving} className="w-full py-3 rounded-full bg-signal text-background font-medium text-sm disabled:opacity-60">
+              {editSaving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-xl bg-surface border border-border p-3 mb-4">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Coach notes</p>
+              <p className="text-sm leading-relaxed">{workout.description}</p>
             </div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div><label className="text-xs text-foreground-dim mb-1 block">Actual distance (mi)</label><input type="number" step="0.1" placeholder="e.g. 6.2" value={form.actualDistanceMi} onChange={e => setForm({...form, actualDistanceMi: e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
-              <div><label className="text-xs text-foreground-dim mb-1 block">Actual duration (min)</label><input type="number" placeholder="e.g. 45" value={form.actualDurationMin} onChange={e => setForm({...form, actualDurationMin: e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
-            </div>
-            <div className="mb-5">
-              <label className="text-xs text-foreground-dim mb-1 block">Notes (optional)</label>
-              <textarea rows={2} placeholder="Anything to remember..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-none"/>
-            </div>
-            <button onClick={handleLog} disabled={logging||submitted} className="w-full py-3 rounded-full bg-signal text-background font-medium text-sm hover:bg-signal-dim transition-colors disabled:opacity-60">{submitted ? "Logged!" : logging ? "Saving..." : "Log workout & mark done"}</button>
+            {!workout.completed && (
+              <div className="mb-4 border-t border-border pt-4">
+                {!showMove ? (
+                  <button onClick={() => setShowMove(true)} className="w-full mt-2 py-2 rounded-full border border-signal text-signal text-sm font-medium hover:bg-signal hover:text-background transition-colors">Move to a different day</button>
+                ) : (
+                  <div className="rounded-xl border border-border bg-surface p-3">
+                    <p className="text-xs text-foreground-dim mb-2">Pick a new date:</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} className="flex-1 px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal"/>
+                      <button onClick={handleMove} disabled={moving||!moveDate} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-60">{moving ? "Moving..." : "Move"}</button>
+                      <button onClick={() => setShowMove(false)} className="text-xs text-foreground-dim px-2">Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {workout.completed ? (
+              <p className="text-sm text-signal text-center font-medium py-2">Logged to your activity feed</p>
+            ) : (
+              <>
+                <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Log this workout</p>
+                <div className="mb-4">
+                  <label className="text-xs text-foreground-dim mb-2 block">How did it feel?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {FEEL_OPTIONS.map(opt => (
+                      <button key={opt.value} onClick={() => setForm({...form, feel: opt.value})} className={"text-xs px-3 py-1.5 rounded-full border transition-colors " + (form.feel===opt.value ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>{opt.label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="text-xs text-foreground-dim mb-1 block">Effort (RPE): {form.effort} - {EFFORT_LABELS[form.effort]}</label>
+                  <input type="range" min={1} max={7} value={form.effort} onChange={e => setForm({...form, effort: Number(e.target.value)})} className="w-full accent-signal"/>
+                  <div className="flex justify-between text-xs text-foreground-dim mt-0.5"><span>Easy</span><span>Max</span></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div><label className="text-xs text-foreground-dim mb-1 block">Actual distance (mi)</label><input type="number" step="0.1" placeholder="e.g. 6.2" value={form.actualDistanceMi} onChange={e => setForm({...form, actualDistanceMi: e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
+                  <div><label className="text-xs text-foreground-dim mb-1 block">Actual duration (min)</label><input type="number" placeholder="e.g. 45" value={form.actualDurationMin} onChange={e => setForm({...form, actualDurationMin: e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
+                </div>
+                <div className="mb-5">
+                  <label className="text-xs text-foreground-dim mb-1 block">Notes (optional)</label>
+                  <textarea rows={2} placeholder="Anything to remember..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-none"/>
+                </div>
+                <button onClick={handleLog} disabled={logging||submitted} className="w-full py-3 rounded-full bg-signal text-background font-medium text-sm hover:bg-signal-dim transition-colors disabled:opacity-60">{submitted ? "Logged!" : logging ? "Saving..." : "Log workout & mark done"}</button>
+              </>
+            )}
           </>
         )}
       </div>
