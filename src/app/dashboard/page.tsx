@@ -242,6 +242,15 @@ export default async function TodayPage() {
         </section>
       )}
 
+      {/* Weather, leaderboard, upcoming races — city from timezone, user-editable */}
+      <LocalSection
+        defaultCity={timezoneCity ?? raceCity}
+        registeredRaceId={raceReg?.majorRace?.id ?? null}
+        leaderboard={leaderboard}
+        teamId={primaryTeam?.id ?? null}
+        teamName={primaryTeam?.name ?? null}
+      />
+
       {/* Race training card */}
       {activeRace && (
         <section className="mb-6">
@@ -320,14 +329,43 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {/* Weather, leaderboard, upcoming races — city from timezone, user-editable */}
-      <LocalSection
-        defaultCity={timezoneCity ?? raceCity}
-        registeredRaceId={raceReg?.majorRace?.id ?? null}
-        leaderboard={leaderboard}
-        teamId={primaryTeam?.id ?? null}
-        teamName={primaryTeam?.name ?? null}
-      />
+      {/* Active challenges */}
+      {activeChallenges.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-sm font-medium text-foreground-dim mb-3">Active challenges</h2>
+          <div className="space-y-3">
+            {activeChallenges.map(c => {
+              const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
+              const pct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
+              const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
+              return (
+                <Link key={c.id} href={`/dashboard/teams/${c.team.id}`} className="block rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-surface-raised transition-colors">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-medium">{c.title}</p>
+                      <p className="text-xs text-foreground-dim mt-0.5 capitalize">{c.team.name} · {c.type} · {c.unit}</p>
+                    </div>
+                    <span className="text-xs text-foreground-dim shrink-0 ml-3">{daysLeft}d left</span>
+                  </div>
+                  {pct !== null ? (
+                    <div>
+                      <div className="flex justify-between text-xs text-foreground-dim mb-1">
+                        <span>{myTotal} / {c.goal} {c.unit}</span>
+                        <span>{pct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-border rounded-full">
+                        <div className="h-1.5 rounded-full bg-signal transition-all" style={{width:`${pct}%`}} />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-foreground-dim">{myTotal} {c.unit} logged</p>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Connect device prompt */}
       {!hasConnection && !isNewUser && (
@@ -390,44 +428,6 @@ export default async function TodayPage() {
             <TrendChart history={history}/>
           </section>
         </>
-      )}
-
-      {/* Active challenges */}
-      {activeChallenges.length > 0 && (
-        <section className="mb-6">
-          <h2 className="text-sm font-medium text-foreground-dim mb-3">Active challenges</h2>
-          <div className="space-y-3">
-            {activeChallenges.map(c => {
-              const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
-              const pct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
-              const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
-              return (
-                <Link key={c.id} href={`/dashboard/teams/${c.team.id}`} className="block rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-surface-raised transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="text-sm font-medium">{c.title}</p>
-                      <p className="text-xs text-foreground-dim mt-0.5 capitalize">{c.team.name} · {c.type} · {c.unit}</p>
-                    </div>
-                    <span className="text-xs text-foreground-dim shrink-0 ml-3">{daysLeft}d left</span>
-                  </div>
-                  {pct !== null ? (
-                    <div>
-                      <div className="flex justify-between text-xs text-foreground-dim mb-1">
-                        <span>{myTotal} / {c.goal} {c.unit}</span>
-                        <span>{pct}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-border rounded-full">
-                        <div className="h-1.5 rounded-full bg-signal transition-all" style={{width:`${pct}%`}} />
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-foreground-dim">{myTotal} {c.unit} logged</p>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </section>
       )}
 
       {/* Recent activity */}
