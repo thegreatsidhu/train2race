@@ -108,11 +108,14 @@ export default function ChallengesPage() {
   }
 
   async function leaveChallenge(c: any) {
-    if (!confirm(`Leave "${c.title}"? This will remove all your logged entries for this challenge.`)) return;
+    if (!confirm(`Leave "${c.title}"? This will clear all your logged entries for this challenge.`)) return;
     setLeavingId(c.id);
-    await fetch(`/api/teams/${c.teamId}/challenges/${c.id}/entries`, { method: "DELETE" });
+    const res = await fetch(`/api/teams/${c.teamId}/challenges/${c.id}/entries`, { method: "DELETE" });
     setLeavingId(null);
-    setMyChallenges(prev => prev.map(x => x.id === c.id ? { ...x, myTotal: 0 } : x));
+    if (res.ok) {
+      setExpandedId(null);
+      setMyChallenges(prev => prev.map(x => x.id === c.id ? { ...x, myTotal: 0 } : x));
+    }
   }
 
   async function joinTeam(teamId: string, challengeId: string) {
