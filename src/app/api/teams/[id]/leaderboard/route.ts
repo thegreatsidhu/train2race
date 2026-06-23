@@ -25,6 +25,7 @@ function periodGte(period: string): Date | null {
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
   const { id: teamId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,21 +52,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const tOr = type !== "all" ? typeOR(type) : null;
   if (tOr) Object.assign(actWhere, tOr);
 
-  const orderField = metric === "duration" ? "durationSec" : metric === "count" ? undefined : "distanceM";
   const grouped = await prisma.activity.groupBy({
     by: ["userId"],
     where: actWhere,
     _sum:   { distanceM: true, durationSec: true },
-    _count: { id: true },
-    orderBy: orderField
-      ? { _sum: { [orderField]: "desc" } }
-      : { _count: { id: "desc" } },
+    _count: { userId: true },
+    orderBy: metric === "count"
+      ? { _count: { userId: "desc" } }
+      : metric === "duration"
+        ? { _sum: { durationSec: "desc" } }
+        : { _sum: { distanceM: "desc" } },
   });
 
   // Include members with 0 activity
   const activeIds = new Set(grouped.map(g => g.userId));
   const inactive = memberIds.filter(id => !activeIds.has(id)).map(id => ({
-    userId: id, _sum: { distanceM: 0, durationSec: 0 }, _count: { id: 0 },
+    userId: id, _sum: { distanceM: 0, durationSec: 0 }, _count: { userId: 0 },
   }));
 
   const all = [...grouped, ...inactive];
@@ -80,8 +82,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     isMe:          g.userId === userId,
     distanceMi:    g._sum.distanceM ? +(g._sum.distanceM / 1609.34).toFixed(1) : 0,
     durationMin:   g._sum.durationSec ? Math.round(g._sum.durationSec / 60) : 0,
-    activityCount: g._count.id || 0,
+    activityCount: g._count.userId || 0,
   }));
 
   return NextResponse.json({ entries });
+  } catch (err: any) {
+    console.error("Team leaderboard error:", err);
+    return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 });
+  }
 }

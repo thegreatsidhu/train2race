@@ -20,6 +20,7 @@ export default function LeaderboardPage() {
   const [teams,    setTeams]    = useState<any[]>([]);
   const [entries,  setEntries]  = useState<any[]>([]);
   const [loading,  setLoading]  = useState(false);
+  const [apiError, setApiError] = useState("");
   const [cityInput, setCityInput] = useState("");
 
   // Load user's teams for the team filter
@@ -28,10 +29,11 @@ export default function LeaderboardPage() {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setApiError("");
     const params = new URLSearchParams({ period, metric, type, sex, ageGroup, city, teamId });
     const res = await fetch(`/api/leaderboard?${params}`);
     const d   = await res.json().catch(() => ({}));
+    if (!res.ok) setApiError(d.error || `Error ${res.status}`);
     setEntries(d.entries || []);
     setLoading(false);
   }, [period, metric, type, sex, ageGroup, city, teamId]);
@@ -121,6 +123,8 @@ export default function LeaderboardPage() {
       </div>
 
       {/* Results */}
+      {apiError && <p className="text-red-400 text-sm mb-4 rounded-xl border border-red-900 bg-red-950/30 px-4 py-3">{apiError}</p>}
+
       {loading ? (
         <div className="space-y-3">
           {[1,2,3,4,5].map(i => <div key={i} className="h-16 rounded-2xl bg-surface animate-pulse" />)}
