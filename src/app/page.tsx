@@ -83,6 +83,51 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Group challenges */}
+        <section className="py-16 border-t border-border grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Group challenges</p>
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-4">Set a goal. Compete together.</h2>
+            <p className="text-foreground-dim leading-relaxed mb-6">Create a custom challenge for your team — most miles in July, longest long run, most active days. Everyone logs their progress and the leaderboard updates in real time.</p>
+            <div className="space-y-3 text-sm text-foreground-dim">
+              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Track by distance, duration, or activity count</span></div>
+              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Run for a week, a month, or the whole training block</span></div>
+              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Live leaderboard updates as teammates log entries</span></div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
+            <div>
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Active challenge</p>
+              <p className="font-semibold">July Miles Challenge</p>
+              <p className="text-xs text-foreground-dim mt-0.5">Run · Distance · 18 days left</p>
+            </div>
+            <div className="border-t border-border pt-3 space-y-3">
+              {[
+                { rank: "🥇", name: "Marcus T.", total: 67, pct: 67, me: false },
+                { rank: "🥈", name: "You", total: 54, pct: 54, me: true },
+                { rank: "🥉", name: "Sarah K.", total: 41, pct: 41, me: false },
+                { rank: "#4",  name: "Priya S.", total: 28, pct: 28, me: false },
+              ].map((m) => (
+                <div key={m.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-foreground-dim w-5">{m.rank}</span>
+                      <span className={"text-sm font-medium " + (m.me ? "text-signal" : "")}>{m.name}</span>
+                    </div>
+                    <span className="text-xs text-foreground-dim">{m.total} mi</span>
+                  </div>
+                  <div className="w-full h-1 bg-border rounded-full">
+                    <div className={"h-1 rounded-full " + (m.me ? "bg-signal" : "bg-foreground-dim/40")} style={{ width: m.pct + "%" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border pt-2">
+              <p className="text-xs text-foreground-dim">Goal: 100 mi · Chicago Marathon Crew</p>
+            </div>
+          </div>
+        </section>
+
         {/* Community + Leaderboards */}
         <section className="py-16 border-t border-border">
           <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Global community</p>
