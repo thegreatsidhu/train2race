@@ -13,6 +13,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [lbView,setLbView]=useState<"plan"|"activity"|"challenge">("plan");
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
   const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbChallengeId,setLbChallengeId]=useState<string|null>(null);
+  const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);});}, []);
   async function loadTeam(tid:string){const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);}
@@ -52,6 +53,37 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     if(lbMetric==="duration"){const h=Math.floor(e.durationMin/60);const m=e.durationMin%60;return h>0?`${h}h ${m}m`:`${m}m`;}
     return`${e.activityCount} activities`;
   }
+
+  useEffect(()=>{
+    if(!showInvitePanel||inviteQuery.length<2){setInviteResults([]);return;}
+    const t=setTimeout(async()=>{
+      setInviteSearching(true);
+      const res=await fetch(`/api/users/search?q=${encodeURIComponent(inviteQuery)}`);
+      const d=await res.json().catch(()=>({}));
+      // Filter out existing members
+      const existingIds=new Set(team?.members?.map((m:any)=>m.userId)||[]);
+      setInviteResults((d.users||[]).filter((u:any)=>!existingIds.has(u.id)));
+      setInviteSearching(false);
+    },300);
+    return()=>clearTimeout(t);
+  },[inviteQuery,showInvitePanel,team]);
+
+  async function addMember(userId:string,name:string){
+    setAddingMember(userId);
+    const res=await fetch(`/api/teams/${id}/members`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId})});
+    const d=await res.json().catch(()=>({}));
+    setAddingMember(null);
+    if(res.ok){
+      setInviteResults(r=>r.filter(u=>u.id!==userId));
+      setInviteMsg(`${name} added to the team!`);
+      setTimeout(()=>setInviteMsg(""),3000);
+      // Refresh team data to show new member
+      loadTeam(id);
+    } else {
+      setInviteMsg(d.error||"Failed to add member.");
+      setTimeout(()=>setInviteMsg(""),3000);
+    }
+  }
   function onMetricChange(metric:string){const firstUnit=METRIC_UNITS[metric]?.[0]??"mi";setChallengeForm(f=>({...f,metric,unit:firstUnit}));}
   if(!team)return<div className="max-w-3xl px-8 py-10"><p className="text-foreground-dim text-sm">Loading...</p></div>;
   const myUserId = team.members.find((m:any)=>m.isMe)?.userId;
@@ -65,8 +97,39 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           <button onClick={copyInviteLink} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border hover:bg-surface-raised transition-colors text-sm"><span className="text-xs">🔗</span><span className="text-xs text-foreground-dim">{copiedLink?"Link copied!":"Copy invite link"}</span></button>
           <p className="text-xs text-foreground-dim">Invite members</p>
           {team.isAdmin&&<button onClick={togglePrivacy} disabled={togglingPrivacy} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingPrivacy?"Saving...":(team.isPrivate?"Private — make public":"Public — make private")}</button>}
+          {team.isAdmin&&<button onClick={()=>{setShowInvitePanel(p=>!p);setInviteQuery("");setInviteResults([]);}} className={"text-xs transition-colors "+(showInvitePanel?"text-signal hover:text-foreground":"text-foreground-dim hover:text-foreground")}>+ Find &amp; add members</button>}
         </div>
       </div>
+
+      {/* Member invite panel */}
+      {showInvitePanel&&team.isAdmin&&(
+        <div className="rounded-2xl border border-border bg-surface p-5 mb-6">
+          <h3 className="font-medium text-sm mb-3">Add members by name</h3>
+          <input
+            value={inviteQuery} onChange={e=>setInviteQuery(e.target.value)}
+            placeholder="Search athletes by name..."
+            className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm mb-3"
+            autoFocus
+          />
+          {inviteMsg&&<p className="text-xs text-signal mb-2">{inviteMsg}</p>}
+          {inviteSearching&&<p className="text-xs text-foreground-dim">Searching...</p>}
+          {!inviteSearching&&inviteQuery.length>=2&&inviteResults.length===0&&<p className="text-xs text-foreground-dim">No athletes found (they may have a private account).</p>}
+          {inviteResults.length>0&&(
+            <div className="space-y-2">
+              {inviteResults.map((u:any)=>(
+                <div key={u.id} className="flex items-center justify-between rounded-xl bg-background border border-border px-3 py-2">
+                  <div><p className="text-sm font-medium">{u.name}</p>{u.city&&<p className="text-xs text-foreground-dim">{u.city}</p>}</div>
+                  <button onClick={()=>addMember(u.id,u.name)} disabled={addingMember===u.id}
+                    className="px-3 py-1 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-50">
+                    {addingMember===u.id?"Adding...":"Add"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {inviteQuery.length<2&&<p className="text-xs text-foreground-dim">Type at least 2 characters to search.</p>}
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold">{team.members.length}</p><p className="text-xs text-foreground-dim mt-0.5">Members</p></div>
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold">{Math.round(team.members.reduce((s:number,m:any)=>s+m.pct,0)/(team.members.length||1))}%</p><p className="text-xs text-foreground-dim mt-0.5">Avg progress</p></div>

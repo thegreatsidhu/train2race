@@ -48,32 +48,50 @@ export async function GET(req: Request) {
     const ageGroup = searchParams.get("ageGroup") || "all";
     const city     = searchParams.get("city")     || "";
     const teamId   = searchParams.get("teamId")   || "";
+    const raceId   = searchParams.get("raceId")   || "";
 
-    // 1. Resolve eligible userIds from profile filters
-    const userWhere: any = {};
+    // 1. Resolve eligible userIds from profile filters (always exclude private accounts)
+    const userWhere: any = { OR: [{ isPrivate: false }, { isPrivate: null }] };
     if (sex !== "all") userWhere.sex = sex;
     if (ageGroup !== "all") {
       const r = ageRange(ageGroup);
       if (r) userWhere.dateOfBirth = r;
     }
-    // city filter only if column exists (added in schema later)
     if (city) {
       try { userWhere.city = { contains: city, mode: "insensitive" }; } catch {}
     }
 
     let eligibleIds: string[] | null = null;
 
-    if (teamId) {
-      const members = await prisma.teamMember.findMany({ where: { teamId }, select: { userId: true } });
-      const teamUserIds = members.map((m: any) => m.userId);
-      if (Object.keys(userWhere).length > 0) {
-        const filtered = await prisma.user.findMany({ where: { ...userWhere, id: { in: teamUserIds } }, select: { id: true } });
+    // Race filter: users registered for this major race
+    if (raceId) {
+      const regs = await prisma.raceRegistration.findMany({ where: { majorRaceId: raceId }, select: { userId: true } });
+      const raceUserIds = regs.map((r: any) => r.userId);
+      const baseWhere = { ...userWhere, id: { in: raceUserIds } };
+      if (teamId) {
+        const members = await prisma.teamMember.findMany({ where: { teamId }, select: { userId: true } });
+        const teamIds = members.map((m: any) => m.userId);
+        const filtered = await (prisma as any).user.findMany({ where: { ...baseWhere, id: { in: teamIds } }, select: { id: true } }).catch(() =>
+          prisma.user.findMany({ where: { id: { in: teamIds.filter((id: string) => raceUserIds.includes(id)) } }, select: { id: true } })
+        );
         eligibleIds = filtered.map((u: any) => u.id);
       } else {
-        eligibleIds = teamUserIds;
+        const filtered = await (prisma as any).user.findMany({ where: baseWhere, select: { id: true } }).catch(() =>
+          prisma.user.findMany({ where: { id: { in: raceUserIds } }, select: { id: true } })
+        );
+        eligibleIds = filtered.map((u: any) => u.id);
       }
-    } else if (Object.keys(userWhere).length > 0) {
-      const users = await prisma.user.findMany({ where: userWhere, select: { id: true } });
+    } else if (teamId) {
+      const members = await prisma.teamMember.findMany({ where: { teamId }, select: { userId: true } });
+      const teamUserIds = members.map((m: any) => m.userId);
+      const filtered = await (prisma as any).user.findMany({ where: { ...userWhere, id: { in: teamUserIds } }, select: { id: true } }).catch(() =>
+        prisma.user.findMany({ where: { id: { in: teamUserIds } }, select: { id: true } })
+      );
+      eligibleIds = filtered.map((u: any) => u.id);
+    } else {
+      const users = await (prisma as any).user.findMany({ where: userWhere, select: { id: true } }).catch(() =>
+        prisma.user.findMany({ select: { id: true } })
+      );
       eligibleIds = users.map((u: any) => u.id);
     }
 

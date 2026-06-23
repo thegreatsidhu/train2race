@@ -5,7 +5,7 @@ const TIMEZONES = ["America/New_York","America/Chicago","America/Denver","Americ
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"personal"|"body"|"account">("personal");
-  const [name, setName] = useState(""); const [dob, setDob] = useState(""); const [sex, setSex] = useState(""); const [city, setCity] = useState(""); const [timezone, setTimezone] = useState("America/Los_Angeles");
+  const [name, setName] = useState(""); const [dob, setDob] = useState(""); const [sex, setSex] = useState(""); const [city, setCity] = useState(""); const [isPrivate, setIsPrivate] = useState(false); const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [weightLbs, setWeightLbs] = useState(""); const [heightFt, setHeightFt] = useState(""); const [heightIn, setHeightIn] = useState("");
   const [email, setEmail] = useState(""); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState(""); const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(""); const [error, setError] = useState("");
@@ -18,6 +18,7 @@ export default function ProfilePage() {
       if (user.dateOfBirth) setDob(user.dateOfBirth.slice(0,10));
       if (user.sex) setSex(user.sex);
       if (user.city) setCity(user.city);
+      if (user.isPrivate != null) setIsPrivate(!!user.isPrivate);
       if (user.timezone) setTimezone(user.timezone);
       if (user.weightKg) setWeightLbs(Math.round(user.weightKg*2.20462).toString());
       if (user.heightCm) { const t=Math.round(user.heightCm/2.54); setHeightFt(Math.floor(t/12).toString()); setHeightIn((t%12).toString()); }
@@ -29,7 +30,7 @@ export default function ProfilePage() {
 
   async function savePersonal() {
     setSaving(true); setError("");
-    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,timezone})});
+    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,isPrivate,timezone})});
     setSaving(false); if(res.ok) showSaved("Saved"); else setError("Failed to save");
   }
   async function saveBody() {
@@ -73,6 +74,16 @@ export default function ProfilePage() {
         <div><label className="block text-sm font-medium mb-1">Date of birth{age?` — age ${age}`:""}</label><input type="date" value={dob} onChange={e=>setDob(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
         <div><label className="block text-sm font-medium mb-1">Biological sex</label><p className="text-xs text-foreground-dim mb-2">Used for HR and HRV baseline calculations only.</p><select value={sex} onChange={e=>setSex(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm"><option value="">Prefer not to say</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
         <div><label className="block text-sm font-medium mb-1">City</label><p className="text-xs text-foreground-dim mb-2">Used for leaderboard location filtering.</p><input value={city} onChange={e=>setCity(e.target.value)} placeholder="e.g. Los Angeles" className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Account privacy</label>
+          <p className="text-xs text-foreground-dim mb-2">Private accounts are hidden from global leaderboards and member search.</p>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div onClick={()=>setIsPrivate(p=>!p)} className={"relative w-10 h-5 rounded-full transition-colors "+(isPrivate?"bg-signal":"bg-border")}>
+              <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform "+(isPrivate?"left-5":"left-0.5")} />
+            </div>
+            <span className="text-sm">{isPrivate ? "Private — hidden from leaderboards and search" : "Public — visible on leaderboards"}</span>
+          </label>
+        </div>
         <div><label className="block text-sm font-medium mb-1">Timezone</label><select value={timezone} onChange={e=>setTimezone(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm">{TIMEZONES.map(tz=><option key={tz} value={tz}>{tz.replace(/_/g," ")}</option>)}</select></div>
         <div className="flex items-center gap-3 pt-2"><button onClick={savePersonal} disabled={saving} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{saving?"Saving...":"Save"}</button>{saved&&<span className="text-sm text-signal">{saved} ✓</span>}{error&&<span className="text-sm text-red-400">{error}</span>}</div>
       </div>}

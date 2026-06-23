@@ -146,7 +146,7 @@ export default async function TodayPage() {
   const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
-    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:5,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
+    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:7,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:weekStart,lte:weekEnd}},select:{distanceM:true,durationSec:true,type:true}}),
     prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true}}),

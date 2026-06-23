@@ -1,100 +1,147 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
-const PERIODS   = [{ v: "week", l: "This week" }, { v: "month", l: "This month" }, { v: "year", l: "This year" }, { v: "all", l: "All time" }];
-const METRICS   = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Duration" }, { v: "count", l: "Activities" }];
-const TYPES     = [{ v: "all", l: "All" }, { v: "run", l: "Run" }, { v: "bike", l: "Bike" }, { v: "swim", l: "Swim" }, { v: "walk", l: "Walk" }, { v: "strength", l: "Strength" }];
-const SEXES     = [{ v: "all", l: "Any" }, { v: "male", l: "Male" }, { v: "female", l: "Female" }, { v: "other", l: "Other" }];
+const PERIODS    = [{ v: "week", l: "This week" }, { v: "month", l: "This month" }, { v: "year", l: "This year" }, { v: "all", l: "All time" }];
+const METRICS    = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Duration" }, { v: "count", l: "Activities" }];
+const TYPES      = [{ v: "all", l: "All" }, { v: "run", l: "Run" }, { v: "bike", l: "Bike" }, { v: "swim", l: "Swim" }, { v: "walk", l: "Walk" }, { v: "strength", l: "Strength" }];
+const SEXES      = [{ v: "all", l: "Any" }, { v: "male", l: "Male" }, { v: "female", l: "Female" }, { v: "other", l: "Other" }];
 const AGE_GROUPS = [{ v: "all", l: "Any age" }, { v: "18-29", l: "18–29" }, { v: "30-39", l: "30–39" }, { v: "40-49", l: "40–49" }, { v: "50-59", l: "50–59" }, { v: "60+", l: "60+" }];
-
 const MEDAL = ["🥇", "🥈", "🥉"];
 
-export default function LeaderboardPage() {
-  const [period,   setPeriod]   = useState("month");
-  const [metric,   setMetric]   = useState("distance");
-  const [type,     setType]     = useState("all");
-  const [sex,      setSex]      = useState("all");
-  const [ageGroup, setAgeGroup] = useState("all");
-  const [city,     setCity]     = useState("");
-  const [teamId,   setTeamId]   = useState("");
-  const [teams,    setTeams]    = useState<any[]>([]);
-  const [entries,  setEntries]  = useState<any[]>([]);
-  const [loading,  setLoading]  = useState(false);
-  const [apiError, setApiError] = useState("");
-  const [cityInput, setCityInput] = useState("");
+function Chips({ items, value, onChange }: { items: { v: string; l: string }[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map(i => (
+        <button key={i.v} onClick={() => onChange(i.v)}
+          className={"px-3 py-1.5 rounded-full text-xs font-medium transition-colors " + (value === i.v ? "bg-signal text-background" : "border border-border hover:bg-surface text-foreground-dim")}>
+          {i.l}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-  // Load user's teams for the team filter
+export default function LeaderboardPage() {
+  const [period,    setPeriod]    = useState("month");
+  const [metric,    setMetric]    = useState("distance");
+  const [type,      setType]      = useState("all");
+  const [sex,       setSex]       = useState("all");
+  const [ageGroup,  setAgeGroup]  = useState("all");
+  const [city,      setCity]      = useState("");
+  const [cityInput, setCityInput] = useState("");
+  const [teamId,    setTeamId]    = useState("");
+  const [raceId,    setRaceId]    = useState("");
+
+  const [teams,     setTeams]     = useState<any[]>([]);
+  const [races,     setRaces]     = useState<any[]>([]);
+  const [adminTeams,setAdminTeams]= useState<any[]>([]); // teams where current user is admin
+  const [entries,   setEntries]   = useState<any[]>([]);
+  const [loading,   setLoading]   = useState(false);
+  const [apiError,  setApiError]  = useState("");
+
+  // Invite state
+  const [inviting,    setInviting]    = useState<{ userId: string; name: string } | null>(null);
+  const [addingTo,    setAddingTo]    = useState<string | null>(null); // teamId being added to
+  const [addedMsg,    setAddedMsg]    = useState<string>("");
+  const inviteRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    fetch("/api/teams").then(r => r.json()).then(d => setTeams(d.teams || [])).catch(() => {});
+    fetch("/api/teams").then(r => r.json()).then(d => {
+      const t = d.teams || [];
+      setTeams(t);
+      setAdminTeams(t.filter((tm: any) => tm.members?.[0]?.role === "admin" || tm.isAdmin));
+    }).catch(() => {});
+    fetch("/api/major-races").then(r => r.json()).then(d => setRaces(d.races || [])).catch(() => {});
+  }, []);
+
+  // Close invite popover on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (inviteRef.current && !inviteRef.current.contains(e.target as Node)) setInviting(null);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setApiError("");
-    const params = new URLSearchParams({ period, metric, type, sex, ageGroup, city, teamId });
+    const params = new URLSearchParams({ period, metric, type, sex, ageGroup, city, teamId, raceId });
     const res = await fetch(`/api/leaderboard?${params}`);
     const d   = await res.json().catch(() => ({}));
     if (!res.ok) setApiError(d.error || `Error ${res.status}`);
     setEntries(d.entries || []);
     setLoading(false);
-  }, [period, metric, type, sex, ageGroup, city, teamId]);
+  }, [period, metric, type, sex, ageGroup, city, teamId, raceId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function inviteToTeam(targetUserId: string, tId: string) {
+    setAddingTo(tId);
+    const res = await fetch(`/api/teams/${tId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: targetUserId }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setAddingTo(null);
+    setInviting(null);
+    if (res.ok) setAddedMsg(`Added to team!`);
+    else if (d.alreadyMember) setAddedMsg("Already a member of that team.");
+    else setAddedMsg(d.error || "Failed to add.");
+    setTimeout(() => setAddedMsg(""), 3000);
+  }
 
   function formatValue(e: any) {
     if (metric === "distance") return `${e.distanceMi} mi`;
     if (metric === "duration") {
-      const h = Math.floor(e.durationMin / 60);
-      const m = e.durationMin % 60;
+      const h = Math.floor(e.durationMin / 60), m = e.durationMin % 60;
       return h > 0 ? `${h}h ${m}m` : `${m}m`;
     }
     return `${e.activityCount} activities`;
   }
 
-  function FilterChips<T extends { v: string; l: string }>({ items, value, onChange }: { items: T[]; value: string; onChange: (v: string) => void }) {
-    return (
-      <div className="flex flex-wrap gap-1.5">
-        {items.map(i => (
-          <button key={i.v} onClick={() => onChange(i.v)}
-            className={"px-3 py-1.5 rounded-full text-xs font-medium transition-colors " + (value === i.v ? "bg-signal text-background" : "border border-border hover:bg-surface text-foreground-dim")}>
-            {i.l}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  const activeFilters = [sex !== "all", ageGroup !== "all", city, teamId, raceId].filter(Boolean).length;
 
   return (
     <div className="max-w-2xl px-4 md:px-8 py-6 md:py-10">
-      <h1 className="text-2xl font-semibold mb-1">Leaderboard</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-semibold">Leaderboard</h1>
+        {addedMsg && <span className="text-xs text-signal bg-signal/10 border border-signal/20 px-3 py-1 rounded-full">{addedMsg}</span>}
+      </div>
       <p className="text-sm text-foreground-dim mb-6">Rankings across all Train2Race athletes.</p>
 
-      {/* Filters */}
-      <div className="space-y-4 mb-8 rounded-2xl border border-border bg-surface p-5">
+      {/* Core filters */}
+      <div className="space-y-4 mb-6 rounded-2xl border border-border bg-surface p-5">
         <div>
           <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Period</p>
-          <FilterChips items={PERIODS} value={period} onChange={setPeriod} />
+          <Chips items={PERIODS} value={period} onChange={setPeriod} />
         </div>
         <div>
           <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Metric</p>
-          <FilterChips items={METRICS} value={metric} onChange={setMetric} />
+          <Chips items={METRICS} value={metric} onChange={setMetric} />
         </div>
         <div>
           <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Activity type</p>
-          <FilterChips items={TYPES} value={type} onChange={setType} />
+          <Chips items={TYPES} value={type} onChange={setType} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+      </div>
+
+      {/* Advanced filters (collapsible-style grid) */}
+      <div className="space-y-4 mb-8 rounded-2xl border border-border bg-surface p-5">
+        <p className="text-xs text-foreground-dim uppercase tracking-wide">Filters{activeFilters > 0 ? ` · ${activeFilters} active` : ""}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Sex</p>
-            <FilterChips items={SEXES} value={sex} onChange={setSex} />
+            <p className="text-xs text-foreground-dim mb-2">Sex</p>
+            <Chips items={SEXES} value={sex} onChange={setSex} />
           </div>
           <div>
-            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Age group</p>
-            <FilterChips items={AGE_GROUPS} value={ageGroup} onChange={setAgeGroup} />
+            <p className="text-xs text-foreground-dim mb-2">Age group</p>
+            <Chips items={AGE_GROUPS} value={ageGroup} onChange={setAgeGroup} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">City</p>
+            <p className="text-xs text-foreground-dim mb-2">City</p>
             <div className="flex gap-2">
               <input
                 className="flex-1 bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
@@ -103,23 +150,41 @@ export default function LeaderboardPage() {
                 onChange={e => setCityInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && setCity(cityInput)}
               />
-              {cityInput !== city && (
-                <button onClick={() => setCity(cityInput)} className="px-3 py-1.5 rounded-xl bg-signal text-background text-xs font-medium">Go</button>
-              )}
-              {city && <button onClick={() => { setCity(""); setCityInput(""); }} className="text-xs text-foreground-dim hover:text-foreground">✕</button>}
+              {cityInput !== city
+                ? <button onClick={() => setCity(cityInput)} className="px-3 py-1.5 rounded-xl bg-signal text-background text-xs font-medium">Go</button>
+                : city && <button onClick={() => { setCity(""); setCityInput(""); }} className="text-xs text-foreground-dim hover:text-foreground px-1">✕</button>
+              }
             </div>
           </div>
           <div>
-            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Team</p>
+            <p className="text-xs text-foreground-dim mb-2">Team</p>
             <select
               className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
-              value={teamId}
-              onChange={e => setTeamId(e.target.value)}>
+              value={teamId} onChange={e => setTeamId(e.target.value)}>
               <option value="">All teams</option>
               {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
+          <div className="sm:col-span-2">
+            <p className="text-xs text-foreground-dim mb-2">Event / Race</p>
+            <select
+              className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
+              value={raceId} onChange={e => setRaceId(e.target.value)}>
+              <option value="">All events</option>
+              {races.map((r: any) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} · {new Date(r.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
+        {activeFilters > 0 && (
+          <button onClick={() => { setSex("all"); setAgeGroup("all"); setCity(""); setCityInput(""); setTeamId(""); setRaceId(""); }}
+            className="text-xs text-foreground-dim hover:text-foreground">
+            Clear all filters
+          </button>
+        )}
       </div>
 
       {/* Results */}
@@ -132,15 +197,18 @@ export default function LeaderboardPage() {
       ) : entries.length === 0 ? (
         <div className="text-center py-16 text-foreground-dim text-sm">
           No athletes found for these filters yet.
-          {(sex !== "all" || ageGroup !== "all" || city || teamId) && (
-            <button onClick={() => { setSex("all"); setAgeGroup("all"); setCity(""); setCityInput(""); setTeamId(""); }} className="block mx-auto mt-3 text-signal hover:underline text-xs">Clear filters</button>
+          {activeFilters > 0 && (
+            <button onClick={() => { setSex("all"); setAgeGroup("all"); setCity(""); setCityInput(""); setTeamId(""); setRaceId(""); }}
+              className="block mx-auto mt-3 text-signal hover:underline text-xs">
+              Clear filters
+            </button>
           )}
         </div>
       ) : (
         <div className="space-y-2">
           {entries.map((e: any) => (
-            <div key={e.userId} className="flex items-center gap-4 rounded-2xl border border-border bg-surface px-4 py-3">
-              <span className={"w-8 text-center text-base font-bold shrink-0 " + (e.rank === 1 ? "text-yellow-400" : e.rank === 2 ? "text-gray-400" : e.rank === 3 ? "text-amber-600" : "text-foreground-dim text-sm")}>
+            <div key={e.userId} className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+              <span className={"w-8 text-center text-base font-bold shrink-0 " + (e.rank === 1 ? "text-yellow-400" : e.rank === 2 ? "text-gray-400" : e.rank === 3 ? "text-amber-600" : "text-foreground-dim text-xs")}>
                 {e.rank <= 3 ? MEDAL[e.rank - 1] : `#${e.rank}`}
               </span>
               <div className="flex-1 min-w-0">
@@ -152,9 +220,33 @@ export default function LeaderboardPage() {
                   {e.team && <span className="text-signal">{e.team.name}</span>}
                 </div>
               </div>
-              <div className="text-right shrink-0">
-                <p className="font-semibold text-sm">{formatValue(e)}</p>
-                {metric !== "count" && <p className="text-xs text-foreground-dim">{e.activityCount} activities</p>}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right">
+                  <p className="font-semibold text-sm">{formatValue(e)}</p>
+                  {metric !== "count" && <p className="text-xs text-foreground-dim">{e.activityCount} activities</p>}
+                </div>
+                {/* Invite button — only shown when user has admin teams */}
+                {adminTeams.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setInviting(inviting?.userId === e.userId ? null : { userId: e.userId, name: e.name })}
+                      className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors text-foreground-dim"
+                      title="Invite to a team">
+                      + Invite
+                    </button>
+                    {inviting?.userId === e.userId && (
+                      <div ref={inviteRef} className="absolute right-0 top-8 z-20 bg-background border border-border rounded-xl shadow-xl p-2 min-w-[180px]">
+                        <p className="text-xs text-foreground-dim px-2 py-1">Add {e.name} to:</p>
+                        {adminTeams.map((t: any) => (
+                          <button key={t.id} onClick={() => inviteToTeam(e.userId, t.id)} disabled={addingTo === t.id}
+                            className="w-full text-left px-3 py-1.5 rounded-lg text-sm hover:bg-surface transition-colors disabled:opacity-50">
+                            {addingTo === t.id ? "Adding..." : t.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -163,7 +255,7 @@ export default function LeaderboardPage() {
 
       {entries.length > 0 && (
         <p className="text-xs text-foreground-dim text-center mt-6">
-          Showing top {entries.length} athletes. Set your city and profile details to appear in filtered views.
+          Top {entries.length} athletes · Set your city and profile to appear in filtered views
         </p>
       )}
     </div>
