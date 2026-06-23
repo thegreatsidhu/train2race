@@ -37,8 +37,9 @@ model User {
   passwordResetTokens PasswordResetToken[]
   raceRegistrations RaceRegistration[]
   eventMessages     EventMessage[]
-  teamMembers       TeamMember[]
-  teamMessages      TeamMessage[]
+  teamMembers              TeamMember[]
+  teamMessages             TeamMessage[]
+  teamChallengeEntries     TeamChallengeEntry[]
   @@map("users")
 }
 
@@ -321,8 +322,40 @@ model Team {
   createdAt   DateTime @default(now())
   members     TeamMember[]
   messages    TeamMessage[]
+  challenges  TeamChallenge[]
   majorRace   MajorRace?   @relation(fields: [majorRaceId], references: [id])
   @@map("teams")
+}
+
+model TeamChallenge {
+  id          String   @id @default(cuid())
+  teamId      String
+  createdBy   String
+  title       String
+  type        String   // run, walk, swim, bike, steps, custom
+  metric      String   // distance, duration, count
+  unit        String   // mi, km, min, sessions, steps
+  goal        Float?
+  startDate   DateTime
+  endDate     DateTime
+  description String?
+  createdAt   DateTime @default(now())
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  entries     TeamChallengeEntry[]
+  @@map("team_challenges")
+}
+
+model TeamChallengeEntry {
+  id          String   @id @default(cuid())
+  challengeId String
+  userId      String
+  value       Float
+  date        DateTime
+  note        String?
+  createdAt   DateTime @default(now())
+  challenge   TeamChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("team_challenge_entries")
 }
 model TeamMember {
   id        String   @id @default(cuid())

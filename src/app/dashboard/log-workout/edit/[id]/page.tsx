@@ -14,7 +14,8 @@ export default function EditWorkoutPage() {
     type: "run",
     title: "",
     date: "",
-    durationMin: "",
+    durationHours: "",
+    durationMins: "",
     distance: "",
     notes: "",
   });
@@ -35,11 +36,13 @@ export default function EditWorkoutPage() {
             distance = (a.distanceM / 1609.34).toFixed(2);
           }
         }
+        const totalMin = Math.round(a.durationSec / 60);
         setForm({
           type: a.type,
           title: a.title || "",
           date: dateStr,
-          durationMin: String(Math.round(a.durationSec / 60)),
+          durationHours: String(Math.floor(totalMin / 60)),
+          durationMins: String(totalMin % 60),
           distance,
           notes: a.raw?.notes || "",
         });
@@ -51,12 +54,13 @@ export default function EditWorkoutPage() {
   const noDistance = form.type === "strength" || form.type === "other";
 
   async function handleSave() {
+    const totalMin = Number(form.durationHours || 0) * 60 + Number(form.durationMins || 0);
     setSaving(true);
     const effectiveUnit = isSwim ? swimUnit : unit;
     const res = await fetch(`/api/activities/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, unit: effectiveUnit }),
+      body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit }),
     });
     setSaving(false);
     if (res.ok) router.push("/dashboard");
@@ -92,9 +96,21 @@ export default function EditWorkoutPage() {
             value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
         </div>
         <div>
-          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Duration (minutes)</label>
-          <input type="number" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
-            value={form.durationMin} onChange={e => setForm({ ...form, durationMin: e.target.value })} />
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Duration</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input type="number" min="0" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm pr-10"
+                placeholder="0" value={form.durationHours}
+                onChange={e => setForm({ ...form, durationHours: e.target.value })} />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground-dim pointer-events-none">hr</span>
+            </div>
+            <div className="relative flex-1">
+              <input type="number" min="0" max="59" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm pr-10"
+                placeholder="30" value={form.durationMins}
+                onChange={e => setForm({ ...form, durationMins: e.target.value })} />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground-dim pointer-events-none">min</span>
+            </div>
+          </div>
         </div>
         {!noDistance && (
           <div>

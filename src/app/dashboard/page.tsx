@@ -113,7 +113,7 @@ export default async function TodayPage() {
   const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
-    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:5,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true}}),
+    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:5,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:weekStart,lte:weekEnd}},select:{distanceM:true,durationSec:true,type:true}}),
     prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true}}),
@@ -389,7 +389,7 @@ export default async function TodayPage() {
           <Link href="/dashboard/log-workout" className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">+ Log workout</Link>
         </div>
         {recentActivities.length > 0
-          ? <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source}))}/>
+          ? <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source,raw:a.raw}))}/>
           : <p className="text-sm text-foreground-dim">No activities yet — log your first workout and start the streak.</p>
         }
       </section>

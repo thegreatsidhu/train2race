@@ -9,6 +9,7 @@ interface Activity {
   durationSec: number;
   distanceM: number | null;
   source: string;
+  raw?: any;
 }
 export function ActivityList({ activities }: { activities: Activity[] }) {
   const router = useRouter();
@@ -40,11 +41,14 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
       {activities.map((a) => (
         <div key={a.id}
           className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-          <div>
+          <div className="min-w-0 flex-1 mr-3">
             <p className="text-sm font-medium capitalize">{a.title ?? a.type}</p>
             <p className="text-xs text-foreground-dim">
               {new Date(a.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {a.source.toLowerCase()}
             </p>
+            {a.raw?.notes && (
+              <p className="text-xs text-foreground-dim mt-0.5 italic truncate">{a.raw.notes}</p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="font-data text-sm text-foreground-dim">
