@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const challenges = await prisma.teamChallenge.findMany({
     where: {
       isPublic: true,
+      status: "approved",
       ...(activeOnly ? { endDate: { gte: now } } : {}),
     },
     orderBy: { createdAt: "desc" },

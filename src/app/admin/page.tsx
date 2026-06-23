@@ -26,6 +26,9 @@ export default function AdminPage() {
   const [ticketsLoaded, setTicketsLoaded] = useState(false);
   const [ticketNote, setTicketNote] = useState({});
   const [updatingTicket, setUpdatingTicket] = useState(null);
+  const [pendingChallenges, setPendingChallenges] = useState([]);
+  const [challengesLoaded, setChallengesLoaded] = useState(false);
+  const [approvingChallenge, setApprovingChallenge] = useState(null);
 
   async function handleLogin() {
     setLoading(true); setError("");
@@ -165,6 +168,7 @@ export default function AdminPage() {
             { id: "invites", label: "Invites (" + unusedCodes.length + " unused)" },
             { id: "races", label: "Races (" + (data?.pendingRaces?.length || 0) + " pending)" },
             { id: "chat", label: "Chat" },
+            { id: "challenges", label: "Challenges" + (pendingChallenges.length > 0 ? " (" + pendingChallenges.length + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "settings", label: "Settings" },
           ].map(tab => (
@@ -300,6 +304,75 @@ export default function AdminPage() {
                       <div className="flex gap-2">
                         <button onClick={() => approveRace(race.id,"approve")} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs">Approve</button>
                         <button onClick={() => approveRace(race.id,"reject")} className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">Reject</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "challenges" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-medium">Pending Challenges</h2>
+              {!challengesLoaded && (
+                <button onClick={async () => {
+                  const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
+                  const d = await res.json();
+                  setPendingChallenges(d.challenges || []);
+                  setChallengesLoaded(true);
+                }} className="text-xs text-signal hover:underline">Load challenges</button>
+              )}
+            </div>
+            {!challengesLoaded ? (
+              <button onClick={async () => {
+                const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
+                const d = await res.json();
+                setPendingChallenges(d.challenges || []);
+                setChallengesLoaded(true);
+              }} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-surface">Load challenges</button>
+            ) : pendingChallenges.length === 0 ? (
+              <p className="text-sm text-foreground-dim">No pending challenges.</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingChallenges.map((c) => (
+                  <div key={c.id} className="rounded-2xl border border-yellow-700/40 bg-surface p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-sm">{c.title}</p>
+                        <p className="text-xs text-foreground-dim mt-0.5 capitalize">{c.type} · {c.metric} · {c.unit}{c.goal ? ` · Goal: ${c.goal}` : ""}</p>
+                        <p className="text-xs text-foreground-dim">{new Date(c.startDate).toLocaleDateString()} – {new Date(c.endDate).toLocaleDateString()}</p>
+                        {c.description && <p className="text-xs text-foreground-dim mt-1">{c.description}</p>}
+                        <p className="text-xs text-foreground-dim mt-1">Team: {c.teamName} · By: {c.creator?.name || "Unknown"} ({c.creator?.email})</p>
+                        <p className="text-xs text-foreground-dim">{c.isPublic ? "Public (will appear in Discover)" : "Team-only"}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={async () => {
+                            setApprovingChallenge(c.id);
+                            await fetch("/api/admin/challenges", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, challengeId: c.id, status: "approved" }) });
+                            setPendingChallenges(prev => prev.filter(x => x.id !== c.id));
+                            setApprovingChallenge(null);
+                          }}
+                          disabled={approvingChallenge === c.id}
+                          className="px-3 py-1.5 rounded-full bg-signal text-background text-xs disabled:opacity-50"
+                        >
+                          {approvingChallenge === c.id ? "..." : "Approve"}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setApprovingChallenge(c.id);
+                            await fetch("/api/admin/challenges", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, challengeId: c.id, status: "rejected" }) });
+                            setPendingChallenges(prev => prev.filter(x => x.id !== c.id));
+                            setApprovingChallenge(null);
+                          }}
+                          disabled={approvingChallenge === c.id}
+                          className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
                       </div>
                     </div>
                   </div>

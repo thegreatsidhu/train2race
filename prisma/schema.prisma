@@ -348,6 +348,7 @@ model TeamChallenge {
   endDate     DateTime
   description String?
   isPublic    Boolean  @default(false)
+  status      String   @default("pending")
   createdAt   DateTime @default(now())
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   entries     TeamChallengeEntry[]

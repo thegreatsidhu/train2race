@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const userId = (session.user as { id: string }).id;
 
   const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
-  if (!member || member.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
+  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
   const { title, type, metric, unit, goal, startDate, endDate, description, isPublic } = await req.json();
   if (!title?.trim() || !type || !metric || !unit || !startDate || !endDate) {
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       endDate: new Date(endDate),
       description: description?.trim() || null,
       isPublic: isPublic === true,
+      status: member.role === "admin" ? "approved" : "pending",
     },
   });
   return NextResponse.json({ challenge }, { status: 201 });

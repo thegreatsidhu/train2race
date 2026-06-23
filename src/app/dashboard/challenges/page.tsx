@@ -111,8 +111,12 @@ export default function ChallengesPage() {
     });
     setSaving(false);
     if (res.ok) {
+      const d = await res.json();
       setCreateOk(true);
-      setCreateMsg("Challenge created!" + (form.isPublic ? " It will appear in Discover." : ""));
+      const isPending = d.challenge?.status === "pending";
+      setCreateMsg(isPending
+        ? "Challenge submitted for approval. This can take up to 5 days — you'll see it on your team page with a Pending badge."
+        : "Challenge created!" + (form.isPublic ? " It will appear in Discover." : ""));
       setForm({ title: "", type: "run", metric: "distance", unit: "mi", goal: "", startDate: "", endDate: "", description: "", isPublic: true });
       setSelectedTeam("");
     } else {
@@ -305,6 +309,11 @@ export default function ChallengesPage() {
                       <textarea className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" rows={2}
                         value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                     </div>
+                  </div>
+
+                  {/* Approval notice */}
+                  <div className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 px-4 py-3">
+                    <p className="text-xs text-yellow-300">Challenges require admin approval and can take up to 5 days to go live. Team admins can approve challenges on the team page.</p>
                   </div>
 
                   {/* Public toggle */}

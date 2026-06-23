@@ -9,7 +9,7 @@ const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Durat
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [newMessage,setNewMessage]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"leaderboard"|"chat"|"challenges">("leaderboard");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
-  const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);
+  const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [createMsg,setCreateMsg]=useState("");const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);const [approvingChallenge,setApprovingChallenge]=useState<string|null>(null);
   const [lbView,setLbView]=useState<"plan"|"activity"|"challenge">("plan");
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
   const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbChallengeId,setLbChallengeId]=useState<string|null>(null);
@@ -39,7 +39,8 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   }
   async function togglePrivacy(){setTogglingPrivacy(true);const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({isPrivate:!team.isPrivate})});if(res.ok){setTeam((t:any)=>({...t,isPrivate:!t.isPrivate}));}setTogglingPrivacy(false);}
   async function loadChallenges(tid:string){const res=await fetch(`/api/teams/${tid}/challenges`);const d=await res.json();setChallenges(d.challenges||[]);setChallengesLoaded(true);}
-  async function createChallenge(){if(!challengeForm.title||!challengeForm.startDate||!challengeForm.endDate)return;setSavingChallenge(true);const res=await fetch(`/api/teams/${id}/challenges`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...challengeForm,goal:challengeForm.goal||null})});if(res.ok){const d=await res.json();setChallenges(p=>[{...d.challenge,entries:[]},...p]);setShowNewChallenge(false);setChallengeForm({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});}setSavingChallenge(false);}
+  async function createChallenge(){if(!challengeForm.title||!challengeForm.startDate||!challengeForm.endDate)return;setSavingChallenge(true);setCreateMsg("");const res=await fetch(`/api/teams/${id}/challenges`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...challengeForm,goal:challengeForm.goal||null})});const d=await res.json().catch(()=>({}));if(res.ok){setChallenges(p=>[{...d.challenge,entries:[]},...p]);setShowNewChallenge(false);setChallengeForm({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});setCreateMsg(d.challenge?.status==="pending"?"Your challenge was submitted and is awaiting admin approval (up to 5 days).":"");}setSavingChallenge(false);}
+  async function approveChallenge(cId:string,status:string){setApprovingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});if(res.ok){setChallenges(prev=>prev.map(c=>c.id===cId?{...c,status}:c));}setApprovingChallenge(null);}
   async function deleteChallenge(cId:string,title:string){if(!confirm(`Delete "${title}"? This cannot be undone.`))return;setDeletingChallenge(cId);await fetch(`/api/teams/${id}/challenges/${cId}`,{method:"DELETE"});setChallenges(prev=>prev.filter(c=>c.id!==cId));setDeletingChallenge(null);}
   async function submitEntry(){if(!logEntry||!logEntry.value)return;setSavingEntry(true);const todayStr=new Date().toISOString().split("T")[0];const res=await fetch(`/api/teams/${id}/challenges/${logEntry.challengeId}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:logEntry.value,date:todayStr,note:logEntry.note})});if(res.ok){const d=await res.json();setChallenges(prev=>prev.map(c=>c.id===logEntry.challengeId?{...c,entries:[...c.entries,d.entry]}:c));setLogEntry(null);}setSavingEntry(false);}
   function handleChallengesTab(){if(!challengesLoaded&&id){loadChallenges(id);}setActiveTab("challenges");}
@@ -234,47 +235,65 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <div className="pt-6 border-t border-border mt-6"><button onClick={handleLeave} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button></div>
       </div>}
       {activeTab==="challenges"&&<div>
-        {/* New challenge form */}
-        {team.isAdmin&&<div className="mb-6">{showNewChallenge?(
-          <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
-            <h3 className="font-medium text-sm">New challenge</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label><input className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. July Run Challenge" value={challengeForm.title} onChange={e=>setChallengeForm(f=>({...f,title:e.target.value}))}/></div>
-              <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Activity</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.type} onChange={e=>setChallengeForm(f=>({...f,type:e.target.value}))}><option value="run">Run</option><option value="walk">Walk</option><option value="swim">Swim</option><option value="bike">Bike</option><option value="steps">Steps</option><option value="custom">Custom</option></select></div>
-              <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Track by</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.metric} onChange={e=>onMetricChange(e.target.value)}><option value="distance">Distance</option><option value="duration">Duration</option><option value="count">Count</option></select></div>
-              <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Unit</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.unit} onChange={e=>setChallengeForm(f=>({...f,unit:e.target.value}))}>{(METRIC_UNITS[challengeForm.metric]||["mi"]).map(u=><option key={u} value={u}>{u}</option>)}</select></div>
-              <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Goal (optional)</label><input type="number" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. 100" value={challengeForm.goal} onChange={e=>setChallengeForm(f=>({...f,goal:e.target.value}))}/></div>
-              <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Start date</label><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.startDate} onChange={e=>setChallengeForm(f=>({...f,startDate:e.target.value}))}/></div>
-              <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">End date</label><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.endDate} onChange={e=>setChallengeForm(f=>({...f,endDate:e.target.value}))}/></div>
-              <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Description (optional)</label><textarea className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" rows={2} value={challengeForm.description} onChange={e=>setChallengeForm(f=>({...f,description:e.target.value}))}/></div>
+        {/* New challenge form — open to all members */}
+        <div className="mb-6">
+          {showNewChallenge?(
+            <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+              <div>
+                <h3 className="font-medium text-sm">Suggest a challenge</h3>
+                {!team.isAdmin&&<p className="text-xs text-foreground-dim mt-0.5">Challenges require admin approval and can take up to 5 days to go live.</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label><input className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. July Run Challenge" value={challengeForm.title} onChange={e=>setChallengeForm(f=>({...f,title:e.target.value}))}/></div>
+                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Activity</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.type} onChange={e=>setChallengeForm(f=>({...f,type:e.target.value}))}><option value="run">Run</option><option value="walk">Walk</option><option value="swim">Swim</option><option value="bike">Bike</option><option value="steps">Steps</option><option value="custom">Custom</option></select></div>
+                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Track by</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.metric} onChange={e=>onMetricChange(e.target.value)}><option value="distance">Distance</option><option value="duration">Duration</option><option value="count">Count</option></select></div>
+                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Unit</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.unit} onChange={e=>setChallengeForm(f=>({...f,unit:e.target.value}))}>{(METRIC_UNITS[challengeForm.metric]||["mi"]).map(u=><option key={u} value={u}>{u}</option>)}</select></div>
+                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Goal (optional)</label><input type="number" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. 100" value={challengeForm.goal} onChange={e=>setChallengeForm(f=>({...f,goal:e.target.value}))}/></div>
+                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Start date</label><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.startDate} onChange={e=>setChallengeForm(f=>({...f,startDate:e.target.value}))}/></div>
+                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">End date</label><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.endDate} onChange={e=>setChallengeForm(f=>({...f,endDate:e.target.value}))}/></div>
+                <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Description (optional)</label><textarea className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" rows={2} value={challengeForm.description} onChange={e=>setChallengeForm(f=>({...f,description:e.target.value}))}/></div>
+              </div>
+              <div className="flex gap-2"><button onClick={createChallenge} disabled={savingChallenge} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingChallenge?"Submitting...":"Submit challenge"}</button><button onClick={()=>{setShowNewChallenge(false);setCreateMsg("");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button></div>
             </div>
-            <div className="flex gap-2"><button onClick={createChallenge} disabled={savingChallenge} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingChallenge?"Creating...":"Create challenge"}</button><button onClick={()=>setShowNewChallenge(false)} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button></div>
-          </div>
-        ):(
-          <button onClick={()=>setShowNewChallenge(true)} className="w-full rounded-2xl border border-dashed border-border bg-surface/50 p-4 text-sm text-foreground-dim hover:bg-surface transition-colors text-left">+ Create a challenge for your team</button>
-        )}</div>}
+          ):(
+            <div>
+              <button onClick={()=>setShowNewChallenge(true)} className="w-full rounded-2xl border border-dashed border-border bg-surface/50 p-4 text-sm text-foreground-dim hover:bg-surface transition-colors text-left">+ Suggest a challenge for your team</button>
+              {createMsg&&<p className="text-xs text-signal mt-2 px-1">{createMsg}</p>}
+            </div>
+          )}
+        </div>
         {/* Challenge list */}
-        {!challengesLoaded?<p className="text-sm text-foreground-dim">Loading...</p>:challenges.length===0?<p className="text-sm text-foreground-dim">{team.isAdmin?"No challenges yet. Create one above.":"No challenges yet. Ask your admin to create one."}</p>:(
+        {!challengesLoaded?<p className="text-sm text-foreground-dim">Loading...</p>:challenges.length===0?<p className="text-sm text-foreground-dim">No challenges yet.</p>:(
           <div className="space-y-4">
             {challenges.map(c=>{
+              const isPending=c.status==="pending";const isRejected=c.status==="rejected";
               const totals:{[uid:string]:{name:string;total:number}}={};
               c.entries.forEach((e:any)=>{if(!totals[e.userId])totals[e.userId]={name:e.user.name||"?",total:0};totals[e.userId].total+=e.value;});
               const sorted=Object.entries(totals).sort((a,b)=>b[1].total-a[1].total);
               const myTotal=totals[myUserId??'']?.total??0;
               const pct=c.goal?Math.min(100,Math.round((myTotal/c.goal)*100)):null;
-              const active=new Date()<new Date(c.endDate);
+              const active=new Date()<new Date(c.endDate)&&!isPending&&!isRejected;
               return(
-                <div key={c.id} className="rounded-2xl border border-border bg-surface p-5">
+                <div key={c.id} className={"rounded-2xl border bg-surface p-5 "+(isPending?"border-yellow-700/40 opacity-80":isRejected?"border-red-700/30 opacity-60":"border-border")}>
                   <div className="flex items-start justify-between mb-3">
-                    <div><p className="font-medium text-sm">{c.title}</p><p className="text-xs text-foreground-dim mt-0.5 capitalize">{c.type} · {c.metric} · {c.unit}{c.goal?` · Goal: ${c.goal} ${c.unit}`:""}</p><p className="text-xs text-foreground-dim">{new Date(c.startDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})} – {new Date(c.endDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</p></div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-medium text-sm">{c.title}</p>
+                        {isPending&&<span className="text-xs px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-300 border border-yellow-700/40">Pending approval</span>}
+                        {isRejected&&<span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-300 border border-red-700/30">Rejected</span>}
+                      </div>
+                      <p className="text-xs text-foreground-dim mt-0.5 capitalize">{c.type} · {c.metric} · {c.unit}{c.goal?` · Goal: ${c.goal} ${c.unit}`:""}</p>
+                      <p className="text-xs text-foreground-dim">{new Date(c.startDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})} – {new Date(c.endDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</p>
+                    </div>
                     <div className="flex items-center gap-3 shrink-0 ml-3">
+                      {team.isAdmin&&isPending&&<><button onClick={()=>approveChallenge(c.id,"approved")} disabled={approvingChallenge===c.id} className="text-xs text-signal hover:underline disabled:opacity-40">{approvingChallenge===c.id?"...":"Approve"}</button><button onClick={()=>approveChallenge(c.id,"rejected")} disabled={approvingChallenge===c.id} className="text-xs text-red-400 hover:underline disabled:opacity-40">Reject</button></>}
                       {active&&<button onClick={()=>setLogEntry({challengeId:c.id,value:"",note:""})} className="text-xs text-signal hover:underline">+ Log</button>}
                       {team.isAdmin&&<button onClick={()=>deleteChallenge(c.id,c.title)} disabled={deletingChallenge===c.id} className="text-xs text-red-400 hover:text-red-300 hover:underline disabled:opacity-40">{deletingChallenge===c.id?"...":"Delete"}</button>}
                     </div>
                   </div>
-                  {pct!==null&&<div className="mb-3"><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>My progress</span><span>{myTotal} / {c.goal} {c.unit} ({pct}%)</span></div><div className="w-full h-2 bg-border rounded-full"><div className="h-2 rounded-full bg-signal transition-all" style={{width:`${pct}%`}}/></div></div>}
+                  {pct!==null&&!isPending&&!isRejected&&<div className="mb-3"><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>My progress</span><span>{myTotal} / {c.goal} {c.unit} ({pct}%)</span></div><div className="w-full h-2 bg-border rounded-full"><div className="h-2 rounded-full bg-signal transition-all" style={{width:`${pct}%`}}/></div></div>}
                   {logEntry?.challengeId===c.id&&<div className="mb-3 p-3 rounded-xl bg-background border border-border space-y-2"><div className="flex gap-2 items-center"><input type="number" placeholder={`Value in ${c.unit}`} className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm" value={logEntry.value} onChange={e=>setLogEntry(l=>l?{...l,value:e.target.value}:null)}/><button onClick={submitEntry} disabled={savingEntry||!logEntry.value} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-50">{savingEntry?"...":"Save"}</button><button onClick={()=>setLogEntry(null)} className="text-xs text-foreground-dim hover:text-foreground">✕</button></div><input placeholder="Note (optional)" className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm" value={logEntry.note} onChange={e=>setLogEntry(l=>l?{...l,note:e.target.value}:null)}/></div>}
-                  {sorted.length>0&&<div className="space-y-1">{sorted.slice(0,5).map(([uid,d],i)=><div key={uid} className="flex items-center justify-between text-xs"><span className="text-foreground-dim">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`} {d.name}{uid===myUserId?" (you)":""}</span><span className="font-medium">{d.total} {c.unit}</span></div>)}</div>}
+                  {sorted.length>0&&!isPending&&!isRejected&&<div className="space-y-1">{sorted.slice(0,5).map(([uid,d],i)=><div key={uid} className="flex items-center justify-between text-xs"><span className="text-foreground-dim">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`} {d.name}{uid===myUserId?" (you)":""}</span><span className="font-medium">{d.total} {c.unit}</span></div>)}</div>}
                 </div>
               );
             })}

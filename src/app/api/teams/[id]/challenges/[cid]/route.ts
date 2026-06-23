@@ -18,3 +18,22 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await prisma.teamChallenge.delete({ where: { id: cid } });
   return NextResponse.json({ ok: true });
 }
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; cid: string }> }) {
+  const { id: teamId, cid } = await params;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+
+  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
+  if (!member || member.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
+
+  const challenge = await prisma.teamChallenge.findUnique({ where: { id: cid } });
+  if (!challenge || challenge.teamId !== teamId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { status } = await req.json();
+  if (!["approved", "rejected"].includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+
+  const updated = await prisma.teamChallenge.update({ where: { id: cid }, data: { status } });
+  return NextResponse.json({ challenge: updated });
+}
