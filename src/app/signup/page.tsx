@@ -13,11 +13,13 @@ function SignupForm() {
   const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState(searchParams.get("invite") ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [emailTaken, setEmailTaken] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setEmailTaken(false);
     setLoading(true);
 
     const res = await fetch("/api/auth/signup", {
@@ -28,7 +30,9 @@ function SignupForm() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Something went wrong.");
+      const msg = data.error ?? "Something went wrong.";
+      setError(msg);
+      if (res.status === 409) setEmailTaken(true);
       setLoading(false);
       return;
     }
@@ -48,15 +52,19 @@ function SignupForm() {
         onChange={(e) => setName(e.target.value)}
         className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" />
       <input type="email" required placeholder="Email" value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" />
+        onChange={(e) => { setEmail(e.target.value); setEmailTaken(false); }}
+        className={`w-full px-4 py-3 rounded-xl bg-surface border focus:outline-none text-sm ${emailTaken ? "border-alert focus:border-alert" : "border-border focus:border-signal"}`} />
       <input type="password" required minLength={8} placeholder="Password (min. 8 characters)" value={password}
         onChange={(e) => setPassword(e.target.value)}
         className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" />
       <input type="text" placeholder="Invite code (e.g. T2R-XXXX)" value={inviteCode}
         onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
         className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm font-data tracking-wider" />
-      {error && <p className="text-alert text-sm">{error}</p>}
+      {error && (
+        <p className="text-alert text-sm">
+          {error}{emailTaken && <> — <Link href="/login" className="underline">Log in instead</Link></>}
+        </p>
+      )}
       <button type="submit" disabled={loading}
         className="w-full px-4 py-3 rounded-xl bg-signal text-background font-medium hover:bg-signal-dim transition-colors disabled:opacity-60">
         {loading ? "Creating account…" : "Create account"}

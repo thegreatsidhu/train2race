@@ -46,10 +46,18 @@ export async function POST(req: Request) {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const user = await prisma.user.create({
-    data: { name, email, passwordHash },
-    select: { id: true, name: true, email: true },
-  });
+  let user: { id: string; name: string | null; email: string | null };
+  try {
+    user = await prisma.user.create({
+      data: { name, email, passwordHash },
+      select: { id: true, name: true, email: true },
+    });
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
+    }
+    throw err;
+  }
 
   if (inviteCode) {
     await prisma.inviteCode.update({
