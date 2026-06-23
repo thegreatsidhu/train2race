@@ -31,6 +31,7 @@ export default function ChallengesPage() {
   const [loadingMine, setLoadingMine] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [leavingId, setLeavingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // ── Discover state ──────────────────────────────────────────────────────────
   const [challenges, setChallenges] = useState<any[]>([]);
@@ -227,62 +228,66 @@ export default function ChallengesPage() {
                 const isPending = c.status === "pending";
                 const isRejected = c.status === "rejected";
                 const pct = c.goal && c.myTotal ? Math.min(100, Math.round((c.myTotal / c.goal) * 100)) : null;
+                const isOpen = expandedId === c.id;
                 return (
-                  <div key={c.id} className={"rounded-2xl border bg-surface p-5 " +
-                    (isPending ? "border-yellow-700/40" : isRejected ? "border-red-700/30 opacity-60" : "border-border")}>
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="min-w-0">
+                  <div key={c.id}
+                    onClick={() => setExpandedId(isOpen ? null : c.id)}
+                    className={"rounded-2xl border bg-surface cursor-pointer transition-colors hover:bg-surface-raised " +
+                      (isPending ? "border-yellow-700/40" : isRejected ? "border-red-700/30 opacity-60" : isOpen ? "border-signal/40" : "border-border")}>
+                    {/* Card header — always visible */}
+                    <div className="flex items-start justify-between gap-3 p-5">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
                           <p className="font-medium text-sm">{c.title}</p>
-                          {isPending && (
-                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-300 border border-yellow-700/40">Pending approval</span>
-                          )}
-                          {isRejected && (
-                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-300 border border-red-700/30">Rejected</span>
-                          )}
-                          {c.isActive && (
-                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">Active</span>
-                          )}
+                          {isPending && <span className="text-xs px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-300 border border-yellow-700/40">Pending</span>}
+                          {isRejected && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-300 border border-red-700/30">Rejected</span>}
+                          {c.isActive && <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">Active</span>}
                         </div>
-                        <p className="text-xs text-foreground-dim capitalize">{c.type} · {c.metric} · {c.unit}{c.goal ? ` · Goal: ${c.goal} ${c.unit}` : ""}</p>
+                        <p className="text-xs text-foreground-dim capitalize">{c.type} · {c.unit}{c.goal ? ` · Goal: ${c.goal}` : ""} · {c.teamName}</p>
                         <p className="text-xs text-foreground-dim mt-0.5">
-                          {fmtDate(c.startDate)} – {fmtDate(c.endDate)}
-                          {c.isActive ? ` · ${daysLeft(c.endDate)}` : ""}
-                          {" · "}{c.teamName}
+                          {fmtDate(c.startDate)} – {fmtDate(c.endDate)}{c.isActive ? ` · ${daysLeft(c.endDate)}` : ""}
                         </p>
-                      </div>
-                      <div className="shrink-0 flex items-center gap-3">
-                        <Link href={`/dashboard/teams/${c.teamId}`}
-                          className="text-xs text-signal hover:underline whitespace-nowrap">
-                          View team →
-                        </Link>
-                        {c.isAdmin && (
-                          <button onClick={() => deleteChallenge(c)} disabled={deletingId === c.id}
-                            className="text-xs text-red-400 hover:text-red-300 hover:underline disabled:opacity-40">
-                            {deletingId === c.id ? "…" : "Delete"}
-                          </button>
+                        {pct !== null && !isPending && !isRejected && (
+                          <div className="mt-2">
+                            <div className="flex justify-between text-xs text-foreground-dim mb-1">
+                              <span>{c.myTotal} / {c.goal} {c.unit}</span>
+                              <span>{pct}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-border rounded-full">
+                              <div className="h-1.5 rounded-full bg-signal transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
                         )}
-                        {!c.isAdmin && (
-                          <button onClick={() => leaveChallenge(c)} disabled={leavingId === c.id}
-                            className="text-xs text-foreground-dim hover:text-red-400 hover:underline disabled:opacity-40">
-                            {leavingId === c.id ? "…" : "Leave"}
-                          </button>
+                        {c.myTotal > 0 && !c.goal && !isPending && !isRejected && (
+                          <p className="text-xs text-foreground-dim mt-1">Total logged: {c.myTotal} {c.unit}</p>
                         )}
                       </div>
+                      <span className={"text-foreground-dim text-xs mt-0.5 shrink-0 transition-transform " + (isOpen ? "rotate-180" : "")}>▾</span>
                     </div>
-                    {pct !== null && !isPending && !isRejected && (
-                      <div>
-                        <div className="flex justify-between text-xs text-foreground-dim mb-1">
-                          <span>My progress</span>
-                          <span>{c.myTotal} / {c.goal} {c.unit} ({pct}%)</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-border rounded-full">
-                          <div className="h-1.5 rounded-full bg-signal transition-all" style={{ width: `${pct}%` }} />
+
+                    {/* Expanded panel */}
+                    {isOpen && (
+                      <div className="border-t border-border px-5 pb-5 pt-4" onClick={e => e.stopPropagation()}>
+                        {c.description && <p className="text-sm text-foreground-dim mb-4">{c.description}</p>}
+                        <div className="flex gap-2 flex-wrap">
+                          <Link href={`/dashboard/teams/${c.teamId}`}
+                            className="px-4 py-2 rounded-full border border-signal text-signal text-xs font-medium hover:bg-signal/10 transition-colors">
+                            View team →
+                          </Link>
+                          {!c.isAdmin && (
+                            <button onClick={() => leaveChallenge(c)} disabled={leavingId === c.id}
+                              className="px-4 py-2 rounded-full border border-red-700/40 text-red-400 text-xs font-medium hover:border-red-500 transition-colors disabled:opacity-40">
+                              {leavingId === c.id ? "Leaving…" : "Leave challenge"}
+                            </button>
+                          )}
+                          {c.isAdmin && (
+                            <button onClick={() => deleteChallenge(c)} disabled={deletingId === c.id}
+                              className="px-4 py-2 rounded-full border border-red-700/40 text-red-400 text-xs font-medium hover:border-red-500 transition-colors disabled:opacity-40">
+                              {deletingId === c.id ? "Deleting…" : "Delete challenge"}
+                            </button>
+                          )}
                         </div>
                       </div>
-                    )}
-                    {c.myTotal > 0 && !c.goal && !isPending && !isRejected && (
-                      <p className="text-xs text-foreground-dim mt-1">My total: {c.myTotal} {c.unit}</p>
                     )}
                   </div>
                 );
