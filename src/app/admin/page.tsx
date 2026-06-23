@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 export default function AdminPage() {
   const [password, setPassword] = useState("");
@@ -103,6 +103,28 @@ export default function AdminPage() {
 
   function copyCode(code) { navigator.clipboard.writeText(code); setCopied(code); setTimeout(() => setCopied(null), 2000); }
 
+  async function loadChallenges() {
+    if (challengesLoaded) return;
+    const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setPendingChallenges(d.challenges || []);
+    setChallengesLoaded(true);
+  }
+
+  async function loadTickets() {
+    if (ticketsLoaded) return;
+    const res = await fetch(`/api/admin/tickets?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setTickets(d.tickets || []);
+    setTicketsLoaded(true);
+  }
+
+  function switchTab(id) {
+    setActiveTab(id);
+    if (id === "challenges") loadChallenges();
+    if (id === "tickets") loadTickets();
+  }
+
   if (!authed) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -172,7 +194,7 @@ export default function AdminPage() {
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "settings", label: "Settings" },
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
+            <button key={tab.id} onClick={() => switchTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
               {tab.label}
             </button>
           ))}
@@ -315,24 +337,9 @@ export default function AdminPage() {
 
         {activeTab === "challenges" && (
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-medium">Pending Challenges</h2>
-              {!challengesLoaded && (
-                <button onClick={async () => {
-                  const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
-                  const d = await res.json();
-                  setPendingChallenges(d.challenges || []);
-                  setChallengesLoaded(true);
-                }} className="text-xs text-signal hover:underline">Load challenges</button>
-              )}
-            </div>
+            <h2 className="font-medium mb-4">Pending Challenges</h2>
             {!challengesLoaded ? (
-              <button onClick={async () => {
-                const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
-                const d = await res.json();
-                setPendingChallenges(d.challenges || []);
-                setChallengesLoaded(true);
-              }} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-surface">Load challenges</button>
+              <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
             ) : pendingChallenges.length === 0 ? (
               <p className="text-sm text-foreground-dim">No pending challenges.</p>
             ) : (
@@ -384,19 +391,9 @@ export default function AdminPage() {
 
         {activeTab === "tickets" && (
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-medium">Support Tickets</h2>
-              <button onClick={async()=>{
-                if(ticketsLoaded)return;
-                const res=await fetch(`/api/admin/tickets?password=${encodeURIComponent(password)}`);
-                const d=await res.json();setTickets(d.tickets||[]);setTicketsLoaded(true);
-              }} className="text-xs text-signal hover:underline">{ticketsLoaded?"":"Load tickets"}</button>
-            </div>
+            <h2 className="font-medium mb-4">Support Tickets</h2>
             {!ticketsLoaded ? (
-              <button onClick={async()=>{
-                const res=await fetch(`/api/admin/tickets?password=${encodeURIComponent(password)}`);
-                const d=await res.json();setTickets(d.tickets||[]);setTicketsLoaded(true);
-              }} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-surface">Load tickets</button>
+              <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
             ) : tickets.length === 0 ? <p className="text-sm text-foreground-dim">No tickets yet.</p> : (
               <div className="space-y-3">
                 {tickets.map((t)=>{
