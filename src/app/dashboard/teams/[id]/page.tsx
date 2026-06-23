@@ -14,13 +14,13 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
   const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbChallengeId,setLbChallengeId]=useState<string|null>(null);
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
-  const [removingId,setRemovingId]=useState<string|null>(null);
+  const [removingId,setRemovingId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);});}, []);
   async function loadTeam(tid:string){const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);}
   async function loadMessages(tid:string){const res=await fetch(`/api/teams/${tid}/messages`);const data=await res.json();setMessages(data.messages||[]);}
   async function sendMessage(){if(!newMessage.trim()||!id)return;setSending(true);const res=await fetch(`/api/teams/${id}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:newMessage})});const data=await res.json();if(res.ok){setMessages(prev=>[...prev,data.message]);setNewMessage("");setTimeout(()=>messagesEndRef.current?.scrollIntoView({behavior:"smooth"}),100);}setSending(false);}
-  async function handleLeave(){if(!confirm("Leave this team?"))return;await fetch(`/api/teams/${id}/leave`,{method:"POST"});router.push("/dashboard/teams");}
+  async function handleLeave(){setConfirmLeave(false);if(team?.isAdmin){await fetch(`/api/teams/${id}`,{method:"DELETE"});}else{await fetch(`/api/teams/${id}/leave`,{method:"POST"});}router.push("/dashboard/teams");}
   function copyInviteCode(){navigator.clipboard.writeText(team.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
   function copyInviteLink(){navigator.clipboard.writeText(`${window.location.origin}/join/${team.inviteCode}`);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
   async function removeMember(memberId:string, name:string){
@@ -234,7 +234,17 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           })()}
         </div>}
 
-        <div className="pt-6 border-t border-border mt-6"><button onClick={handleLeave} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button></div>
+        <div className="pt-6 border-t border-border mt-6">
+          {confirmLeave?(
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-foreground-dim">{team.isAdmin?"Delete this team permanently?":"Leave this team?"}</span>
+              <button onClick={handleLeave} className="text-xs text-red-400 font-medium hover:underline">Confirm</button>
+              <button onClick={()=>setConfirmLeave(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button>
+            </div>
+          ):(
+            <button onClick={()=>setConfirmLeave(true)} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button>
+          )}
+        </div>
       </div>}
       {activeTab==="challenges"&&<div>
         {/* New challenge form — open to all members */}
