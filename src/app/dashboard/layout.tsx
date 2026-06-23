@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex-1 flex flex-col md:flex-row">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-56 border-r border-border flex-col px-4 py-6 shrink-0">
-        <Link href="/" className="flex items-center gap-2 px-2 mb-8"><img src="/logo.png" alt="Train2Race" className="w-8 h-8 rounded-lg" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></Link>
+        <Link href="/dashboard" className="flex items-center gap-2 px-2 mb-8"><img src="/logo.png" alt="Train2Race" className="w-8 h-8 rounded-lg" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></Link>
         <nav className="flex flex-col gap-1 text-sm flex-1">
           <NavLink href="/dashboard" label="Today" />
           <NavLink href="/dashboard/nutrition" label="Nutrition" />
@@ -32,7 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border">
-        <Link href="/" className="flex items-center gap-2"><img src="/logo.png" alt="Train2Race" className="w-7 h-7 rounded-md" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></Link>
+        <Link href="/dashboard" className="flex items-center gap-2"><img src="/logo.png" alt="Train2Race" className="w-7 h-7 rounded-md" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></Link>
         <MobileNav email={session.user.email ?? ""} />
       </div>
 

@@ -16,7 +16,7 @@ export function MobileNav({ email }: { email: string }) {
       {open && (
         <div className="fixed inset-0 z-50 bg-background">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2">
+            <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2">
               <img src="/logo.png" alt="Train2Race" className="w-7 h-7 rounded-md" />
               <span className="font-semibold text-lg">Train2Race</span>
             </Link>
