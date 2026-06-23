@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { Resend } from "resend";
 
 const FALLBACK_PASSWORD = "train2race2024";
 
@@ -38,5 +39,43 @@ export async function POST(req: Request) {
   if (action === "approveRace") { await prisma.majorRace.update({ where: { id: body.raceId }, data: { status: "active" } }); return NextResponse.json({ ok: true }); }
   if (action === "rejectRace") { await prisma.majorRace.delete({ where: { id: body.raceId } }); return NextResponse.json({ ok: true }); }
   if (action === "deleteMessage") { await prisma.eventMessage.update({ where: { id: body.messageId }, data: { isDeleted: true, deletedBy: "admin" } }); return NextResponse.json({ ok: true }); }
+
+  if (action === "setUserPassword") {
+    const { userId, newPassword } = body;
+    if (!userId || !newPassword) return NextResponse.json({ error: "Missing userId or newPassword" }, { status: 400 });
+    if (newPassword.length < 6) return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+    const hash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: hash } });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "sendUserReset") {
+    const { userId, email } = body;
+    if (!userId || !email) return NextResponse.json({ error: "Missing userId or email" }, { status: 400 });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    await prisma.passwordResetToken.deleteMany({ where: { userId, used: false } });
+    const { randomBytes } = await import("crypto");
+    const rawToken = randomBytes(32).toString("hex");
+    await prisma.passwordResetToken.create({ data: { token: rawToken, userId, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+    const baseUrl = process.env.NEXTAUTH_URL && !process.env.NEXTAUTH_URL.includes("localhost")
+      ? process.env.NEXTAUTH_URL
+      : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: "Train2Race <onboarding@resend.dev>",
+      to: email,
+      subject: "Reset your Train2Race password",
+      html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b0d10;color:#ede9e2;border-radius:12px;">
+        <h1 style="font-size:20px;font-weight:600;margin-bottom:8px;">Password reset requested</h1>
+        <p style="color:#9aa3ab;margin-bottom:24px;">An admin has sent you a password reset link. Click below to set a new password. This link expires in 24 hours.</p>
+        <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#5ec9b5;color:#0b0d10;border-radius:999px;font-weight:600;text-decoration:none;font-size:14px;">Set new password</a>
+        <p style="color:#9aa3ab;font-size:12px;margin-top:24px;">Or copy this link: ${resetUrl}</p>
+      </div>`,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -18,6 +18,10 @@ export default function AdminPage() {
   const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
   const [pwChanging, setPwChanging] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
+  const [settingPwFor, setSettingPwFor] = useState(null);
+  const [tempPassword, setTempPassword] = useState("");
+  const [sendingResetFor, setSendingResetFor] = useState(null);
+  const [userMsgs, setUserMsgs] = useState({});
 
   async function handleLogin() {
     setLoading(true); setError("");
@@ -68,6 +72,26 @@ export default function AdminPage() {
     setPwChanging(false);
     if (res.ok) { setPwMsg("Password changed successfully"); setNewAdminPassword(""); setConfirmAdminPassword(""); }
     else { const d = await res.json(); setPwMsg(d.error || "Failed to change password"); }
+  }
+
+  function setUserMsg(userId, msg, ok) {
+    setUserMsgs(prev => ({ ...prev, [userId]: { msg, ok } }));
+    setTimeout(() => setUserMsgs(prev => { const n = { ...prev }; delete n[userId]; return n; }), 4000);
+  }
+
+  async function setTempPw(userId) {
+    if (!tempPassword || tempPassword.length < 6) { setUserMsg(userId, "Password must be at least 6 characters", false); return; }
+    const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "setUserPassword", userId, newPassword: tempPassword }) });
+    if (res.ok) { setUserMsg(userId, "Password set — share it with the user", true); setSettingPwFor(null); setTempPassword(""); }
+    else { const d = await res.json(); setUserMsg(userId, d.error || "Failed", false); }
+  }
+
+  async function sendReset(userId, email) {
+    setSendingResetFor(userId);
+    const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "sendUserReset", userId, email }) });
+    setSendingResetFor(null);
+    if (res.ok) setUserMsg(userId, "Reset email sent to " + email, true);
+    else { const d = await res.json(); setUserMsg(userId, d.error || "Failed to send email", false); }
   }
 
   function copyCode(code) { navigator.clipboard.writeText(code); setCopied(code); setTimeout(() => setCopied(null), 2000); }
@@ -149,14 +173,53 @@ export default function AdminPage() {
           <div className="space-y-3">
             {data?.users?.map((user) => (
               <div key={user.id} className="rounded-2xl border border-border bg-surface p-4">
-                <p className="font-medium">{user.name || "No name"}</p>
-                <p className="text-sm text-foreground-dim">{user.email}</p>
-                <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(user.createdAt).toLocaleDateString()} - {user.raceTargets?.length || 0} races</p>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {user.connections?.map((c) => (
-                    <span key={c.source} className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border">{c.source}</span>
-                  ))}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium">{user.name || "No name"}</p>
+                    <p className="text-sm text-foreground-dim">{user.email}</p>
+                    <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(user.createdAt).toLocaleDateString()} · {user.raceTargets?.length || 0} races</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {user.connections?.map((c) => (
+                        <span key={c.source} className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border">{c.source}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => { setSettingPwFor(settingPwFor === user.id ? null : user.id); setTempPassword(""); }}
+                      className="px-3 py-1.5 rounded-full border border-border text-xs hover:border-signal hover:text-signal transition-colors"
+                    >
+                      Set password
+                    </button>
+                    <button
+                      onClick={() => sendReset(user.id, user.email)}
+                      disabled={sendingResetFor === user.id}
+                      className="px-3 py-1.5 rounded-full border border-border text-xs hover:border-signal hover:text-signal transition-colors disabled:opacity-50"
+                    >
+                      {sendingResetFor === user.id ? "Sending..." : "Send reset"}
+                    </button>
+                  </div>
                 </div>
+                {settingPwFor === user.id && (
+                  <div className="mt-3 flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={tempPassword}
+                      onChange={e => setTempPassword(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && setTempPw(user.id)}
+                      placeholder="Temporary password (min 6 chars)"
+                      className="flex-1 px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"
+                      autoFocus
+                    />
+                    <button onClick={() => setTempPw(user.id)} className="px-4 py-2 rounded-full bg-signal text-background text-xs font-medium">Set</button>
+                    <button onClick={() => { setSettingPwFor(null); setTempPassword(""); }} className="px-3 py-2 rounded-full border border-border text-xs">Cancel</button>
+                  </div>
+                )}
+                {userMsgs[user.id] && (
+                  <p className={"text-xs mt-2 " + (userMsgs[user.id].ok ? "text-signal" : "text-red-400")}>
+                    {userMsgs[user.id].msg}
+                  </p>
+                )}
               </div>
             ))}
           </div>
