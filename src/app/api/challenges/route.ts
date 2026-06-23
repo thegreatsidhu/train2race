@@ -25,6 +25,10 @@ export async function GET(req: NextRequest) {
     const challenges = await prisma.teamChallenge.findMany({
       where: {
         teamId: { in: teamIds },
+        OR: [
+          { entries: { some: { userId } } },
+          { createdBy: userId },
+        ],
         ...(activeOnly ? { endDate: { gte: now } } : {}),
       },
       orderBy: { createdAt: "desc" },

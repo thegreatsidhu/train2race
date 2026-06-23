@@ -115,7 +115,7 @@ export default function ChallengesPage() {
     setLeavingId(null);
     if (res.ok) {
       setExpandedId(null);
-      setMyChallenges(prev => prev.map(x => x.id === c.id ? { ...x, myTotal: 0 } : x));
+      setMyChallenges(prev => prev.filter(x => x.id !== c.id));
     }
   }
 
