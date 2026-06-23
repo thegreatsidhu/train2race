@@ -1,11 +1,23 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+
+const FALLBACK_PASSWORD = "train2race2024";
+
+async function verifyAdminPassword(password: string): Promise<boolean> {
+  try {
+    const setting = await (prisma as any).setting.findUnique({ where: { key: "adminPasswordHash" } });
+    if (setting?.value) return bcrypt.compare(password, setting.value);
+  } catch {}
+  return password === FALLBACK_PASSWORD;
+}
 
 export async function POST(req: Request) {
   const body = await req.json();
   const { password, action } = body;
-  if (password !== "train2race2024") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const valid = await verifyAdminPassword(password);
+  if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (action === "getData") {
     try {
       const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, connections: { select: { source: true } }, raceTargets: { select: { id: true } } } });

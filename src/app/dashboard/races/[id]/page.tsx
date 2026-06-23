@@ -31,17 +31,10 @@ export default async function RacePlanPage({ params }: { params: Promise<{ id: s
         <h1 className="text-3xl font-semibold">{race.raceName}</h1>
         <p className="text-foreground-dim text-sm mt-1">
           {race.raceDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-          {race.goalTimeSec && ` Ãƒâ€šÃ‚Â· Goal: ${Math.floor(race.goalTimeSec/3600)}h ${Math.floor((race.goalTimeSec%3600)/60)}m`}
+          {race.goalTimeSec && ` · Goal: ${Math.floor(race.goalTimeSec/3600)}h ${Math.floor((race.goalTimeSec%3600)/60)}m`}
         </p>
         {plan?.startDate && plan?.endDate && (
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs bg-surface border border-border px-3 py-1 rounded-full text-foreground-dim">
-              Plan: {fmt(plan.startDate)} to {fmt(plan.endDate)}
-            </span>
-          </div>
-        )}
-        {plan?.startDate && plan?.endDate && (
-          <div className="mt-2">
             <span className="text-xs bg-surface border border-border px-3 py-1 rounded-full text-foreground-dim">
               Plan: {fmt(plan.startDate)} to {fmt(plan.endDate)}
             </span>

@@ -9,7 +9,7 @@ export async function POST(req: Request) {
 
   const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
 
-  if (!resetToken || resetToken.used || resetToken.expires < new Date()) {
+  if (!resetToken || resetToken.used || resetToken.expiresAt < new Date()) {
     return NextResponse.json({ error: "This reset link is invalid or has expired." }, { status: 400 });
   }
 

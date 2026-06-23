@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 
 export default function AdminPage() {
@@ -14,6 +14,10 @@ export default function AdminPage() {
   const [copied, setCopied] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [activeTab, setActiveTab] = useState("users");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
+  const [pwChanging, setPwChanging] = useState(false);
+  const [pwMsg, setPwMsg] = useState("");
 
   async function handleLogin() {
     setLoading(true); setError("");
@@ -54,6 +58,16 @@ export default function AdminPage() {
   async function approveRace(raceId, action) {
     await fetch("/api/admin/races", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, raceId, action }) });
     await refreshData();
+  }
+
+  async function changeAdminPassword() {
+    if (!newAdminPassword || newAdminPassword.length < 8) { setPwMsg("Password must be at least 8 characters"); return; }
+    if (newAdminPassword !== confirmAdminPassword) { setPwMsg("Passwords do not match"); return; }
+    setPwChanging(true); setPwMsg("");
+    const res = await fetch("/api/admin/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, newPassword: newAdminPassword }) });
+    setPwChanging(false);
+    if (res.ok) { setPwMsg("Password changed successfully"); setNewAdminPassword(""); setConfirmAdminPassword(""); }
+    else { const d = await res.json(); setPwMsg(d.error || "Failed to change password"); }
   }
 
   function copyCode(code) { navigator.clipboard.writeText(code); setCopied(code); setTimeout(() => setCopied(null), 2000); }
@@ -123,6 +137,7 @@ export default function AdminPage() {
             { id: "invites", label: "Invites (" + unusedCodes.length + " unused)" },
             { id: "races", label: "Races (" + (data?.pendingRaces?.length || 0) + " pending)" },
             { id: "chat", label: "Chat" },
+            { id: "settings", label: "Settings" },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
               {tab.label}
@@ -158,7 +173,7 @@ export default function AdminPage() {
               </div>
               {newCodes.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs text-foreground-dim mb-2">New codes Ã¢â‚¬â€ click to copy</p>
+                  <p className="text-xs text-foreground-dim mb-2">New codes — click to copy</p>
                   <div className="flex flex-wrap gap-2">
                     {newCodes.map(code => <button key={code} onClick={() => copyCode(code)} className="px-3 py-1.5 rounded-xl bg-background border border-signal text-sm font-mono">{copied===code?"Copied!":code}</button>)}
                   </div>
@@ -223,6 +238,29 @@ export default function AdminPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "settings" && (
+          <div className="max-w-sm">
+            <div className="rounded-2xl border border-border bg-surface p-6">
+              <h2 className="font-medium mb-1">Change admin password</h2>
+              <p className="text-xs text-foreground-dim mb-5">This changes the password used to log into this admin panel.</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-foreground-dim mb-1">New password</label>
+                  <input type="password" value={newAdminPassword} onChange={e=>setNewAdminPassword(e.target.value)} placeholder="Min 8 characters" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs text-foreground-dim mb-1">Confirm new password</label>
+                  <input type="password" value={confirmAdminPassword} onChange={e=>setConfirmAdminPassword(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                </div>
+                {pwMsg && <p className={"text-sm " + (pwMsg.includes("successfully") ? "text-signal" : "text-red-400")}>{pwMsg}</p>}
+                <button onClick={changeAdminPassword} disabled={pwChanging||!newAdminPassword} className="w-full py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">
+                  {pwChanging ? "Changing..." : "Change password"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -401,6 +401,12 @@ model TeamMessage {
   @@map("team_messages")
 }
 
+model Setting {
+  key   String @id
+  value String
+  @@map("settings")
+}
+
 model EventMessage {
   id          String   @id @default(cuid())
   majorRaceId String

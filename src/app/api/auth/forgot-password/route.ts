@@ -15,14 +15,23 @@ export async function POST(req: Request) {
 
   await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, used: false } });
 
-  const token = await prisma.passwordResetToken.create({
+  const { randomBytes } = await import("crypto");
+  const rawToken = randomBytes(32).toString("hex");
+
+  await prisma.passwordResetToken.create({
     data: {
+      token: rawToken,
       userId: user.id,
-      expires: new Date(Date.now() + 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
   });
 
-  const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token.token}`;
+  const baseUrl = process.env.NEXTAUTH_URL && !process.env.NEXTAUTH_URL.includes("localhost")
+    ? process.env.NEXTAUTH_URL
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
 
   await resend.emails.send({
     from: "Train2Race <onboarding@resend.dev>",

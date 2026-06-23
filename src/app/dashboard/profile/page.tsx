@@ -9,6 +9,7 @@ export default function ProfilePage() {
   const [weightLbs, setWeightLbs] = useState(""); const [heightFt, setHeightFt] = useState(""); const [heightIn, setHeightIn] = useState("");
   const [email, setEmail] = useState(""); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState(""); const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(""); const [error, setError] = useState("");
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile").then(r=>r.json()).then(({user}) => {
@@ -23,6 +24,7 @@ export default function ProfilePage() {
       if (user.weightKg) setWeightLbs(Math.round(user.weightKg*2.20462).toString());
       if (user.heightCm) { const t=Math.round(user.heightCm/2.54); setHeightFt(Math.floor(t/12).toString()); setHeightIn((t%12).toString()); }
       setHasPassword(user.hasPassword||false);
+      setProfileLoaded(true);
     });
   }, []);
 
@@ -97,17 +99,21 @@ export default function ProfilePage() {
       </div>}
 
       {activeTab==="account" && <div className="space-y-8">
-        <div><h2 className="text-sm font-medium mb-4">Email address</h2><div className="space-y-3"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" />{error&&<p className="text-red-400 text-sm">{error}</p>}{saved&&<p className="text-signal text-sm">{saved} ✓</p>}<button onClick={saveEmail} disabled={saving} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{saving?"Saving...":"Update email"}</button></div></div>
+        <div><h2 className="text-sm font-medium mb-4">Email address</h2><div className="space-y-3"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /><button onClick={saveEmail} disabled={saving} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{saving?"Saving...":"Update email"}</button></div></div>
         <div className="border-t border-border" />
-        <div><h2 className="text-sm font-medium mb-1">{hasPassword?"Change password":"Set a password"}</h2><p className="text-xs text-foreground-dim mb-4">{hasPassword?"Enter your current password to set a new one.":"Add a password to your account."}</p>
-          <div className="space-y-3">
-            {hasPassword&&<div><label className="block text-xs text-foreground-dim mb-1">Current password</label><input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>}
-            <div><label className="block text-xs text-foreground-dim mb-1">New password</label><input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Min 8 characters" className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
-            <div><label className="block text-xs text-foreground-dim mb-1">Confirm new password</label><input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
-            {error&&<p className="text-red-400 text-sm">{error}</p>}{saved&&<p className="text-signal text-sm">{saved} ✓</p>}
-            <button onClick={savePassword} disabled={saving||!newPassword} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{saving?"Saving...":hasPassword?"Change password":"Set password"}</button>
+        {!profileLoaded ? (
+          <p className="text-sm text-foreground-dim">Loading...</p>
+        ) : (
+          <div><h2 className="text-sm font-medium mb-1">{hasPassword?"Change password":"Set a password"}</h2><p className="text-xs text-foreground-dim mb-4">{hasPassword?"Enter your current password to set a new one.":"Add a password to your account."}</p>
+            <div className="space-y-3">
+              {hasPassword&&<div><label className="block text-xs text-foreground-dim mb-1">Current password</label><input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>}
+              <div><label className="block text-xs text-foreground-dim mb-1">New password</label><input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Min 8 characters" className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
+              <div><label className="block text-xs text-foreground-dim mb-1">Confirm new password</label><input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
+              {error&&<p className="text-red-400 text-sm">{error}</p>}{saved&&<p className="text-signal text-sm">{saved} ✓</p>}
+              <button onClick={savePassword} disabled={saving||!newPassword} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{saving?"Saving...":hasPassword?"Change password":"Set password"}</button>
+            </div>
           </div>
-        </div>
+        )}
       </div>}
     </div>
   );

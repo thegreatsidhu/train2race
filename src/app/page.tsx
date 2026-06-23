@@ -16,85 +16,120 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-6 md:px-10">
 
+        {/* Hero */}
         <section className="pt-16 md:pt-24 pb-12 grid md:grid-cols-[1.1fr_0.9fr] gap-12 items-center">
           <div>
-            <p className="font-data text-xs uppercase tracking-[0.18em] text-signal mb-5">Train together. Race together.</p>
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.08] mb-6">Your team.<br/>Your race.<br/>Your data.</h1>
-            <p className="text-foreground-dim text-lg leading-relaxed max-w-md mb-8">Create a private team with your training partners, pick your race, and compete on a live leaderboard as you all build toward the same finish line — with your wearable data powering every step.</p>
+            <p className="font-data text-xs uppercase tracking-[0.18em] text-signal mb-5">AI coach · wearable data · team racing</p>
+            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.08] mb-6">Train smarter.<br/>Race better.<br/>Together.</h1>
+            <p className="text-foreground-dim text-lg leading-relaxed max-w-md mb-8">Train2Race combines your wearable data, an AI coach that actually knows your body, race-day nutrition targets, and real team competition — all built around the race you are chasing.</p>
             <div className="flex items-center gap-4 flex-wrap mb-6">
-              <Link href="/signup" className="px-6 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Create your team</Link>
+              <Link href="/signup" className="px-6 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Start for free</Link>
               <Link href="/login" className="px-6 py-3 rounded-full border border-border hover:border-foreground-dim transition-colors">Log in</Link>
             </div>
             <div className="flex items-center gap-6 text-xs text-foreground-dim flex-wrap">
+              <div><span className="text-signal font-semibold">AI coach</span> from your data</div>
               <div><span className="text-signal font-semibold">100+</span> major races</div>
-              <div><span className="text-signal font-semibold">Private</span> team leaderboards</div>
               <div><span className="text-signal font-semibold">Free</span> to join</div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Team</p>
-                <p className="font-semibold">Chicago Marathon Crew</p>
-              </div>
-              <span className="text-xs bg-signal/15 text-signal px-3 py-1 rounded-full">4 members</span>
+          {/* Preview card — Today dashboard */}
+          <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide">Today</p>
+              <span className="text-xs bg-signal/15 text-signal px-2 py-0.5 rounded-full">89 days to race</span>
             </div>
-            <div className="pt-1 pb-1 border-t border-border">
-              <p className="text-xs text-foreground-dim mb-2 uppercase tracking-wide">Leaderboard - Week 8</p>
-              <div className="space-y-2.5">
-                {[
-                  { rank: "1", name: "Sarah K.", pct: 82, miles: "38mi", me: false },
-                  { rank: "2", name: "You", pct: 74, miles: "31mi", me: true },
-                  { rank: "3", name: "Marcus T.", pct: 68, miles: "28mi", me: false },
-                  { rank: "4", name: "Priya S.", pct: 55, miles: "22mi", me: false },
-                ].map((m) => (
-                  <div key={m.name}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-foreground-dim w-4">#{m.rank}</span>
-                        <span className={"text-sm font-medium " + (m.me ? "text-signal" : "")}>{m.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-foreground-dim">
-                        <span>{m.miles}/wk</span>
-                        <span className={m.me ? "text-signal font-semibold" : ""}>{m.pct}%</span>
-                      </div>
-                    </div>
-                    <div className="w-full h-1 bg-border rounded-full">
-                      <div className={"h-1 rounded-full " + (m.me ? "bg-signal" : "bg-foreground-dim opacity-40")} style={{ width: m.pct + "%" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "HRV", value: "68ms", delta: "+4" },
+                { label: "Recovery", value: "81%", delta: "+6" },
+                { label: "Sleep", value: "7h 22m", delta: "" },
+              ].map(m => (
+                <div key={m.label} className="rounded-xl bg-background border border-border px-3 py-2.5">
+                  <p className="text-xs text-foreground-dim mb-0.5">{m.label}</p>
+                  <p className="text-sm font-semibold">{m.value}</p>
+                  {m.delta && <p className="text-xs text-signal">{m.delta} vs avg</p>}
+                </div>
+              ))}
             </div>
-            <div className="pt-1 border-t border-border">
-              <p className="text-xs text-foreground-dim">Chicago Marathon - 89 days away</p>
+            <div className="rounded-xl bg-background border border-border px-4 py-3">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">AI coach</p>
+              <p className="text-sm leading-relaxed text-foreground-dim">"Your HRV is up 4ms and recovery is 81% — a strong day. Today's tempo run is a green light."</p>
+            </div>
+            <div className="rounded-xl bg-background border border-border px-4 py-3">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Today's workout</p>
+              <p className="text-sm font-medium">8mi Tempo — Week 10, Thursday</p>
+              <p className="text-xs text-foreground-dim mt-0.5">2mi warm-up · 4mi at threshold · 2mi cool-down</p>
             </div>
           </div>
         </section>
 
-        <section className="py-16 border-t border-border grid md:grid-cols-3 gap-10">
-          <Pillar eyebrow="Private teams" title="Train with your crew" body="Create a private team with your running club, triathlon group, or training partners. Share a 6-character invite code and everyone is in within seconds." />
-          <Pillar eyebrow="Team leaderboards" title="Friendly competition built in" body="Ranked by workout completion, weekly mileage, and consistency. See exactly where you stand against your teammates every day of training." />
-          <Pillar eyebrow="Team chat" title="Stay connected all season" body="Message your team directly inside Train2Race. Celebrate PRs, share tips, and keep the group motivated from first workout to race day." />
+        {/* AI + Data */}
+        <section className="py-16 border-t border-border">
+          <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Intelligence</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-10 max-w-xl">An AI coach that reads your body, not just your calendar</h2>
+          <div className="grid md:grid-cols-3 gap-10">
+            <Pillar eyebrow="AI daily coach" title="Advice from your actual data" body="Every morning the AI reads your HRV, sleep, resting heart rate, and recovery score, compares them to your 30-day baseline, and gives you honest, actionable guidance — before you even ask." />
+            <Pillar eyebrow="Race day nutrition" title="Exact fueling for your body" body="AI-generated carb, fluid, sodium, and caffeine targets for before, during, and after your race — calculated from your weight, stomach sensitivity, and race conditions. Cached so it is instant on return visits." />
+            <Pillar eyebrow="Training plan AI" title="Week-by-week, race to race" body="Enter your race and current fitness. Get a full training plan from today to race day — with progressive overload, taper, and triathlon-specific swim/bike/run splits if needed." />
+          </div>
         </section>
 
-        <section className="py-16 border-t border-border grid md:grid-cols-3 gap-10">
-          <Pillar eyebrow="100+ major races" title="Find your race community" body="Search Boston, Chicago, Ironman Kona, and 100+ other major events. See who else is training for your race and compare progress on a live leaderboard." />
-          <Pillar eyebrow="Race-specific plans" title="From 5K to full Ironman" body="Pick your race and get a week-by-week training plan calibrated to your fitness level and time to race day — including swim, bike, and run for triathlons." />
-          <Pillar eyebrow="Nutrition targets" title="Fuel calculated from your data" body="Exact carb, protein, fluid, and electrolyte targets for before, during, and after every workout — calculated from your weight and workout type." />
+        {/* Wearables */}
+        <section className="py-16 border-t border-border">
+          <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Your data</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-10 max-w-xl">All your wearables, unified in one dashboard</h2>
+          <div className="grid md:grid-cols-3 gap-10">
+            <Pillar eyebrow="Garmin · Whoop · Strava · Apple Health" title="Connect everything you already wear" body="HRV, resting heart rate, sleep score, body battery, strain, VO2 max, and more — pulled automatically and merged into one timeline. No manual logging." />
+            <Pillar eyebrow="Personal baseline" title="What normal looks like for you" body="Train2Race builds a rolling 30-day baseline for every metric and flags when today falls meaningfully outside it — so you know the difference between a bad night and a warning sign." />
+            <Pillar eyebrow="Cardiac flags" title="When to see a doctor" body="If your metrics suggest something outside normal athletic variation, the platform flags it and recommends seeing a medical professional. It never speculates on causes." />
+          </div>
         </section>
 
-        <section className="py-16 border-t border-border grid md:grid-cols-3 gap-10">
-          <Pillar eyebrow="Unified metrics" title="All your wearable data in one place" body="HRV, resting heart rate, sleep score, and recovery from Whoop, Garmin, and Apple Health — merged into a single dashboard with 30-day trends." />
-          <Pillar eyebrow="Know your baseline" title="See what is normal for you" body="Train2Race compares every metric against your own 30-day rolling baseline. See immediately when you need an easy day before your body tells you." />
-          <Pillar eyebrow="Never diagnostic" title="Flags what is outside your normal" body="When your recovery metrics drop meaningfully below your baseline, Train2Race flags it and recommends you see a doctor. It never speculates about causes." />
+        {/* Community + Leaderboards */}
+        <section className="py-16 border-t border-border">
+          <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Community</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-10 max-w-xl">Race with your team, compete with the world</h2>
+          <div className="grid md:grid-cols-3 gap-10">
+            <Pillar eyebrow="Global leaderboard" title="Where do you rank among everyone?" body="Filter by event, age group, sex, city, or training period. See how your weekly mileage, duration, and activity count stacks up against every athlete registered for your race." />
+            <Pillar eyebrow="Private teams" title="Train together, compete together" body="Create a team, share an invite code, and give your training partners a secure space. Teams get a private leaderboard, group chat, and shared race target — all in one place." />
+            <Pillar eyebrow="Event communities" title="Everyone racing Chicago. One feed." body="Every major race has a public community board. Post your goals, share conditions, and connect with thousands of athletes preparing for the same start line." />
+          </div>
         </section>
 
+        {/* Team invitations preview */}
+        <section className="py-16 border-t border-border grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Team invitations</p>
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-4">Bring your whole squad</h2>
+            <p className="text-foreground-dim leading-relaxed mb-6">Search by name, send an invitation, and let your teammates accept from their dashboard. No codes to share, no emails to forward — invites are built into the platform.</p>
+            <p className="text-foreground-dim leading-relaxed text-sm">Team invitations show up on each athlete's Today page so nothing gets missed. Accept and you are instantly on the team leaderboard.</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Team invitations</p>
+            {[
+              { team: "Chicago Marathon Crew", inviter: "Sarah K." },
+              { team: "Ironman Training Squad", inviter: "Marcus T." },
+            ].map((inv) => (
+              <div key={inv.team} className="rounded-xl bg-background border border-border px-4 py-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">{inv.team}</p>
+                  <p className="text-xs text-foreground-dim">Invited by {inv.inviter}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">Accept</button>
+                  <button className="px-3 py-1.5 rounded-full border border-border text-xs">Decline</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA */}
         <section className="py-16 border-t border-border text-center">
-          <h2 className="text-3xl font-semibold tracking-tight mb-4">Ready to train with your team?</h2>
-          <p className="text-foreground-dim max-w-md mx-auto mb-8">Create a free account, start a team, and invite your training partners. Your first race plan is on us.</p>
-          <Link href="/signup" className="inline-block px-8 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Create your free team</Link>
+          <h2 className="text-3xl font-semibold tracking-tight mb-4">Your race is waiting</h2>
+          <p className="text-foreground-dim max-w-md mx-auto mb-8">Connect your wearable, pick a race, get a training plan, and start competing — in under five minutes. Free to join.</p>
+          <Link href="/signup" className="inline-block px-8 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Get started free</Link>
         </section>
       </main>
 
@@ -106,7 +141,7 @@ export default function Home() {
                 <img src="/logo.png" alt="Train2Race" className="w-7 h-7 rounded-md" />
                 <span className="font-semibold">Train2Race</span>
               </div>
-              <p className="text-xs text-foreground-dim leading-relaxed max-w-xs">Team training platform for endurance athletes. Built for runners, triathletes, and everyone chasing a finish line.</p>
+              <p className="text-xs text-foreground-dim leading-relaxed max-w-xs">The complete training platform for endurance athletes — AI coach, wearable data, team racing, and race-day nutrition, all in one place.</p>
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wide mb-3">Platform</p>
@@ -120,13 +155,12 @@ export default function Home() {
               <p className="text-xs font-medium uppercase tracking-wide mb-3">Contact</p>
               <div className="space-y-2 text-xs text-foreground-dim">
                 <div><a href="mailto:support@train2race.com" className="hover:text-foreground transition-colors">support@train2race.com</a></div>
-                <div><a href="mailto:hello@train2race.com" className="hover:text-foreground transition-colors">hello@train2race.com</a></div>
               </div>
             </div>
           </div>
           <div className="border-t border-border pt-6 flex items-center justify-between flex-wrap gap-2 text-xs text-foreground-dim">
             <span>Train2Race is a training tool, not a medical device.</span>
-            <span>Boston - Chicago - NYC - Ironman - and 100+ more races</span>
+            <span>Garmin · Whoop · Strava · Apple Health · 100+ races</span>
           </div>
         </div>
       </footer>
