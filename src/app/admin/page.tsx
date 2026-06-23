@@ -22,6 +22,10 @@ export default function AdminPage() {
   const [tempPassword, setTempPassword] = useState("");
   const [sendingResetFor, setSendingResetFor] = useState(null);
   const [userMsgs, setUserMsgs] = useState({});
+  const [tickets, setTickets] = useState([]);
+  const [ticketsLoaded, setTicketsLoaded] = useState(false);
+  const [ticketNote, setTicketNote] = useState({});
+  const [updatingTicket, setUpdatingTicket] = useState(null);
 
   async function handleLogin() {
     setLoading(true); setError("");
@@ -161,6 +165,7 @@ export default function AdminPage() {
             { id: "invites", label: "Invites (" + unusedCodes.length + " unused)" },
             { id: "races", label: "Races (" + (data?.pendingRaces?.length || 0) + " pending)" },
             { id: "chat", label: "Chat" },
+            { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "settings", label: "Settings" },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
@@ -299,6 +304,66 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "tickets" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-medium">Support Tickets</h2>
+              <button onClick={async()=>{
+                if(ticketsLoaded)return;
+                const res=await fetch(`/api/admin/tickets?password=${encodeURIComponent(password)}`);
+                const d=await res.json();setTickets(d.tickets||[]);setTicketsLoaded(true);
+              }} className="text-xs text-signal hover:underline">{ticketsLoaded?"":"Load tickets"}</button>
+            </div>
+            {!ticketsLoaded ? (
+              <button onClick={async()=>{
+                const res=await fetch(`/api/admin/tickets?password=${encodeURIComponent(password)}`);
+                const d=await res.json();setTickets(d.tickets||[]);setTicketsLoaded(true);
+              }} className="px-4 py-2 rounded-full border border-border text-sm hover:bg-surface">Load tickets</button>
+            ) : tickets.length === 0 ? <p className="text-sm text-foreground-dim">No tickets yet.</p> : (
+              <div className="space-y-3">
+                {tickets.map((t)=>{
+                  const STATUS_COLORS={open:"border-yellow-600/40 bg-yellow-900/10 text-yellow-300",in_progress:"border-blue-600/40 bg-blue-900/10 text-blue-300",resolved:"border-green-600/40 bg-green-900/10 text-green-300",closed:"border-border bg-surface text-foreground-dim"};
+                  return(
+                    <div key={t.id} className="rounded-2xl border border-border bg-surface p-4">
+                      <div className="flex items-start justify-between gap-4 mb-2">
+                        <div>
+                          <p className="font-medium text-sm">{t.subject}</p>
+                          <p className="text-xs text-foreground-dim mt-0.5">{t.user?.name||"Unknown"} · {t.user?.email} · {t.category} · {new Date(t.createdAt).toLocaleDateString()}</p>
+                          <p className="text-sm text-foreground-dim mt-2">{t.description}</p>
+                          {t.adminNote&&<p className="text-xs text-signal mt-1">Note: {t.adminNote}</p>}
+                        </div>
+                        <span className={"text-xs px-2 py-0.5 rounded-full border shrink-0 "+STATUS_COLORS[t.status]}>{t.status.replace("_"," ")}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                        {["open","in_progress","resolved","closed"].map(s=>(
+                          <button key={s} disabled={updatingTicket===t.id||t.status===s} onClick={async()=>{
+                            setUpdatingTicket(t.id);
+                            await fetch("/api/admin/tickets",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({password,ticketId:t.id,status:s})});
+                            setTickets(prev=>prev.map(x=>x.id===t.id?{...x,status:s}:x));
+                            setUpdatingTicket(null);
+                          }} className={"text-xs px-3 py-1 rounded-full border transition-colors "+(t.status===s?"bg-signal text-background border-signal":"border-border hover:bg-surface-raised disabled:opacity-40")}>
+                            {s.replace("_"," ")}
+                          </button>
+                        ))}
+                        <div className="flex items-center gap-2 ml-auto">
+                          <input placeholder="Add note…" value={ticketNote[t.id]||""} onChange={e=>setTicketNote(n=>({...n,[t.id]:e.target.value}))}
+                            className="px-2 py-1 rounded-lg bg-background border border-border text-xs outline-none focus:border-signal w-40"/>
+                          <button disabled={updatingTicket===t.id} onClick={async()=>{
+                            setUpdatingTicket(t.id);
+                            await fetch("/api/admin/tickets",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({password,ticketId:t.id,adminNote:ticketNote[t.id]||""})});
+                            setTickets(prev=>prev.map(x=>x.id===t.id?{...x,adminNote:ticketNote[t.id]||""}:x));
+                            setUpdatingTicket(null);
+                          }} className="text-xs text-signal hover:underline disabled:opacity-40">Save note</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

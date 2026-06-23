@@ -31,6 +31,7 @@ export function MobileNav({ email }: { email: string }) {
               { href: "/dashboard/races", label: "Race plans" },
               { href: "/dashboard/community", label: "Races" },
               { href: "/dashboard/teams", label: "Teams" },
+              { href: "/dashboard/challenges", label: "Challenges" },
               { href: "/dashboard/leaderboard", label: "Leaderboard" },
               { href: "/dashboard/connections", label: "Connections" },
               { href: "/dashboard/profile", label: "Profile" },

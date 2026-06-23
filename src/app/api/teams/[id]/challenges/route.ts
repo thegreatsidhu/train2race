@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
   if (!member || member.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
-  const { title, type, metric, unit, goal, startDate, endDate, description } = await req.json();
+  const { title, type, metric, unit, goal, startDate, endDate, description, isPublic } = await req.json();
   if (!title?.trim() || !type || !metric || !unit || !startDate || !endDate) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -48,6 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       description: description?.trim() || null,
+      isPublic: isPublic === true,
     },
   });
   return NextResponse.json({ challenge }, { status: 201 });
