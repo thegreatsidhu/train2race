@@ -16,14 +16,20 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone } = body;
   const data: any = {};
-  if ("name" in body)             data.name = name || null;
-  if ("weightKg" in body)         data.weightKg = weightKg ?? null;
-  if ("heightCm" in body)         data.heightCm = heightCm ?? null;
-  if ("dateOfBirth" in body)      data.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
-  if ("sex" in body)              data.sex = sex || null;
-  if ("city" in body)             data.city = city || null;
-  if ("isPrivate" in body)        data.isPrivate = isPrivate ?? false;
-  if ("timezone" in body)         data.timezone = timezone || null;
-  const user = await (prisma as any).user.update({ where: { id: userId }, data, select: { name: true, weightKg: true, heightCm: true, dateOfBirth: true, sex: true, city: true, isPrivate: true, timezone: true } });
-  return NextResponse.json({ user });
+  if ("name" in body)        data.name = name || null;
+  if ("weightKg" in body)    data.weightKg = weightKg != null ? Number(weightKg) : null;
+  if ("heightCm" in body)    data.heightCm = heightCm != null ? Number(heightCm) : null;
+  if ("dateOfBirth" in body) data.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+  if ("sex" in body)         data.sex = sex || null;
+  if ("city" in body)        data.city = city || null;
+  if ("isPrivate" in body)   data.isPrivate = isPrivate ?? false;
+  if ("timezone" in body)    data.timezone = timezone || null;
+  if (Object.keys(data).length === 0) return NextResponse.json({ ok: true });
+  try {
+    await prisma.user.update({ where: { id: userId }, data });
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    console.error("Profile update error:", e);
+    return NextResponse.json({ error: e.message || "Failed to save" }, { status: 500 });
+  }
 }

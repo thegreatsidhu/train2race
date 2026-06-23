@@ -41,7 +41,9 @@ export default function ProfilePage() {
     const totalIn=(heightFt||heightIn)?parseInt(heightFt||"0")*12+parseInt(heightIn||"0"):null;
     const heightCm=totalIn?totalIn*2.54:null;
     const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({weightKg,heightCm})});
-    setSaving(false); if(res.ok) showSaved("Saved"); else setError("Failed to save");
+    setSaving(false);
+    if(res.ok) showSaved("Saved");
+    else { const d=await res.json().catch(()=>({})); setError(d.error||"Failed to save"); }
   }
   async function saveEmail() {
     setSaving(true); setError("");
