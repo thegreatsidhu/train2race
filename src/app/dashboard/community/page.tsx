@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 function formatGoal(sec) {
   if (!sec) return null;
@@ -27,12 +29,27 @@ const DFILTERS = [
 const DISTS = { "5K":5000,"10K":10000,"Half Marathon":21097,"Marathon":42195,"Ultra (50K)":50000,"Sprint Triathlon":25750,"Olympic Triathlon":51500,"70.3 Half Ironman":113000,"140.6 Full Ironman":226000 };
 const TRIS = ["Sprint Triathlon","Olympic Triathlon","70.3 Half Ironman","140.6 Full Ironman"];
 
-export default function CommunityPage() {
-  const [search,setSearch]=useState("");const [df,setDf]=useState(0);const [races,setRaces]=useState([]);const [myRegs,setMyRegs]=useState([]);const [sel,setSel]=useState(null);const [comm,setComm]=useState([]);const [messages,setMessages]=useState([]);const [loading,setLoading]=useState(false);const [reging,setReging]=useState(false);const [goalH,setGoalH]=useState("");const [goalM,setGoalM]=useState("");const [pub,setPub]=useState(true);const [tab,setTab]=useState("find");const [eventTab,setEventTab]=useState("leaderboard");const [newMsg,setNewMsg]=useState("");const [sending,setSending]=useState(false);
-  const [rName,setRName]=useState("");const [rDate,setRDate]=useState("");const [rDist,setRDist]=useState("Marathon");const [rCity,setRCity]=useState("");const [rCountry,setRCountry]=useState("USA");const [rWeb,setRWeb]=useState("");const [rTri,setRTri]=useState(false);const [subbing,setSubbing]=useState(false);const [subResult,setSubResult]=useState(null);
-  const messagesEndRef = useRef(null);
+function CommunityPageInner() {
+  const searchParams = useSearchParams();
+  const preselectedRaceId = searchParams.get("race");
+  const [search,setSearch]=useState("");const [df,setDf]=useState(0);const [races,setRaces]=useState<any[]>([]);const [myRegs,setMyRegs]=useState<any[]>([]);const [sel,setSel]=useState<any>(null);const [comm,setComm]=useState<any[]>([]);const [messages,setMessages]=useState<any[]>([]);const [loading,setLoading]=useState(false);const [reging,setReging]=useState(false);const [goalH,setGoalH]=useState("");const [goalM,setGoalM]=useState("");const [pub,setPub]=useState(true);const [tab,setTab]=useState("find");const [eventTab,setEventTab]=useState("leaderboard");const [newMsg,setNewMsg]=useState("");const [sending,setSending]=useState(false);
+  const [rName,setRName]=useState("");const [rDate,setRDate]=useState("");const [rDist,setRDist]=useState("Marathon");const [rCity,setRCity]=useState("");const [rCountry,setRCountry]=useState("USA");const [rWeb,setRWeb]=useState("");const [rTri,setRTri]=useState(false);const [subbing,setSubbing]=useState(false);const [subResult,setSubResult]=useState<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(()=>{fetch("/api/major-races?upcoming=1").then(r=>r.json()).then(d=>setRaces(d.races||[]));fetch("/api/major-races/register").then(r=>r.json()).then(d=>setMyRegs(d.registrations||[]));}, []);
+  useEffect(()=>{
+    Promise.all([
+      fetch("/api/major-races?upcoming=1").then(r=>r.json()),
+      fetch("/api/major-races/register").then(r=>r.json()),
+    ]).then(([rd,regs])=>{
+      const raceList = rd.races||[];
+      setRaces(raceList);
+      setMyRegs(regs.registrations||[]);
+      if(preselectedRaceId){
+        const found = raceList.find((r:any)=>r.id===preselectedRaceId);
+        if(found) loadEvent(found);
+      }
+    });
+  }, []);
   useEffect(()=>{const t=setTimeout(()=>{fetch("/api/major-races?upcoming=1"+(search?"&search="+encodeURIComponent(search):"")).then(r=>r.json()).then(d=>setRaces(d.races||[]));},300);return()=>clearTimeout(t);},[search]);
 
   async function loadEvent(race) {
@@ -174,4 +191,8 @@ export default function CommunityPage() {
       </div></div>}
     </div>
   );
+}
+
+export default function CommunityPage() {
+  return <Suspense fallback={null}><CommunityPageInner /></Suspense>;
 }

@@ -54,7 +54,7 @@ export function UpcomingRacesNearby({ city, registeredRaceId }: { city: string |
               </p>
               <p className="text-xs text-foreground-dim">{race._count.registrations} registered</p>
             </div>
-            <Link href={`/community/${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">View →</Link>
+            <Link href={`/dashboard/community?race=${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">View →</Link>
           </div>
         );
       })}
