@@ -163,9 +163,6 @@ export default function PlanPage() {
           <span>Week {curWeek} of {plan.weeks.length}</span>
           <span>{daysLeft > 0 ? `${daysLeft} days to race` : daysLeft === 0 ? "Race day!" : "Race complete"}</span>
         </div>
-        <div className="mt-3 pt-3 border-t border-border/50 flex justify-end">
-          <a href={`/dashboard/races/${plan.raceId}`} className="text-xs px-3 py-1.5 rounded-full border border-signal text-signal hover:bg-signal hover:text-background transition-colors">View training plan →</a>
-        </div>
       </div>
 
       {/* Weeks */}

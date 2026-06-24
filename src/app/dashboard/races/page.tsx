@@ -218,7 +218,7 @@ export default function RacesPage() {
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-3">
-                    <a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">View training plan →</a>
+                    <a href="/dashboard/plan" className="text-sm text-signal hover:underline">View training plan →</a>
                     {confirmDel === r.id ? (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-foreground-dim">Delete race?</span>
