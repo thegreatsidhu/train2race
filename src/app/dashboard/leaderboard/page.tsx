@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 const PERIODS    = [{ v: "week", l: "This week" }, { v: "month", l: "This month" }, { v: "year", l: "This year" }, { v: "all", l: "All time" }];
 const METRICS    = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Duration" }, { v: "count", l: "Activities" }];
-const TYPES      = [{ v: "all", l: "All" }, { v: "run", l: "Run" }, { v: "bike", l: "Bike" }, { v: "swim", l: "Swim" }, { v: "walk", l: "Walk" }, { v: "strength", l: "Strength" }];
+const TYPES      = [{ v: "all", l: "All" }, { v: "run", l: "Run + Walk" }, { v: "bike", l: "Bike" }, { v: "swim", l: "Swim" }, { v: "triathlon", l: "Triathlon" }];
 const SEXES      = [{ v: "all", l: "Any" }, { v: "male", l: "Male" }, { v: "female", l: "Female" }, { v: "other", l: "Other" }];
 const AGE_GROUPS = [{ v: "all", l: "Any age" }, { v: "18-29", l: "18–29" }, { v: "30-39", l: "30–39" }, { v: "40-49", l: "40–49" }, { v: "50-59", l: "50–59" }, { v: "60+", l: "60+" }];
 const MEDAL = ["🥇", "🥈", "🥉"];
@@ -178,7 +178,7 @@ export default function LeaderboardPage() {
                 className="flex-1 bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
                 placeholder="Search races..."
                 value={raceSearch}
-                onChange={e => { const v = e.target.value; setRaceSearch(v); setRaceDropdown(!!v); if (!v) { setRaceId(""); setSelectedRace(null); } }}
+                onChange={e => { const v = e.target.value; setRaceSearch(v); setRaceDropdown(!!v); if (!v) { setRaceId(""); setSelectedRace(null); setType("all"); } }}
                 onFocus={() => { if (raceSearch) setRaceDropdown(true); }}
               />
               {(raceId || raceSearch) && (
@@ -199,7 +199,7 @@ export default function LeaderboardPage() {
               return filtered.length > 0 ? (
                 <div className="absolute z-30 top-full mt-1 left-0 right-0 bg-background border border-border rounded-xl shadow-xl max-h-56 overflow-y-auto">
                   {filtered.map((r: any) => (
-                    <button key={r.id} onClick={() => { setRaceId(r.id); setSelectedRace(r); setRaceSearch(r.name); setRaceDropdown(false); }}
+                    <button key={r.id} onClick={() => { setRaceId(r.id); setSelectedRace(r); setRaceSearch(r.name); setRaceDropdown(false); setType(r.isTriathlon ? "triathlon" : "run"); }}
                       className={"w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors " + (raceId === r.id ? "text-signal bg-signal/5" : "")}>
                       <span className="font-medium">{r.name}</span>
                       <span className="text-xs text-foreground-dim ml-2">{new Date(r.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>

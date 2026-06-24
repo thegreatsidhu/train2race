@@ -5,11 +5,10 @@ import { NextResponse } from "next/server";
 
 function typeOR(type: string) {
   const map: Record<string, string[]> = {
-    run:      ["run", "trail"],
-    bike:     ["cycl", "bike", "ride"],
-    swim:     ["swim"],
-    walk:     ["walk", "hike"],
-    strength: ["strength", "weight", "gym"],
+    run:       ["run", "trail", "walk", "hike"],
+    bike:      ["cycl", "bike", "ride"],
+    swim:      ["swim"],
+    triathlon: ["run", "trail", "swim", "cycl", "bike", "ride", "walk", "hike"],
   };
   const terms = map[type];
   if (!terms) return null;
