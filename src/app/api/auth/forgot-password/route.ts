@@ -26,11 +26,9 @@ export async function POST(req: Request) {
       },
     });
 
-    const baseUrl = process.env.NEXTAUTH_URL && !process.env.NEXTAUTH_URL.includes("localhost")
-      ? process.env.NEXTAUTH_URL
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
+    const baseUrl = process.env.NODE_ENV === "production"
+      ? "https://train2race.com"
+      : "http://localhost:3000";
     const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
 
     if (!process.env.RESEND_API_KEY) {
