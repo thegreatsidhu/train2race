@@ -5,7 +5,7 @@ import { ConnectionRow } from "@/components/ConnectionRow";
 export default async function ConnectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; error?: string }>;
+  searchParams: Promise<{ connected?: string; disconnected?: string; error?: string }>;
 }) {
   const session = await auth();
   const userId = (session!.user as { id: string }).id;
@@ -28,9 +28,14 @@ export default async function ConnectionsPage({
           Connected {params.connected} successfully.
         </div>
       )}
+      {params.disconnected && (
+        <div className="rounded-xl border border-border bg-surface text-foreground-dim text-sm px-4 py-3 mb-6">
+          {params.disconnected} disconnected.
+        </div>
+      )}
       {params.error && (
         <div className="rounded-xl border border-alert/40 bg-alert/10 text-alert text-sm px-4 py-3 mb-6">
-          Something went wrong connecting that device ({params.error}). Try again.
+          Something went wrong ({params.error}). Try again.
         </div>
       )}
 
