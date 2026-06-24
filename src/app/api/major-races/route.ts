@@ -8,8 +8,8 @@ export async function GET(req: NextRequest) {
   const city = searchParams.get("city") || "";
   const races = await prisma.majorRace.findMany({
     where: { status: "active", ...(upcoming ? { raceDate: { gte: new Date() } } : {}), ...(search ? { name: { contains: search, mode: "insensitive" } } : {}), ...(city ? { city: { contains: city, mode: "insensitive" } } : {}) },
-    orderBy: { raceDate: "asc" },
-    take: 50,
+    orderBy: { raceDate: upcoming ? "asc" : "desc" },
+    take: 200,
     include: { _count: { select: { registrations: true } } },
   });
   return NextResponse.json({ races }, { headers: { "Cache-Control": "public, max-age=3600" } });

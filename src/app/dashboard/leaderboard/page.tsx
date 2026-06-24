@@ -187,8 +187,15 @@ export default function LeaderboardPage() {
             </div>
             {selectedRace && <p className="text-xs text-signal mt-1 px-1 truncate">{selectedRace.name} · {new Date(selectedRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>}
             {raceDropdown && (() => {
-              const q = raceSearch.toLowerCase();
-              const filtered = races.filter((r: any) => !q || r.name.toLowerCase().includes(q)).slice(0, 12);
+              const q = raceSearch.toLowerCase().trim();
+              const filtered = races.filter((r: any) => {
+                if (!q) return true;
+                const name = r.name.toLowerCase();
+                if (name.includes(q)) return true;
+                // Acronym: "la" matches "Los Angeles Marathon" (first letters = "lam")
+                const acronym = r.name.split(/\s+/).map((w: string) => w[0] || "").join("").toLowerCase();
+                return acronym.startsWith(q);
+              }).slice(0, 12);
               return filtered.length > 0 ? (
                 <div className="absolute z-30 top-full mt-1 left-0 right-0 bg-background border border-border rounded-xl shadow-xl max-h-56 overflow-y-auto">
                   {filtered.map((r: any) => (
