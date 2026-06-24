@@ -15,6 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Link href="/dashboard" className="flex items-center gap-2 px-2 mb-8"><img src="/logo.png" alt="Train2Race" className="w-8 h-8 rounded-lg" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></Link>
         <nav className="flex flex-col gap-1 text-sm flex-1">
           <NavLink href="/dashboard" label="Today" />
+          <NavLink href="/dashboard/plan" label="My Plan" />
           <NavLink href="/dashboard/nutrition" label="Nutrition" />
           <NavLink href="/dashboard/races" label="Races" />
           <NavLink href="/dashboard/community" label="Community" />
