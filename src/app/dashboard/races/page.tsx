@@ -5,11 +5,12 @@ import { NewRaceForm } from "@/components/NewRaceForm";
 export default async function RacesPage() {
   const session = await auth();
   const userId = (session!.user as { id: string }).id;
+  const now = new Date();
   const races = await prisma.raceTarget.findMany({
     where: { userId }, orderBy: { raceDate: "asc" },
-    include: { trainingPlan: { select: { id: true, _count: { select: { workouts: true } }, workouts: { where: { completed: false }, select: { id: true }, take: 1 } } } },
+    include: { trainingPlan: { select: { id: true, _count: { select: { workouts: true } }, workouts: { where: { date: { lte: now } }, select: { id: true, completed: true } } } } },
   });
-  const hasActivePlan = races.some(r => r.trainingPlan && r.trainingPlan.workouts.length > 0);
+  const hasActivePlan = races.some(r => r.trainingPlan && r.trainingPlan._count.workouts > 0);
   return (
     <div className="max-w-3xl px-8 py-10">
       <header className="mb-8"><h1 className="text-3xl font-semibold tracking-tight mb-2">Race plans</h1><p className="text-foreground-dim text-sm">Add a race and build a training plan around your actual recovery data.</p></header>
@@ -21,15 +22,16 @@ export default async function RacesPage() {
       <div className="space-y-3">
         {races.length === 0 && <p className="text-sm text-foreground-dim">No races added yet.</p>}
         {races.map(r => {
-          const total = r.trainingPlan?._count?.workouts ?? 0;
-          const remaining = r.trainingPlan?.workouts?.length ?? 0;
-          const done = total - remaining;
+          const dueSoFar = r.trainingPlan?.workouts ?? [];
+          const total = dueSoFar.length;
+          const done = dueSoFar.filter((w: any) => w.completed).length;
+          const totalPlan = r.trainingPlan?._count?.workouts ?? 0;
           const pct = total > 0 ? Math.round((done/total)*100) : 0;
           return (
             <div key={r.id} className="rounded-2xl border border-border bg-surface p-5">
               <div className="flex items-center justify-between mb-1"><h3 className="font-medium">{r.raceName}</h3><span className="text-xs text-foreground-dim">{r.raceDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span></div>
               <p className="text-sm text-foreground-dim">{(r.distanceM/1609.34).toFixed(1)} mi{r.goalTimeSec?` · goal ${Math.floor(r.goalTimeSec/3600)}h ${Math.floor((r.goalTimeSec%3600)/60)}m`:""}</p>
-              {total > 0 && <div className="mt-3"><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{done}/{total} workouts done</span><span>{pct}%</span></div><div className="w-full h-1.5 bg-border rounded-full"><div className="h-1.5 bg-signal rounded-full" style={{width:`${pct}%`}} /></div></div>}
+              {totalPlan > 0 && <div className="mt-3"><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{done}/{total} scheduled workouts done{total < totalPlan ? ` · ${totalPlan} total` : ""}</span><span>{pct}%</span></div><div className="w-full h-1.5 bg-border rounded-full"><div className="h-1.5 bg-signal rounded-full" style={{width:`${pct}%`}} /></div></div>}
               <div className="flex items-center justify-between mt-3"><a href={`/dashboard/races/${r.id}`} className="text-sm text-signal hover:underline">View training plan →</a><DeleteRaceButton raceId={r.id} /></div>
             </div>
           );

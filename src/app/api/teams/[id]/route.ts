@@ -7,8 +7,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
+  const now = new Date();
   const weekAgo = new Date(Date.now()-7*24*60*60*1000);
-  // Fetch team + members without nesting all workout objects
+  // Fetch team + members
   const team = await prisma.team.findUnique({
     where: { id },
     include: {
@@ -21,12 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               trainingPlans: {
                 take: 1,
                 orderBy: { createdAt: "desc" },
-                select: {
-                  id: true,
-                  _count: { select: { workouts: true } },
-                  // Only recent completed workouts — for weekly mileage only
-                  workouts: { where: { completed: true, date: { gte: weekAgo } }, select: { distanceKm: true } },
-                },
+                select: { id: true },
               },
             },
           },
@@ -39,23 +35,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isMember = team.members.some(m => m.userId === userId);
   if (!isMember) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
-  // Batch-fetch completed workout counts for all member plans in one query
   const planIds = team.members.flatMap(m => m.user.trainingPlans.map(p => p.id));
-  const doneCounts = planIds.length > 0
-    ? await prisma.trainingWorkout.groupBy({
-        by: ["planId"],
-        where: { planId: { in: planIds }, completed: true },
-        _count: { planId: true },
-      })
-    : [];
+  const [dueCounts, doneCounts, weeklyData] = planIds.length > 0
+    ? await Promise.all([
+        // Workouts scheduled up to today (denominator)
+        prisma.trainingWorkout.groupBy({ by: ["planId"], where: { planId: { in: planIds }, date: { lte: now } }, _count: { planId: true } }),
+        // Completed workouts scheduled up to today (numerator)
+        prisma.trainingWorkout.groupBy({ by: ["planId"], where: { planId: { in: planIds }, date: { lte: now }, completed: true }, _count: { planId: true } }),
+        // Weekly miles from completed workouts in last 7 days
+        prisma.trainingWorkout.findMany({ where: { planId: { in: planIds }, completed: true, date: { gte: weekAgo } }, select: { planId: true, distanceKm: true } }),
+      ])
+    : [[], [], []];
+
+  const dueMap  = Object.fromEntries(dueCounts.map(r => [r.planId, r._count.planId]));
   const doneMap = Object.fromEntries(doneCounts.map(r => [r.planId, r._count.planId]));
+  const weeklyMap: Record<string, number> = {};
+  for (const w of weeklyData) { weeklyMap[w.planId] = (weeklyMap[w.planId] || 0) + (w.distanceKm || 0); }
 
   const membersWithStats = team.members.map(m => {
     const plan = m.user.trainingPlans[0];
-    const total = plan?._count?.workouts ?? 0;
-    const done = plan ? (doneMap[plan.id] ?? 0) : 0;
-    const weeklyMiles = (plan?.workouts ?? []).reduce((s: number, w: any) => s + (w.distanceKm || 0) / 1.60934, 0);
-    return { userId: m.user.id, name: m.user.name||"Anonymous", role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles: Math.round(weeklyMiles*10)/10 };
+    const total = plan ? (dueMap[plan.id] ?? 0) : 0;
+    const done  = plan ? (doneMap[plan.id] ?? 0) : 0;
+    const weeklyMiles = plan ? Math.round((weeklyMap[plan.id] || 0) / 1.60934 * 10) / 10 : 0;
+    return { userId: m.user.id, name: m.user.name||"Anonymous", role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles };
   }).sort((a,b)=>b.pct-a.pct);
   return NextResponse.json({ team: { ...team, members: membersWithStats, isAdmin: team.members.find(m=>m.userId===userId)?.role==="admin" } });
 }
