@@ -143,7 +143,9 @@ export default async function TodayPage() {
   const fortyFiveDaysAgo = new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000);
   const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(),0,0).getTime()) / 86400000);
 
-  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts] = await Promise.all([
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, recentTeamMessages] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
@@ -153,6 +155,7 @@ export default async function TodayPage() {
     prisma.raceRegistration.findFirst({where:{userId,majorRace:{raceDate:{gte:today},status:"active"}},orderBy:{majorRace:{raceDate:"asc"}},include:{majorRace:{select:{id:true,name:true,city:true,country:true,raceDate:true}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
+    prisma.teamMessage.findMany({where:{team:{members:{some:{userId}}},userId:{not:userId},isDeleted:false,createdAt:{gte:last24h}},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},user:{select:{name:true}}},orderBy:{createdAt:"desc"},take:50}),
   ]);
 
   const primaryTeam = await prisma.team.findFirst({
@@ -219,6 +222,17 @@ export default async function TodayPage() {
     .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
     .slice(0, 10);
 
+  // Group new messages by team
+  const msgByTeam = new Map<string, {teamId:string;teamName:string;count:number;senderName:string;preview:string}>();
+  for (const msg of recentTeamMessages) {
+    const key = msg.teamId;
+    if (!msgByTeam.has(key)) {
+      msgByTeam.set(key, { teamId: msg.team.id, teamName: msg.team.name, count: 0, senderName: msg.user.name ?? "Someone", preview: msg.content });
+    }
+    msgByTeam.get(key)!.count++;
+  }
+  const teamMessageGroups = Array.from(msgByTeam.values());
+
   const leaderboard = primaryTeam ? primaryTeam.members.map(m => {
     const p = m.user.trainingPlans[0];
     const total = p?._count?.workouts ?? 0;
@@ -262,6 +276,22 @@ export default async function TodayPage() {
 
       {/* Team invitations */}
       <TeamInvitations />
+
+      {/* Team chat notifications */}
+      {teamMessageGroups.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {teamMessageGroups.map(g => (
+            <Link key={g.teamId} href={`/dashboard/teams/${g.teamId}`} className="flex items-start gap-3 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3 hover:bg-signal/10 transition-colors">
+              <span className="text-base shrink-0 mt-0.5">💬</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{g.count} new {g.count === 1 ? "message" : "messages"} in {g.teamName}</p>
+                <p className="text-xs text-foreground-dim truncate">{g.senderName}: "{g.preview.length > 60 ? g.preview.slice(0, 60) + "…" : g.preview}"</p>
+              </div>
+              <span className="text-foreground-dim text-xs shrink-0 self-center">→</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Quote of the day */}
       {!isNewUser && (
