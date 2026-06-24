@@ -44,8 +44,23 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
-  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
-  await prisma.teamChallengeEntry.deleteMany({ where: { challengeId, userId } });
+
+  const url = new URL(req.url);
+  const targetUserId = url.searchParams.get("userId") || userId;
+
+  if (targetUserId !== userId) {
+    const [member, team] = await Promise.all([
+      prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } }),
+      prisma.team.findUnique({ where: { id: teamId }, select: { createdBy: true } }),
+    ]);
+    if (member?.role !== "admin" && team?.createdBy !== userId) {
+      return NextResponse.json({ error: "Admins only" }, { status: 403 });
+    }
+  } else {
+    const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
+    if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
+  }
+
+  await prisma.teamChallengeEntry.deleteMany({ where: { challengeId, userId: targetUserId } });
   return NextResponse.json({ ok: true });
 }

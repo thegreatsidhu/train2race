@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
     description: t.description,
     isPrivate: t.isPrivate,
     createdAt: t.createdAt,
+    createdBy: t.createdBy,
     members: t.members.map(m => ({
       userId: m.userId,
       name: m.user.name || "No name",
@@ -74,6 +75,11 @@ export async function POST(req: NextRequest) {
   }
   if (action === "unbanUser") {
     await prisma.user.update({ where: { id: userId }, data: { isBanned: false } });
+    return NextResponse.json({ ok: true });
+  }
+  if (action === "editTeam") {
+    if (!name?.trim()) return NextResponse.json({ error: "Name required" }, { status: 400 });
+    await prisma.team.update({ where: { id: teamId }, data: { name: name.trim(), description: description || null } });
     return NextResponse.json({ ok: true });
   }
   if (action === "deleteTeam") {
