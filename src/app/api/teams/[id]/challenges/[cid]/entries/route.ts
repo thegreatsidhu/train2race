@@ -12,6 +12,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
   if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
+  const otherActive = await prisma.teamChallengeEntry.findFirst({
+    where: {
+      userId,
+      challengeId: { not: challengeId },
+      challenge: { teamId, endDate: { gte: new Date() }, status: "approved" },
+    },
+  });
+  if (otherActive) {
+    return NextResponse.json({ error: "You are already participating in another active challenge in this team." }, { status: 409 });
+  }
+
   const { value, date, note } = await req.json();
   if (!value || !date) return NextResponse.json({ error: "value and date are required" }, { status: 400 });
 

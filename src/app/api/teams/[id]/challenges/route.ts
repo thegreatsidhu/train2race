@@ -31,6 +31,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
   if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
+  const existingActive = await prisma.teamChallenge.findFirst({
+    where: { teamId, endDate: { gte: new Date() } },
+    select: { id: true, title: true },
+  });
+  if (existingActive) {
+    return NextResponse.json({ error: `This team already has an active challenge ("${existingActive.title}"). It must end before a new one can be created.` }, { status: 409 });
+  }
+
   const { title, type, metric, unit, goal, startDate, endDate, description, isPublic } = await req.json();
   if (!title?.trim() || !type || !metric || !unit || !startDate || !endDate) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
