@@ -8,11 +8,10 @@ const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Durat
 
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [newMessage,setNewMessage]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"leaderboard"|"chat"|"challenges"|"members">("leaderboard");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
+  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [newMessage,setNewMessage]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"plan"|"activity"|"challenges"|"chat"|"members">("plan");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
   const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [createMsg,setCreateMsg]=useState("");const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string;error?:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);const [approvingChallenge,setApprovingChallenge]=useState<string|null>(null);const [leavingChallenge,setLeavingChallenge]=useState<string|null>(null);const [confirmLeaveChallenge,setConfirmLeaveChallenge]=useState<string|null>(null);const [confirmDeleteChId,setConfirmDeleteChId]=useState<string|null>(null);
-  const [lbView,setLbView]=useState<"plan"|"activity"|"challenge">("plan");
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
-  const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbChallengeId,setLbChallengeId]=useState<string|null>(null);
+  const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -57,7 +56,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     setLbLoading(false);
   },[id,lbPeriod,lbMetric,lbType]);
 
-  useEffect(()=>{if(lbView==="activity"&&id)loadLbData();},[lbView,loadLbData,id]);
+  useEffect(()=>{if(activeTab==="activity"&&id)loadLbData();},[activeTab,loadLbData,id]);
 
   function formatLbValue(e:any){
     if(lbMetric==="distance")return`${e.distanceMi} mi`;
@@ -148,22 +147,13 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold text-signal truncate">{team.members[0]?.name?.split(" ")[0]||"—"}</p><p className="text-xs text-foreground-dim mt-0.5">Leading</p></div>
       </div>
       <div className="flex gap-2 mb-6 flex-wrap">
-        <button onClick={()=>setActiveTab("leaderboard")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="leaderboard"?"bg-signal text-background":"border border-border hover:bg-surface")}>Leaderboard</button>
+        <button onClick={()=>setActiveTab("plan")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="plan"?"bg-signal text-background":"border border-border hover:bg-surface")}>Training plan</button>
+        <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
         <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
         <button onClick={()=>setActiveTab("chat")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="chat"?"bg-signal text-background":"border border-border hover:bg-surface")}>Chat ({messages.length})</button>
         <button onClick={()=>setActiveTab("members")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
       </div>
-      {activeTab==="leaderboard"&&<div>
-        {/* Sub-view toggle */}
-        <div className="flex gap-2 mb-5 flex-wrap">
-          {([["plan","Training plan"],["activity","Activity"],["challenge","Rankings"]] as const).map(([v,l])=>(
-            <button key={v} onClick={()=>{setLbView(v);if(v==="activity"&&id)loadLbData();if(v==="challenge"&&!challengesLoaded&&id){loadChallenges(id);setChallengesLoaded(true);}}}
-              className={"px-3 py-1.5 rounded-full text-sm font-medium transition-colors "+(lbView===v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{l}</button>
-          ))}
-        </div>
-
-        {/* Plan progress view */}
-        {lbView==="plan"&&<div className="space-y-3">
+      {activeTab==="plan"&&<div className="space-y-3">
           {team.members.map((member:any,i:number)=>(
             <div key={member.userId} className={"rounded-2xl border p-4 "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
               <div className="flex items-center justify-between mb-3">
@@ -176,10 +166,9 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
               {member.totalWorkouts>0?<div><div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{member.doneWorkouts}/{member.totalWorkouts} workouts</span></div><div className="w-full h-2 bg-border rounded-full"><div className={"h-2 rounded-full transition-all "+(member.isMe?"bg-signal":i===0?"bg-yellow-400":"bg-foreground-dim")} style={{width:`${member.pct}%`}}/></div></div>:<p className="text-xs text-foreground-dim">No training plan yet</p>}
             </div>
           ))}
-        </div>}
+      </div>}
 
-        {/* Activity leaderboard view */}
-        {lbView==="activity"&&<div>
+      {activeTab==="activity"&&<div>
           <div className="flex flex-wrap gap-3 mb-4">
             <div className="flex flex-wrap gap-1.5">
               {LB_PERIODS.map(p=><button key={p.v} onClick={()=>setLbPeriod(p.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors "+(lbPeriod===p.v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{p.l}</button>)}
@@ -202,49 +191,6 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
               ))}
             </div>
           )}
-        </div>}
-
-        {/* Challenge leaderboard view */}
-        {lbView==="challenge"&&<div>
-          {!challengesLoaded?<p className="text-sm text-foreground-dim">Loading...</p>:challenges.length===0?<p className="text-sm text-foreground-dim py-6 text-center">No challenges yet.</p>:(
-            <div className="space-y-2 mb-4">
-              {challenges.map((c:any)=><button key={c.id} onClick={()=>setLbChallengeId(c.id===lbChallengeId?null:c.id)} className={"w-full text-left rounded-xl border px-4 py-3 transition-colors "+(lbChallengeId===c.id?"border-signal bg-signal/5":"border-border bg-surface hover:bg-surface-raised")}>
-                <p className="font-medium text-sm">{c.title}</p>
-                <p className="text-xs text-foreground-dim capitalize mt-0.5">{c.type} · {c.metric} · {c.unit}{c.goal?` · Goal: ${c.goal}`:""}</p>
-              </button>)}
-            </div>
-          )}
-          {lbChallengeId&&(()=>{
-            const c=challenges.find((x:any)=>x.id===lbChallengeId);
-            if(!c)return null;
-            const totals:{[uid:string]:{name:string;total:number}}={};
-            c.entries.forEach((e:any)=>{if(!totals[e.userId])totals[e.userId]={name:e.user?.name||"?",total:0};totals[e.userId].total+=e.value;});
-            const sorted=Object.entries(totals).sort((a:any,b:any)=>b[1].total-a[1].total);
-            return sorted.length===0?<p className="text-sm text-foreground-dim text-center py-4">No entries yet.</p>:(
-              <div className="space-y-2">
-                {sorted.map(([uid,d]:any,i)=>(
-                  <div key={uid} className={"flex items-center gap-3 rounded-2xl border px-4 py-3 "+(uid===myUserId?"border-signal bg-signal/5":"border-border bg-surface")}>
-                    <span className={"w-7 text-center font-bold shrink-0 "+(i===0?"text-yellow-400 text-base":i===1?"text-gray-400 text-base":i===2?"text-amber-600 text-base":"text-foreground-dim text-xs")}>{i<=2?["🥇","🥈","🥉"][i]:`#${i+1}`}</span>
-                    <p className="flex-1 font-medium text-sm">{d.name}{uid===myUserId?" (you)":""}</p>
-                    <p className="font-semibold text-sm">{d.total} {c.unit}</p>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-        </div>}
-
-        <div className="pt-6 border-t border-border mt-6">
-          {confirmLeave?(
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-foreground-dim">{team.isAdmin?"Delete this team permanently?":"Leave this team?"}</span>
-              <button onClick={handleLeave} className="text-xs text-red-400 font-medium hover:underline">Confirm</button>
-              <button onClick={()=>setConfirmLeave(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button>
-            </div>
-          ):(
-            <button onClick={()=>setConfirmLeave(true)} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button>
-          )}
-        </div>
       </div>}
       {activeTab==="challenges"&&<div>
         {/* New challenge form — open to all members */}
@@ -347,6 +293,17 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
             )}
           </div>
         ))}
+        <div className="pt-5 border-t border-border mt-3">
+          {confirmLeave?(
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-foreground-dim">{team.isAdmin?"Delete this team permanently?":"Leave this team?"}</span>
+              <button onClick={handleLeave} className="text-xs text-red-400 font-medium hover:underline">Confirm</button>
+              <button onClick={()=>setConfirmLeave(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button>
+            </div>
+          ):(
+            <button onClick={()=>setConfirmLeave(true)} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button>
+          )}
+        </div>
       </div>}
     </div>
   );
