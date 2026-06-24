@@ -52,19 +52,13 @@ export async function GET(req: Request) {
     const teamId   = searchParams.get("teamId")   || "";
     const raceId   = searchParams.get("raceId")   || "";
 
-    // 1. Build user filter — always exclude private accounts
-    const userWhere: any = { OR: [{ isPrivate: false }, { isPrivate: null }] };
-
-    // Sex filter: only include users who have explicitly set this sex value
+    // 1. Build user filter (sex / age / city only; isPrivate filtered in JS below)
+    const userWhere: any = {};
     if (sex !== "all") userWhere.sex = sex;
-
-    // Age group filter
     if (ageGroup !== "all") {
       const r = ageRange(ageGroup);
       if (r) userWhere.dateOfBirth = r;
     }
-
-    // City filter
     if (city) userWhere.city = { contains: city, mode: "insensitive" };
 
     // 2. Resolve eligible user IDs (apply team/race scope on top of profile filters)
@@ -118,12 +112,12 @@ export async function GET(req: Request) {
 
     if (grouped.length === 0) return NextResponse.json({ entries: [] });
 
-    // 5. Enrich with profile + team data
+    // 5. Enrich with profile + team data (filter private users in JS)
     const userIds = grouped.map((g: any) => g.userId);
     const [users, memberships] = await Promise.all([
       prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, name: true, sex: true, dateOfBirth: true, city: true },
+        select: { id: true, name: true, sex: true, dateOfBirth: true, city: true, isPrivate: true },
       }),
       prisma.teamMember.findMany({
         where: { userId: { in: userIds } },
@@ -155,6 +149,9 @@ export async function GET(req: Request) {
         rank:          0,
       };
     });
+
+    // Remove private users (checked in JS to avoid OR-null Prisma query issues)
+    entries = entries.filter((e: any) => !userMap[e.userId]?.isPrivate);
 
     // Sort and rank
     if (metric === "duration") entries.sort((a: any, b: any) => b.durationMin   - a.durationMin);

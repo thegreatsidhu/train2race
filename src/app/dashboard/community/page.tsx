@@ -32,7 +32,7 @@ const TRIS = ["Sprint Triathlon","Olympic Triathlon","70.3 Half Ironman","140.6 
 function CommunityPageInner() {
   const searchParams = useSearchParams();
   const preselectedRaceId = searchParams.get("race");
-  const [search,setSearch]=useState("");const [df,setDf]=useState(0);const [races,setRaces]=useState<any[]>([]);const [myRegs,setMyRegs]=useState<any[]>([]);const [sel,setSel]=useState<any>(null);const [comm,setComm]=useState<any[]>([]);const [messages,setMessages]=useState<any[]>([]);const [loading,setLoading]=useState(false);const [reging,setReging]=useState(false);const [goalH,setGoalH]=useState("");const [goalM,setGoalM]=useState("");const [pub,setPub]=useState(true);const [tab,setTab]=useState("find");const [eventTab,setEventTab]=useState("leaderboard");const [newMsg,setNewMsg]=useState("");const [sending,setSending]=useState(false);
+  const [search,setSearch]=useState("");const [df,setDf]=useState(0);const [races,setRaces]=useState<any[]>([]);const [myRegs,setMyRegs]=useState<any[]>([]);const [myRaceTarget,setMyRaceTarget]=useState<any>(null);const [sel,setSel]=useState<any>(null);const [comm,setComm]=useState<any[]>([]);const [messages,setMessages]=useState<any[]>([]);const [loading,setLoading]=useState(false);const [reging,setReging]=useState(false);const [goalH,setGoalH]=useState("");const [goalM,setGoalM]=useState("");const [pub,setPub]=useState(true);const [tab,setTab]=useState("find");const [eventTab,setEventTab]=useState("leaderboard");const [newMsg,setNewMsg]=useState("");const [sending,setSending]=useState(false);
   const [rName,setRName]=useState("");const [rDate,setRDate]=useState("");const [rDist,setRDist]=useState("Marathon");const [rCity,setRCity]=useState("");const [rCountry,setRCountry]=useState("USA");const [rWeb,setRWeb]=useState("");const [rTri,setRTri]=useState(false);const [subbing,setSubbing]=useState(false);const [subResult,setSubResult]=useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -40,10 +40,15 @@ function CommunityPageInner() {
     Promise.all([
       fetch("/api/major-races?upcoming=1").then(r=>r.json()),
       fetch("/api/major-races/register").then(r=>r.json()),
-    ]).then(([rd,regs])=>{
+      fetch("/api/races").then(r=>r.json()),
+    ]).then(([rd,regs,raceTargets])=>{
       const raceList = rd.races||[];
       setRaces(raceList);
       setMyRegs(regs.registrations||[]);
+      // Find the user's next upcoming race target
+      const now = new Date();
+      const upcoming = (raceTargets.races||[]).filter((r:any)=>new Date(r.raceDate)>=now).sort((a:any,b:any)=>new Date(a.raceDate).getTime()-new Date(b.raceDate).getTime());
+      if(upcoming.length>0) setMyRaceTarget(upcoming[0]);
       if(preselectedRaceId){
         const found = raceList.find((r:any)=>r.id===preselectedRaceId);
         if(found) loadEvent(found);
@@ -94,6 +99,10 @@ function CommunityPageInner() {
   return (
     <div className="max-w-4xl px-4 md:px-8 py-6 md:py-10">
       <header className="mb-6"><h1 className="text-3xl font-semibold tracking-tight mb-1">Community</h1><p className="text-foreground-dim text-sm">Find your race, join the group, chat and compete together.</p></header>
+      {myRaceTarget&&<div className="mb-5 rounded-2xl border border-signal/30 bg-signal/5 p-4 flex items-center justify-between gap-3">
+        <div><p className="text-xs text-signal font-medium uppercase tracking-wide mb-0.5">Your training race</p><p className="font-medium text-sm">{myRaceTarget.raceName}</p><p className="text-xs text-foreground-dim">{new Date(myRaceTarget.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p></div>
+        <button onClick={()=>{setSearch(myRaceTarget.raceName);setTab("find");}} className="shrink-0 px-4 py-2 rounded-full bg-signal text-background text-xs font-medium">Find in community</button>
+      </div>}
       <div className="flex gap-2 mb-6 flex-wrap">
         {[{id:"find",label:"Find a race"},{id:"myraces",label:"My races ("+myRegs.length+")"},{id:"request",label:"Request a race"}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(tab===t.id?"bg-signal text-background":"border border-border hover:bg-surface")}>{t.label}</button>
