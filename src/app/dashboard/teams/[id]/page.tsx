@@ -119,7 +119,6 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   }
   function onMetricChange(metric:string){const firstUnit=METRIC_UNITS[metric]?.[0]??"mi";setChallengeForm(f=>({...f,metric,unit:firstUnit}));}
   if(!team)return<div className="max-w-3xl px-8 py-10"><p className="text-foreground-dim text-sm">Loading...</p></div>;
-  const myUserId = team.members.find((m:any)=>m.isMe)?.userId;
   const isCreator = myUserId && team.createdBy === myUserId;
   const isCaptain = isCreator || team.isAdmin;
   return(

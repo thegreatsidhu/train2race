@@ -145,7 +145,7 @@ export default async function TodayPage() {
 
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, recentTeamMessages, unreadDms] = await Promise.all([
+  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, recentTeamMessages] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
@@ -156,7 +156,6 @@ export default async function TodayPage() {
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
     prisma.teamMessage.findMany({where:{team:{members:{some:{userId}}},userId:{not:userId},isDeleted:false,createdAt:{gte:last24h}},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},user:{select:{name:true}}},orderBy:{createdAt:"desc"},take:50}),
-    (prisma as any).directMessage.findMany({where:{toUserId:userId,isRead:false},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},fromUser:{select:{name:true}}},orderBy:{createdAt:"desc"},take:20}),
   ]);
 
   const primaryTeam = await prisma.team.findFirst({
@@ -172,6 +171,16 @@ export default async function TodayPage() {
       include:{team:{select:{id:true,name:true}},entries:{where:{userId},select:{value:true}}},
       orderBy:{endDate:"asc"},
       take:10,
+    });
+  } catch {}
+
+  let unreadDms: any[] = [];
+  try {
+    unreadDms = await (prisma as any).directMessage.findMany({
+      where:{toUserId:userId,isRead:false},
+      select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},fromUser:{select:{name:true}}},
+      orderBy:{createdAt:"desc"},
+      take:20,
     });
   } catch {}
 
