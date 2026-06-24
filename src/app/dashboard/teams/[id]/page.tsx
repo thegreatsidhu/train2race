@@ -156,7 +156,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       {activeTab==="leaderboard"&&<div>
         {/* Sub-view toggle */}
         <div className="flex gap-2 mb-5 flex-wrap">
-          {([["plan","Training plan"],["activity","Activity"],["challenge","Challenges"]] as const).map(([v,l])=>(
+          {([["plan","Training plan"],["activity","Activity"],["challenge","Rankings"]] as const).map(([v,l])=>(
             <button key={v} onClick={()=>{setLbView(v);if(v==="activity"&&id)loadLbData();if(v==="challenge"&&!challengesLoaded&&id){loadChallenges(id);setChallengesLoaded(true);}}}
               className={"px-3 py-1.5 rounded-full text-sm font-medium transition-colors "+(lbView===v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{l}</button>
           ))}
@@ -252,8 +252,8 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           {showNewChallenge?(
             <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
               <div>
-                <h3 className="font-medium text-sm">Suggest a challenge</h3>
-                {!team.isAdmin&&<p className="text-xs text-foreground-dim mt-0.5">Challenges require admin approval and can take up to 5 days to go live.</p>}
+                <h3 className="font-medium text-sm">{team.isAdmin||isCreator?"Create a challenge":"Suggest a challenge"}</h3>
+                {!team.isAdmin&&!isCreator&&<p className="text-xs text-foreground-dim mt-0.5">Suggestions require admin approval and can take up to 5 days to go live.</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label><input className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. July Run Challenge" value={challengeForm.title} onChange={e=>setChallengeForm(f=>({...f,title:e.target.value}))}/></div>
@@ -265,7 +265,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                 <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">End date</label><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.endDate} onChange={e=>setChallengeForm(f=>({...f,endDate:e.target.value}))}/></div>
                 <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Description (optional)</label><textarea className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" rows={2} value={challengeForm.description} onChange={e=>setChallengeForm(f=>({...f,description:e.target.value}))}/></div>
               </div>
-              <div className="flex gap-2"><button onClick={createChallenge} disabled={savingChallenge} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingChallenge?"Submitting...":"Submit challenge"}</button><button onClick={()=>{setShowNewChallenge(false);setCreateMsg("");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button></div>
+              <div className="flex gap-2"><button onClick={createChallenge} disabled={savingChallenge} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingChallenge?(team.isAdmin||isCreator?"Creating...":"Submitting..."):(team.isAdmin||isCreator?"Create challenge":"Submit for approval")}</button><button onClick={()=>{setShowNewChallenge(false);setCreateMsg("");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button></div>
             </div>
           ):(
             <div>
