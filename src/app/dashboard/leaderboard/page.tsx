@@ -178,8 +178,8 @@ export default function LeaderboardPage() {
                 className="flex-1 bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
                 placeholder="Search races..."
                 value={raceSearch}
-                onChange={e => { setRaceSearch(e.target.value); setRaceDropdown(true); if (!e.target.value) { setRaceId(""); setSelectedRace(null); } }}
-                onFocus={() => setRaceDropdown(true)}
+                onChange={e => { const v = e.target.value; setRaceSearch(v); setRaceDropdown(!!v); if (!v) { setRaceId(""); setSelectedRace(null); } }}
+                onFocus={() => { if (raceSearch) setRaceDropdown(true); }}
               />
               {(raceId || raceSearch) && (
                 <button onClick={() => { setRaceId(""); setRaceSearch(""); setSelectedRace(null); setRaceDropdown(false); }} className="text-xs text-foreground-dim hover:text-foreground px-2">✕</button>
