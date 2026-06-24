@@ -151,6 +151,26 @@ No markdown. No explanation. Just the array.`;
       },
     });
 
+    // Auto-register for the matching community race so the user appears in its leaderboard
+    try {
+      const raceDate = new Date(race.raceDate);
+      const window = 8 * 24 * 60 * 60 * 1000; // ±8 days
+      const matchingRace = await prisma.majorRace.findFirst({
+        where: {
+          name: { contains: race.raceName, mode: "insensitive" },
+          raceDate: { gte: new Date(raceDate.getTime() - window), lte: new Date(raceDate.getTime() + window) },
+        },
+        select: { id: true },
+      });
+      if (matchingRace) {
+        await prisma.raceRegistration.upsert({
+          where: { userId_majorRaceId: { userId, majorRaceId: matchingRace.id } },
+          update: { raceTargetId: race.id },
+          create: { userId, majorRaceId: matchingRace.id, raceTargetId: race.id, isPublic: true, goalTimeSec: race.goalTimeSec ?? null },
+        });
+      }
+    } catch (_) { /* non-fatal — plan still created */ }
+
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
