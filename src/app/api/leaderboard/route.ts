@@ -31,9 +31,9 @@ function typeConditions(type: string) {
 
 function periodGte(period: string): Date | null {
   const now = new Date();
-  if (period === "week")  { const d = new Date(now); d.setDate(d.getDate() - 7);  return d; }
-  if (period === "month") { const d = new Date(now); d.setDate(d.getDate() - 30); return d; }
-  if (period === "year")  { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d; }
+  if (period === "week")  { const d = new Date(now); d.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1)); d.setHours(0,0,0,0); return d; }
+  if (period === "month") { return new Date(now.getFullYear(), now.getMonth(), 1); }
+  if (period === "year")  { return new Date(now.getFullYear(), 0, 1); }
   return null;
 }
 
