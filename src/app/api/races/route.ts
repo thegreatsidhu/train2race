@@ -44,7 +44,37 @@ export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const races = await prisma.raceTarget.findMany({ where: { userId }, orderBy: { raceDate: "asc" } });
+  const races = await prisma.raceTarget.findMany({
+    where: { userId },
+    orderBy: { raceDate: "asc" },
+    include: { trainingPlan: { select: { id: true, _count: { select: { workouts: true } } } } },
+  });
+
+  // Silently backfill RaceRegistration for any race with a training plan that isn't registered yet
+  const racesWithPlans = races.filter(r => r.trainingPlan && r.trainingPlan._count.workouts > 0);
+  if (racesWithPlans.length > 0) {
+    const window = 8 * 24 * 60 * 60 * 1000;
+    for (const race of racesWithPlans) {
+      try {
+        const raceDate = new Date(race.raceDate);
+        const major = await prisma.majorRace.findFirst({
+          where: {
+            name: { contains: race.raceName, mode: "insensitive" },
+            raceDate: { gte: new Date(raceDate.getTime() - window), lte: new Date(raceDate.getTime() + window) },
+          },
+          select: { id: true },
+        });
+        if (major) {
+          await prisma.raceRegistration.upsert({
+            where: { userId_majorRaceId: { userId, majorRaceId: major.id } },
+            update: { raceTargetId: race.id },
+            create: { userId, majorRaceId: major.id, raceTargetId: race.id, isPublic: true, goalTimeSec: race.goalTimeSec ?? null },
+          });
+        }
+      } catch (_) { /* non-fatal */ }
+    }
+  }
+
   return NextResponse.json({ races });
 }
 
