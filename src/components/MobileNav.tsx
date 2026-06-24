@@ -28,8 +28,8 @@ export function MobileNav({ email }: { email: string }) {
             {[
               { href: "/dashboard", label: "Today" },
               { href: "/dashboard/nutrition", label: "Nutrition" },
-              { href: "/dashboard/races", label: "Race plans" },
-              { href: "/dashboard/community", label: "Races" },
+              { href: "/dashboard/races", label: "Races" },
+              { href: "/dashboard/community", label: "Community" },
               { href: "/dashboard/teams", label: "Teams" },
               { href: "/dashboard/leaderboard", label: "Leaderboard" },
               { href: "/dashboard/connections", label: "Connections" },

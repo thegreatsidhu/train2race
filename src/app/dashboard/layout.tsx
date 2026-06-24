@@ -16,8 +16,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <nav className="flex flex-col gap-1 text-sm flex-1">
           <NavLink href="/dashboard" label="Today" />
           <NavLink href="/dashboard/nutrition" label="Nutrition" />
-          <NavLink href="/dashboard/races" label="Race plans" />
-          <NavLink href="/dashboard/community" label="Races" />
+          <NavLink href="/dashboard/races" label="Races" />
+          <NavLink href="/dashboard/community" label="Community" />
           <NavLink href="/dashboard/teams" label="Teams" />
           <NavLink href="/dashboard/leaderboard" label="Leaderboard" />
           <NavLink href="/dashboard/connections" label="Connections" />

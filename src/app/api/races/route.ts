@@ -44,10 +44,19 @@ export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
+  const now = new Date();
   const races = await prisma.raceTarget.findMany({
     where: { userId },
     orderBy: { raceDate: "asc" },
-    include: { trainingPlan: { select: { id: true, _count: { select: { workouts: true } } } } },
+    include: {
+      trainingPlan: {
+        select: {
+          id: true,
+          _count: { select: { workouts: true } },
+          workouts: { where: { date: { lte: now } }, select: { id: true, completed: true } },
+        },
+      },
+    },
   });
 
   // Silently backfill RaceRegistration for any race with a training plan that isn't registered yet
