@@ -121,6 +121,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   if(!team)return<div className="max-w-3xl px-8 py-10"><p className="text-foreground-dim text-sm">Loading...</p></div>;
   const myUserId = team.members.find((m:any)=>m.isMe)?.userId;
   const isCreator = myUserId && team.createdBy === myUserId;
+  const isCaptain = isCreator || team.isAdmin;
   return(
     <div className="max-w-3xl px-4 md:px-8 py-6 md:py-10">
       <div className="flex items-start justify-between mb-6">
@@ -295,7 +296,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       </div>}
       {activeTab==="members"&&<div className="space-y-2">
         {/* Inbox for non-captain members: show threads where captain messaged them */}
-        {!isCreator&&myThreads.length>0&&(
+        {!isCaptain&&myThreads.length>0&&(
           <div className="rounded-2xl border border-border bg-surface p-4 mb-2">
             <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Messages from captain</p>
             <div className="space-y-2">
@@ -348,7 +349,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
               </div>
               <div className="flex gap-2 shrink-0 flex-wrap justify-end">
                 {/* Message button — captains only, not self */}
-                {isCreator&&!member.isMe&&(
+                {isCaptain&&!member.isMe&&(
                   <button onClick={()=>openDm(member.userId)} className={"text-xs px-3 py-1.5 rounded-full border transition-colors "+(dmTarget===member.userId?"border-signal text-signal bg-signal/10":"border-border hover:border-signal hover:text-signal")}>
                     {dmTarget===member.userId?"✕ Close":"💬 Message"}
                   </button>
