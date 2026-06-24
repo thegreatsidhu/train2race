@@ -164,7 +164,7 @@ export default async function TodayPage() {
   let activeChallenges: any[] = [];
   try {
     activeChallenges = await (prisma as any).teamChallenge.findMany({
-      where:{team:{members:{some:{userId}}},endDate:{gte:today}},
+      where:{team:{members:{some:{userId}}},endDate:{gte:today},status:"approved"},
       include:{team:{select:{id:true,name:true}},entries:{where:{userId},select:{value:true}}},
       orderBy:{endDate:"asc"},
       take:10,
