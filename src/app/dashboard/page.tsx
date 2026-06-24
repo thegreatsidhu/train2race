@@ -279,12 +279,14 @@ export default async function TodayPage() {
       )}
 
       {/* Weather + team leaderboard */}
-      <LocalSection
-        defaultCity={timezoneCity ?? raceCity}
-        leaderboard={leaderboard}
-        teamId={primaryTeam?.id ?? null}
-        teamName={primaryTeam?.name ?? null}
-      />
+      <Accordion label="Leaderboard" defaultOpen>
+        <LocalSection
+          defaultCity={timezoneCity ?? raceCity}
+          leaderboard={leaderboard}
+          teamId={primaryTeam?.id ?? null}
+          teamName={primaryTeam?.name ?? null}
+        />
+      </Accordion>
 
       {/* Race training card */}
       {activeRace && (
@@ -365,15 +367,16 @@ export default async function TodayPage() {
       )}
 
       {/* Upcoming races nearby */}
-      <UpcomingRacesSection
-        defaultCity={timezoneCity ?? raceCity}
-        registeredRaceId={raceReg?.majorRace?.id ?? null}
-      />
+      <Accordion label="Upcoming races">
+        <UpcomingRacesSection
+          defaultCity={timezoneCity ?? raceCity}
+          registeredRaceId={raceReg?.majorRace?.id ?? null}
+        />
+      </Accordion>
 
       {/* Active challenges */}
       {activeChallenges.length > 0 && (
-        <section className="mb-6">
-          <h2 className="text-sm font-medium text-foreground-dim mb-3">Active challenges</h2>
+        <Accordion label={`Active challenges (${activeChallenges.length})`} defaultOpen>
           <div className="space-y-3">
             {activeChallenges.map(c => {
               const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
@@ -405,7 +408,7 @@ export default async function TodayPage() {
               );
             })}
           </div>
-        </section>
+        </Accordion>
       )}
 
       {/* Connect device prompt */}
@@ -419,46 +422,59 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {/* Health metrics */}
+      {/* Health metrics + weekly stats */}
       {hasData&&(
-        <>
+        <Accordion label="Health & stats" defaultOpen>
           {flags.length>0&&(
             <div className={"rounded-2xl border px-4 py-3 mb-4 flex items-center gap-2 flex-wrap "+(flags.some(f=>f.type==="warning")?"border-yellow-600/40 bg-yellow-900/10":"border-border bg-surface")}>
               <span className={flags.some(f=>f.type==="warning")?"text-yellow-400 text-sm":"text-foreground-dim text-sm"}>{flags.some(f=>f.type==="warning")?"⚠":"ℹ"}</span>
               <p className="text-sm text-foreground-dim">{flags[0].message}{flags.length>1?` · +${flags.length-1} more`:""}</p>
             </div>
           )}
-          <section className="mb-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <MetricTile label="HRV" value={latest?.hrvMs} unit="ms" comparison={hrvComparison}/>
-              <MetricTile label="Sleep" value={latest?.sleepScore} unit="" comparison={sleepComparison}/>
-              <MetricTile label="Recovery" value={latest?.bodyBatteryOrRecoveryPct} unit="%" comparison={recoveryComparison}/>
-              <MetricTile label="Resting HR" value={latest?.restingHeartRate} unit="bpm" comparison={rhrComparison} invertGood={true}/>
-            </div>
-          </section>
-          <section className="mb-6">
-            <h2 className="text-sm font-medium text-foreground-dim mb-3">This week</h2>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Miles</p><p className="font-data text-xl">{weeklyMiles.toFixed(1)}</p></div>
-              <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Time</p><p className="font-data text-xl">{weeklyTime>0?formatDuration(weeklyTime):"--"}</p></div>
-              <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Activities</p><p className="font-data text-xl">{weeklyActivities.length}</p></div>
-            </div>
-          </section>
-        </>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <MetricTile label="HRV" value={latest?.hrvMs} unit="ms" comparison={hrvComparison}/>
+            <MetricTile label="Sleep" value={latest?.sleepScore} unit="" comparison={sleepComparison}/>
+            <MetricTile label="Recovery" value={latest?.bodyBatteryOrRecoveryPct} unit="%" comparison={recoveryComparison}/>
+            <MetricTile label="Resting HR" value={latest?.restingHeartRate} unit="bpm" comparison={rhrComparison} invertGood={true}/>
+          </div>
+          <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">This week</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Miles</p><p className="font-data text-xl">{weeklyMiles.toFixed(1)}</p></div>
+            <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Time</p><p className="font-data text-xl">{weeklyTime>0?formatDuration(weeklyTime):"--"}</p></div>
+            <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Activities</p><p className="font-data text-xl">{weeklyActivities.length}</p></div>
+          </div>
+        </Accordion>
       )}
 
       {/* Recent activity */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-medium text-foreground-dim">Recent activity</h2>
-          <Link href="/dashboard/log-workout" className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">+ Log workout</Link>
+      <details open className="mb-6 group">
+        <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
+          <h2 className="text-sm font-medium text-foreground-dim select-none">Recent activity</h2>
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard/log-workout" className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">+ Log workout</Link>
+            <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
+          </div>
+        </summary>
+        <div className="pt-1">
+          {recentActivities.length > 0
+            ? <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source,raw:a.raw?.notes?{notes:a.raw.notes}:null}))}/>
+            : <p className="text-sm text-foreground-dim">No activities yet — log your first workout and start the streak.</p>
+          }
         </div>
-        {recentActivities.length > 0
-          ? <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source,raw:a.raw?.notes?{notes:a.raw.notes}:null}))}/>
-          : <p className="text-sm text-foreground-dim">No activities yet — log your first workout and start the streak.</p>
-        }
-      </section>
+      </details>
     </div>
+  );
+}
+
+function Accordion({ label, defaultOpen = false, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  return (
+    <details open={defaultOpen || undefined} className="mb-6 group">
+      <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
+        <h2 className="text-sm font-medium text-foreground-dim select-none">{label}</h2>
+        <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
+      </summary>
+      <div className="pt-1">{children}</div>
+    </details>
   );
 }
 

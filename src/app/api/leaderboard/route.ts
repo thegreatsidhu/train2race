@@ -11,8 +11,10 @@ function ageRange(group: string) {
   };
   const r = ranges[group];
   if (!r) return null;
+  // lte = someone who is exactly r[0] years old today was born this date or earlier
   const lte = new Date(now.getFullYear() - r[0], now.getMonth(), now.getDate());
-  const gte = new Date(now.getFullYear() - r[1] - 1, now.getMonth(), now.getDate());
+  // gte = someone who is exactly r[1] years old today was born this date or later
+  const gte = new Date(now.getFullYear() - r[1] - 1, now.getMonth(), now.getDate() + 1);
   return { gte, lte };
 }
 
@@ -50,63 +52,57 @@ export async function GET(req: Request) {
     const teamId   = searchParams.get("teamId")   || "";
     const raceId   = searchParams.get("raceId")   || "";
 
-    // 1. Resolve eligible userIds from profile filters (always exclude private accounts)
+    // 1. Build user filter — always exclude private accounts
     const userWhere: any = { OR: [{ isPrivate: false }, { isPrivate: null }] };
+
+    // Sex filter: only include users who have explicitly set this sex value
     if (sex !== "all") userWhere.sex = sex;
+
+    // Age group filter
     if (ageGroup !== "all") {
       const r = ageRange(ageGroup);
       if (r) userWhere.dateOfBirth = r;
     }
-    if (city) {
-      try { userWhere.city = { contains: city, mode: "insensitive" }; } catch {}
-    }
 
-    let eligibleIds: string[] | null = null;
+    // City filter
+    if (city) userWhere.city = { contains: city, mode: "insensitive" };
 
-    // Race filter: users registered for this major race
+    // 2. Resolve eligible user IDs (apply team/race scope on top of profile filters)
+    let eligibleIds: string[];
+
     if (raceId) {
       const regs = await prisma.raceRegistration.findMany({ where: { majorRaceId: raceId }, select: { userId: true } });
       const raceUserIds = regs.map((r: any) => r.userId);
-      const baseWhere = { ...userWhere, id: { in: raceUserIds } };
+
+      let scopedWhere = { ...userWhere, id: { in: raceUserIds } };
       if (teamId) {
         const members = await prisma.teamMember.findMany({ where: { teamId }, select: { userId: true } });
-        const teamIds = members.map((m: any) => m.userId);
-        const filtered = await (prisma as any).user.findMany({ where: { ...baseWhere, id: { in: teamIds } }, select: { id: true } }).catch(() =>
-          prisma.user.findMany({ where: { id: { in: teamIds.filter((id: string) => raceUserIds.includes(id)) } }, select: { id: true } })
-        );
-        eligibleIds = filtered.map((u: any) => u.id);
-      } else {
-        const filtered = await (prisma as any).user.findMany({ where: baseWhere, select: { id: true } }).catch(() =>
-          prisma.user.findMany({ where: { id: { in: raceUserIds } }, select: { id: true } })
-        );
-        eligibleIds = filtered.map((u: any) => u.id);
+        const teamUserIds = members.map((m: any) => m.userId);
+        scopedWhere = { ...scopedWhere, id: { in: teamUserIds.filter((id: string) => raceUserIds.includes(id)) } };
       }
+      const users = await prisma.user.findMany({ where: scopedWhere, select: { id: true } });
+      eligibleIds = users.map((u: any) => u.id);
     } else if (teamId) {
       const members = await prisma.teamMember.findMany({ where: { teamId }, select: { userId: true } });
       const teamUserIds = members.map((m: any) => m.userId);
-      const filtered = await (prisma as any).user.findMany({ where: { ...userWhere, id: { in: teamUserIds } }, select: { id: true } }).catch(() =>
-        prisma.user.findMany({ where: { id: { in: teamUserIds } }, select: { id: true } })
-      );
-      eligibleIds = filtered.map((u: any) => u.id);
+      const users = await prisma.user.findMany({ where: { ...userWhere, id: { in: teamUserIds } }, select: { id: true } });
+      eligibleIds = users.map((u: any) => u.id);
     } else {
-      const users = await (prisma as any).user.findMany({ where: userWhere, select: { id: true } }).catch(() =>
-        prisma.user.findMany({ select: { id: true } })
-      );
+      const users = await prisma.user.findMany({ where: userWhere, select: { id: true } });
       eligibleIds = users.map((u: any) => u.id);
     }
 
-    // 2. Build activity where
-    const actWhere: any = {};
-    if (eligibleIds) actWhere.userId = { in: eligibleIds };
+    if (eligibleIds.length === 0) return NextResponse.json({ entries: [] });
+
+    // 3. Build activity filter
+    const actWhere: any = { userId: { in: eligibleIds } };
     const since = periodGte(period);
     if (since) actWhere.startTime = { gte: since };
 
     const terms = type !== "all" ? typeConditions(type) : null;
-    if (terms) {
-      actWhere.OR = terms.map((t: string) => ({ type: { contains: t, mode: "insensitive" } }));
-    }
+    if (terms) actWhere.OR = terms.map((t: string) => ({ type: { contains: t, mode: "insensitive" } }));
 
-    // 3. Group by userId — orderBy must use a field in `by` array
+    // 4. Group by userId
     const grouped = await prisma.activity.groupBy({
       by: ["userId"],
       where: actWhere,
@@ -122,29 +118,24 @@ export async function GET(req: Request) {
 
     if (grouped.length === 0) return NextResponse.json({ entries: [] });
 
-    // 4 + 5. Fetch user profiles and team memberships in parallel
+    // 5. Enrich with profile + team data
     const userIds = grouped.map((g: any) => g.userId);
     const [users, memberships] = await Promise.all([
-      (prisma as any).user.findMany({
+      prisma.user.findMany({
         where: { id: { in: userIds } },
         select: { id: true, name: true, sex: true, dateOfBirth: true, city: true },
-      }).catch(() =>
-        prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, name: true, sex: true, dateOfBirth: true },
-        })
-      ),
+      }),
       prisma.teamMember.findMany({
         where: { userId: { in: userIds } },
         select: { userId: true, team: { select: { id: true, name: true } } },
         distinct: ["userId"],
       }),
     ]);
-    const userMap = Object.fromEntries((users as any[]).map((u: any) => [u.id, u]));
-    const teamMap = Object.fromEntries((memberships as any[]).map((m: any) => [m.userId, m.team]));
+    const userMap = Object.fromEntries(users.map((u: any) => [u.id, u]));
+    const teamMap = Object.fromEntries(memberships.map((m: any) => [m.userId, m.team]));
 
     const now = new Date();
-    let entries = grouped.map((g: any, i: number) => {
+    let entries = grouped.map((g: any) => {
       const u = userMap[g.userId];
       const age = u?.dateOfBirth
         ? Math.floor((now.getTime() - new Date(u.dateOfBirth).getTime()) / (365.25 * 24 * 3600 * 1000))
@@ -152,7 +143,6 @@ export async function GET(req: Request) {
       const ageGrp = age == null ? null
         : age < 30 ? "18-29" : age < 40 ? "30-39" : age < 50 ? "40-49" : age < 60 ? "50-59" : "60+";
       return {
-        rank:          i + 1,
         userId:        g.userId,
         name:          u?.name || "Athlete",
         sex:           u?.sex  || null,
@@ -162,10 +152,11 @@ export async function GET(req: Request) {
         distanceMi:    g._sum.distanceM  ? +(g._sum.distanceM  / 1609.34).toFixed(1) : 0,
         durationMin:   g._sum.durationSec ? Math.round(g._sum.durationSec / 60) : 0,
         activityCount: g._count.userId || 0,
+        rank:          0,
       };
     });
 
-    // Re-sort after enrichment and re-rank
+    // Sort and rank
     if (metric === "duration") entries.sort((a: any, b: any) => b.durationMin   - a.durationMin);
     else if (metric === "count") entries.sort((a: any, b: any) => b.activityCount - a.activityCount);
     else entries.sort((a: any, b: any) => b.distanceMi - a.distanceMi);

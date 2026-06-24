@@ -13,5 +13,7 @@ export async function GET(req: NextRequest) {
   const deletedAdvice = await prisma.adviceCard.deleteMany({ where: { createdAt: { lt: chatCutoff } } });
   const teamCutoff = new Date(Date.now()-90*24*60*60*1000);
   const deletedTeamMsgs = await prisma.teamMessage.deleteMany({ where: { createdAt: { lt: teamCutoff } } });
-  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count }, ranAt: new Date().toISOString() });
+  const rejectedCutoff = new Date(Date.now()-7*24*60*60*1000);
+  const deletedRejected = await prisma.teamChallenge.deleteMany({ where: { status: "rejected", createdAt: { lt: rejectedCutoff } } });
+  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, ranAt: new Date().toISOString() });
 }
