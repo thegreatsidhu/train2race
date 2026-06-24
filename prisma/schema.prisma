@@ -394,13 +394,18 @@ model TeamInvitation {
 }
 
 model TeamMessage {
-  id        String   @id @default(cuid())
-  teamId    String
-  userId    String
-  content   String
-  createdAt DateTime @default(now())
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String       @id @default(cuid())
+  teamId      String
+  userId      String
+  content     String
+  replyToId   String?
+  isDeleted   Boolean      @default(false)
+  deletedBy   String?
+  createdAt   DateTime     @default(now())
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo     TeamMessage? @relation("teamReplies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies     TeamMessage[] @relation("teamReplies")
   @@index([teamId, createdAt])
   @@map("team_messages")
 }
@@ -426,15 +431,18 @@ model SupportTicket {
 }
 
 model EventMessage {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   majorRaceId String
   userId      String
   content     String
-  isDeleted   Boolean  @default(false)
+  replyToId   String?
+  isDeleted   Boolean        @default(false)
   deletedBy   String?
-  createdAt   DateTime @default(now())
-  majorRace   MajorRace @relation(fields: [majorRaceId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  majorRace   MajorRace      @relation(fields: [majorRaceId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo     EventMessage?  @relation("eventReplies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies     EventMessage[] @relation("eventReplies")
   @@index([majorRaceId, createdAt])
   @@map("event_messages")
 }

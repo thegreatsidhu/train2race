@@ -1,6 +1,7 @@
 ﻿"use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { ChatPanel } from "@/components/ChatPanel";
 
 const LB_TYPES   = [{ v: "all", l: "All" }, { v: "run", l: "Run" }, { v: "bike", l: "Bike" }, { v: "swim", l: "Swim" }, { v: "walk", l: "Walk" }, { v: "strength", l: "Strength" }];
 const LB_PERIODS = [{ v: "week", l: "Week" }, { v: "month", l: "Month" }, { v: "year", l: "Year" }, { v: "all", l: "All time" }];
@@ -8,17 +9,18 @@ const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Durat
 
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [newMessage,setNewMessage]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"plan"|"activity"|"challenges"|"chat"|"members">("plan");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
+  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"plan"|"activity"|"challenges"|"chat"|"members">("plan");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
   const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",startDate:"",endDate:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [createMsg,setCreateMsg]=useState("");const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string;error?:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);const [approvingChallenge,setApprovingChallenge]=useState<string|null>(null);const [leavingChallenge,setLeavingChallenge]=useState<string|null>(null);const [confirmLeaveChallenge,setConfirmLeaveChallenge]=useState<string|null>(null);const [confirmDeleteChId,setConfirmDeleteChId]=useState<string|null>(null);
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
   const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);});}, []);
-  async function loadTeam(tid:string){const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);}
-  async function loadMessages(tid:string){const res=await fetch(`/api/teams/${tid}/messages`);const data=await res.json();setMessages(data.messages||[]);}
-  async function sendMessage(){if(!newMessage.trim()||!id)return;setSending(true);const res=await fetch(`/api/teams/${id}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:newMessage})});const data=await res.json();if(res.ok){setMessages(prev=>[...prev,data.message]);setNewMessage("");setTimeout(()=>messagesEndRef.current?.scrollIntoView({behavior:"smooth"}),100);}setSending(false);}
+  async function loadTeam(tid:string){const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);setMyUserId(data.team?.members?.find((m:any)=>m.isMe)?.userId||"");}
+  async function loadMessages(tid:string){const res=await fetch(`/api/teams/${tid}/messages`);const data=await res.json();setMessages(data.messages||[]);setIsAdmin(data.isAdmin||false);}
+  async function sendMessage(content:string,replyToId?:string){if(!id)return;setSending(true);const res=await fetch(`/api/teams/${id}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content,replyToId})});const data=await res.json();if(res.ok){setMessages(prev=>[...prev,data.message]);}setSending(false);}
+  async function deleteMessage(messageId:string){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId})});setMessages(prev=>prev.filter((m:any)=>m.id!==messageId));}
+  async function deleteAllMessages(){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({deleteAll:true})});setMessages([]);}
   async function handleLeave(){setConfirmLeave(false);if(team?.isAdmin){await fetch(`/api/teams/${id}`,{method:"DELETE"});}else{await fetch(`/api/teams/${id}/leave`,{method:"POST"});}router.push("/dashboard/teams");}
   function copyInviteCode(){navigator.clipboard.writeText(team.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
   function copyInviteLink(){navigator.clipboard.writeText(`${window.location.origin}/join/${team.inviteCode}`);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
@@ -259,20 +261,17 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           </div>
         )}
       </div>}
-      {activeTab==="chat"&&<div className="flex flex-col h-96 md:h-[500px]">
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
-          {messages.length===0?<div className="text-center py-8"><p className="text-sm text-foreground-dim">No messages yet. Say hi!</p></div>:messages.map((msg:any)=>(
-            <div key={msg.id} className={"flex gap-2 "+(msg.userId===myUserId?"flex-row-reverse":"")}>
-              <div className={"max-w-xs rounded-2xl px-4 py-2.5 text-sm "+(msg.userId===myUserId?"bg-signal text-background":"bg-surface border border-border")}>
-                {msg.userId!==myUserId&&<p className="text-xs font-medium mb-1 opacity-70">{msg.user.name}</p>}
-                <p>{msg.content}</p>
-                <p className="text-xs opacity-50 mt-1">{new Date(msg.createdAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</p>
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef}/>
-        </div>
-        <div className="flex gap-2"><input value={newMessage} onChange={e=>setNewMessage(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()} placeholder="Message your team..." className="flex-1 px-4 py-2.5 rounded-full bg-surface border border-border focus:border-signal outline-none text-sm"/><button onClick={sendMessage} disabled={sending||!newMessage.trim()} className="px-4 py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">Send</button></div>
+      {activeTab==="chat"&&<div className="h-96 md:h-[500px] flex flex-col">
+        <ChatPanel
+          messages={messages}
+          myUserId={myUserId}
+          isAdmin={isAdmin}
+          height="100%"
+          onSend={sendMessage}
+          onDelete={deleteMessage}
+          onDeleteAll={isAdmin ? deleteAllMessages : undefined}
+          sending={sending}
+        />
       </div>}
       {activeTab==="members"&&<div className="space-y-2">
         {team.members.map((member:any)=>(

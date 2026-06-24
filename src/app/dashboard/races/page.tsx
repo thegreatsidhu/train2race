@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { NewRaceForm } from "@/components/NewRaceForm";
+import { ChatPanel } from "@/components/ChatPanel";
 
 const DFILTERS = [
   { label: "All" },
@@ -51,11 +52,9 @@ export default function RacesPage() {
 
   // My events — inline community
   const [expandedReg, setExpandedReg] = useState<string | null>(null);
-  const [commData, setCommData] = useState<Record<string, { comm: any[]; messages: any[]; loading: boolean }>>({});
+  const [commData, setCommData] = useState<Record<string, { comm: any[]; messages: any[]; loading: boolean; isAdmin: boolean; myUserId: string }>>({});
   const [commTab, setCommTab] = useState<Record<string, string>>({});
-  const [newMsgMap, setNewMsgMap] = useState<Record<string, string>>({});
   const [sendingMap, setSendingMap] = useState<Record<string, boolean>>({});
-  const msgEndRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Submit
   const [rName, setRName] = useState("");
@@ -106,7 +105,7 @@ export default function RacesPage() {
     if (expandedReg === majorRaceId) { setExpandedReg(null); return; }
     setExpandedReg(majorRaceId);
     if (!commData[majorRaceId]) {
-      setCommData(prev => ({ ...prev, [majorRaceId]: { comm: [], messages: [], loading: true } }));
+      setCommData(prev => ({ ...prev, [majorRaceId]: { comm: [], messages: [], loading: true, isAdmin: false, myUserId: "" } }));
       setCommTab(prev => ({ ...prev, [majorRaceId]: "leaderboard" }));
       const [cr, mr] = await Promise.all([
         fetch("/api/major-races/community?raceId=" + majorRaceId),
@@ -114,23 +113,20 @@ export default function RacesPage() {
       ]);
       const cd = await cr.json();
       const md = await mr.json();
-      setCommData(prev => ({ ...prev, [majorRaceId]: { comm: cd.community || [], messages: md.messages || [], loading: false } }));
+      const myUserId = cd.community?.find((a: any) => a.isMe)?.userId || "";
+      setCommData(prev => ({ ...prev, [majorRaceId]: { comm: cd.community || [], messages: md.messages || [], loading: false, isAdmin: md.isAdmin || false, myUserId } }));
     }
   }
 
-  async function sendMsg(majorRaceId: string) {
-    const content = (newMsgMap[majorRaceId] || "").trim();
-    if (!content) return;
+  async function sendMsg(majorRaceId: string, content: string, replyToId?: string) {
     setSendingMap(prev => ({ ...prev, [majorRaceId]: true }));
     const res = await fetch("/api/major-races/messages", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ majorRaceId, content }),
+      body: JSON.stringify({ majorRaceId, content, replyToId }),
     });
     const data = await res.json();
     if (res.ok) {
       setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: [...prev[majorRaceId].messages, data.message] } }));
-      setNewMsgMap(prev => ({ ...prev, [majorRaceId]: "" }));
-      setTimeout(() => msgEndRefs.current[majorRaceId]?.scrollIntoView({ behavior: "smooth" }), 100);
     }
     setSendingMap(prev => ({ ...prev, [majorRaceId]: false }));
   }
@@ -138,6 +134,11 @@ export default function RacesPage() {
   async function deleteMsg(majorRaceId: string, messageId: string) {
     await fetch("/api/major-races/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId }) });
     setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: prev[majorRaceId].messages.filter((m: any) => m.id !== messageId) } }));
+  }
+
+  async function deleteAllMsgs(majorRaceId: string) {
+    await fetch("/api/major-races/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ majorRaceId, deleteAll: true }) });
+    setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: [] } }));
   }
 
   async function handleSub() {
@@ -345,7 +346,6 @@ export default function RacesPage() {
             const isOpen = expandedReg === reg.majorRaceId;
             const data = commData[reg.majorRaceId];
             const cTab = commTab[reg.majorRaceId] || "leaderboard";
-            const myUserId = data?.comm.find((a: any) => a.isMe)?.userId;
             return (
               <div key={reg.id} className={"rounded-2xl border bg-surface overflow-hidden transition-colors " + (isOpen ? "border-signal/40" : "border-border")}>
                 {/* Card header */}
@@ -413,39 +413,16 @@ export default function RacesPage() {
                         </div>
                       )
                     ) : (
-                      <div className="flex flex-col" style={{ height: "320px" }}>
-                        <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1">
-                          {data.messages.length === 0 ? (
-                            <div className="text-center py-6"><p className="text-sm text-foreground-dim">No messages yet. Start the conversation!</p></div>
-                          ) : data.messages.map((msg: any) => {
-                            const isMe = msg.user.id === myUserId;
-                            return (
-                              <div key={msg.id} className={"flex gap-2 " + (isMe ? "flex-row-reverse" : "")}>
-                                <div className={"max-w-xs rounded-2xl px-3 py-2 text-sm " + (isMe ? "bg-signal text-background" : "bg-background border border-border")}>
-                                  {!isMe && <p className="text-xs font-medium mb-0.5 opacity-70">{msg.user.name}</p>}
-                                  <p>{msg.content}</p>
-                                  <div className="flex items-center justify-between gap-2 mt-1">
-                                    <p className="text-xs opacity-50">{new Date(msg.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
-                                    {isMe && <button onClick={() => deleteMsg(reg.majorRaceId, msg.id)} className="text-xs opacity-50 hover:opacity-100">Delete</button>}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          <div ref={el => { msgEndRefs.current[reg.majorRaceId] = el; }} />
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            value={newMsgMap[reg.majorRaceId] || ""}
-                            onChange={e => setNewMsgMap(prev => ({ ...prev, [reg.majorRaceId]: e.target.value }))}
-                            onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMsg(reg.majorRaceId)}
-                            placeholder="Message the group..."
-                            className="flex-1 px-3 py-2 rounded-full bg-background border border-border focus:border-signal outline-none text-sm"
-                          />
-                          <button onClick={() => sendMsg(reg.majorRaceId)} disabled={sendingMap[reg.majorRaceId] || !newMsgMap[reg.majorRaceId]?.trim()}
-                            className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">Send</button>
-                        </div>
-                      </div>
+                      <ChatPanel
+                        messages={data.messages}
+                        myUserId={data.myUserId}
+                        isAdmin={data.isAdmin}
+                        height="320px"
+                        onSend={(content, replyToId) => sendMsg(reg.majorRaceId, content, replyToId)}
+                        onDelete={(messageId) => deleteMsg(reg.majorRaceId, messageId)}
+                        onDeleteAll={data.isAdmin ? () => deleteAllMsgs(reg.majorRaceId) : undefined}
+                        sending={sendingMap[reg.majorRaceId]}
+                      />
                     )}
                   </div>
                 )}
