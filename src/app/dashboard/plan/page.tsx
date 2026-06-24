@@ -50,12 +50,22 @@ function currentWeekNum(plan: any): number {
   return Math.max(1, Math.floor((now.getTime() - start.getTime()) / (7 * 86400000)) + 1);
 }
 
+function toDateInput(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function PlanPage() {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selIdx, setSelIdx] = useState(0);
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set());
   const [toggling, setToggling] = useState<Set<string>>(new Set());
+
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/plan").then(r => r.json()).then(d => {
@@ -100,6 +110,50 @@ export default function PlanPage() {
     setToggling(prev => { const s = new Set(prev); s.delete(workoutId); return s; });
   }
 
+  function startEdit(w: any) {
+    setEditingId(w.id);
+    setEditForm({
+      type: w.type || "easy_run",
+      title: w.title || "",
+      description: w.description || "",
+      distanceMi: w.distanceKm ? kmToMiles(w.distanceKm) : "",
+      durationMin: w.durationMin || "",
+      date: toDateInput(w.date),
+    });
+  }
+
+  async function saveEdit(workoutId: string) {
+    setSaving(true);
+    const body: any = {
+      type: editForm.type,
+      title: editForm.title,
+      description: editForm.description,
+      date: editForm.date,
+    };
+    if (editForm.distanceMi !== "") body.distanceKm = parseFloat(editForm.distanceMi);
+    else body.distanceKm = null;
+    if (editForm.durationMin !== "") body.durationMin = parseInt(editForm.durationMin);
+    else body.durationMin = null;
+
+    const res = await fetch(`/api/races/workouts/${workoutId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const { workout } = await res.json();
+      setPlans(prev => prev.map(plan => ({
+        ...plan,
+        weeks: plan.weeks.map((wk: any) => ({
+          ...wk,
+          workouts: wk.workouts.map((w: any) => w.id === workoutId ? { ...w, ...workout } : w),
+        })),
+      })));
+      setEditingId(null);
+    }
+    setSaving(false);
+  }
+
   if (loading) return (
     <div className="max-w-3xl px-4 md:px-8 py-6 md:py-10">
       <div className="h-8 w-40 bg-surface rounded-xl animate-pulse mb-8" />
@@ -127,7 +181,7 @@ export default function PlanPage() {
     <div className="max-w-3xl px-4 md:px-8 py-6 md:py-10">
       <header className="mb-6">
         <h1 className="text-3xl font-semibold tracking-tight mb-1">My Plan</h1>
-        <p className="text-foreground-dim text-sm">Your weekly training schedule.</p>
+        <p className="text-foreground-dim text-sm">Your weekly training schedule. Tap a workout to edit it.</p>
       </header>
 
       {/* Race selector */}
@@ -203,9 +257,67 @@ export default function PlanPage() {
                   {wk.workouts.map((w: any) => {
                     const colorClass = TYPE_COLORS[w.type] || "bg-border/60 text-foreground-dim border-border";
                     const isToday = daysUntil(w.date) === 0;
-                    const isFuture = daysUntil(w.date) > 0;
+                    const isEditing = editingId === w.id;
+
+                    if (isEditing) {
+                      return (
+                        <div key={w.id} className="px-5 py-4 bg-surface/60">
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs text-foreground-dim mb-1 block">Type</label>
+                                <select value={editForm.type} onChange={e => setEditForm((f: any) => ({ ...f, type: e.target.value }))}
+                                  className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal">
+                                  {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-xs text-foreground-dim mb-1 block">Date</label>
+                                <input type="date" value={editForm.date} onChange={e => setEditForm((f: any) => ({ ...f, date: e.target.value }))}
+                                  className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal" />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-xs text-foreground-dim mb-1 block">Title</label>
+                              <input value={editForm.title} onChange={e => setEditForm((f: any) => ({ ...f, title: e.target.value }))}
+                                className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal" />
+                            </div>
+                            <div>
+                              <label className="text-xs text-foreground-dim mb-1 block">Description</label>
+                              <textarea value={editForm.description} onChange={e => setEditForm((f: any) => ({ ...f, description: e.target.value }))}
+                                rows={2} className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal resize-none" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs text-foreground-dim mb-1 block">Distance (mi)</label>
+                                <input type="number" step="0.1" min="0" value={editForm.distanceMi}
+                                  onChange={e => setEditForm((f: any) => ({ ...f, distanceMi: e.target.value }))}
+                                  className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal" />
+                              </div>
+                              <div>
+                                <label className="text-xs text-foreground-dim mb-1 block">Duration (min)</label>
+                                <input type="number" min="0" value={editForm.durationMin}
+                                  onChange={e => setEditForm((f: any) => ({ ...f, durationMin: e.target.value }))}
+                                  className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal" />
+                              </div>
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <button onClick={() => saveEdit(w.id)} disabled={saving}
+                                className="px-4 py-1.5 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-60">
+                                {saving ? "Saving…" : "Save"}
+                              </button>
+                              <button onClick={() => setEditingId(null)}
+                                className="px-4 py-1.5 rounded-full border border-border text-xs">
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div key={w.id} className={"flex gap-4 px-5 py-4 " + (w.completed ? "opacity-60" : "") + (isToday ? " bg-signal/5" : "")}>
+                      <div key={w.id} className={"flex gap-4 px-5 py-4 group " + (w.completed ? "opacity-60" : "") + (isToday ? " bg-signal/5" : "")}>
                         {/* Checkbox */}
                         <button onClick={() => toggleWorkout(w.id, w.completed)} disabled={toggling.has(w.id)}
                           className={"mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors " + (w.completed ? "bg-signal border-signal" : "border-border hover:border-signal")}>
@@ -232,6 +344,12 @@ export default function PlanPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Edit button */}
+                        <button onClick={() => startEdit(w)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-foreground-dim hover:text-foreground shrink-0 mt-0.5 px-2 py-1 rounded-lg hover:bg-surface">
+                          Edit
+                        </button>
                       </div>
                     );
                   })}
