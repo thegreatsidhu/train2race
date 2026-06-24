@@ -32,12 +32,16 @@ export default function LeaderboardPage() {
   const [teamId,    setTeamId]    = useState("");
   const [raceId,    setRaceId]    = useState("");
 
-  const [teams,     setTeams]     = useState<any[]>([]);
-  const [races,     setRaces]     = useState<any[]>([]);
-  const [adminTeams,setAdminTeams]= useState<any[]>([]); // teams where current user is admin
-  const [entries,   setEntries]   = useState<any[]>([]);
-  const [loading,   setLoading]   = useState(false);
-  const [apiError,  setApiError]  = useState("");
+  const [teams,          setTeams]          = useState<any[]>([]);
+  const [races,          setRaces]          = useState<any[]>([]);
+  const [raceSearch,     setRaceSearch]     = useState("");
+  const [raceDropdown,   setRaceDropdown]   = useState(false);
+  const [selectedRace,   setSelectedRace]   = useState<any>(null);
+  const [adminTeams,     setAdminTeams]     = useState<any[]>([]);
+  const [entries,        setEntries]        = useState<any[]>([]);
+  const [loading,        setLoading]        = useState(false);
+  const [apiError,       setApiError]       = useState("");
+  const raceRef = useRef<HTMLDivElement>(null);
 
   // Invite state
   const [inviting,    setInviting]    = useState<{ userId: string; name: string } | null>(null);
@@ -51,13 +55,14 @@ export default function LeaderboardPage() {
       setTeams(t);
       setAdminTeams(t.filter((tm: any) => tm.members?.[0]?.role === "admin" || tm.isAdmin));
     }).catch(() => {});
-    fetch("/api/major-races?upcoming=1").then(r => r.json()).then(d => setRaces(d.races || [])).catch(() => {});
+    fetch("/api/major-races").then(r => r.json()).then(d => setRaces(d.races || [])).catch(() => {});
   }, []);
 
-  // Close invite popover on outside click
+  // Close popovers on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (inviteRef.current && !inviteRef.current.contains(e.target as Node)) setInviting(null);
+      if (raceRef.current && !raceRef.current.contains(e.target as Node)) setRaceDropdown(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -166,27 +171,40 @@ export default function LeaderboardPage() {
               {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-          <div>
-            <p className="text-xs text-foreground-dim mb-2">Event / Race <span className="text-foreground-dim/50">(optional)</span></p>
+          <div ref={raceRef} className="relative sm:col-span-2">
+            <p className="text-xs text-foreground-dim mb-2">Event / Race</p>
             <div className="flex gap-2">
-              <select
+              <input
                 className="flex-1 bg-background border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-signal"
-                value={raceId} onChange={e => setRaceId(e.target.value)}>
-                <option value="">All events</option>
-                {races.map((r: any) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} · {new Date(r.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </option>
-                ))}
-              </select>
-              {raceId && (
-                <button onClick={() => setRaceId("")} className="text-xs text-foreground-dim hover:text-foreground px-2" title="Clear event filter">✕</button>
+                placeholder="Search races..."
+                value={raceSearch}
+                onChange={e => { setRaceSearch(e.target.value); setRaceDropdown(true); if (!e.target.value) { setRaceId(""); setSelectedRace(null); } }}
+                onFocus={() => setRaceDropdown(true)}
+              />
+              {(raceId || raceSearch) && (
+                <button onClick={() => { setRaceId(""); setRaceSearch(""); setSelectedRace(null); setRaceDropdown(false); }} className="text-xs text-foreground-dim hover:text-foreground px-2">✕</button>
               )}
             </div>
+            {selectedRace && <p className="text-xs text-signal mt-1 px-1 truncate">{selectedRace.name} · {new Date(selectedRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>}
+            {raceDropdown && (() => {
+              const q = raceSearch.toLowerCase();
+              const filtered = races.filter((r: any) => !q || r.name.toLowerCase().includes(q)).slice(0, 12);
+              return filtered.length > 0 ? (
+                <div className="absolute z-30 top-full mt-1 left-0 right-0 bg-background border border-border rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                  {filtered.map((r: any) => (
+                    <button key={r.id} onClick={() => { setRaceId(r.id); setSelectedRace(r); setRaceSearch(r.name); setRaceDropdown(false); }}
+                      className={"w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors " + (raceId === r.id ? "text-signal bg-signal/5" : "")}>
+                      <span className="font-medium">{r.name}</span>
+                      <span className="text-xs text-foreground-dim ml-2">{new Date(r.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null;
+            })()}
           </div>
         </div>
         {activeFilters > 0 && (
-          <button onClick={() => { setSex("all"); setAgeGroup("all"); setCity(""); setCityInput(""); setTeamId(""); setRaceId(""); }}
+          <button onClick={() => { setSex("all"); setAgeGroup("all"); setCity(""); setCityInput(""); setTeamId(""); setRaceId(""); setRaceSearch(""); setSelectedRace(null); }}
             className="text-xs text-foreground-dim hover:text-foreground">
             Clear all filters
           </button>
@@ -204,7 +222,7 @@ export default function LeaderboardPage() {
         <div className="text-center py-16 text-foreground-dim text-sm">
           No athletes found for these filters yet.
           {activeFilters > 0 && (
-            <button onClick={() => { setSex("all"); setAgeGroup("all"); setCity(""); setCityInput(""); setTeamId(""); setRaceId(""); }}
+            <button onClick={() => { setSex("all"); setAgeGroup("all"); setCity(""); setCityInput(""); setTeamId(""); setRaceId(""); setRaceSearch(""); setSelectedRace(null); }}
               className="block mx-auto mt-3 text-signal hover:underline text-xs">
               Clear filters
             </button>
