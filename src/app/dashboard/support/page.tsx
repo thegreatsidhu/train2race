@@ -50,7 +50,8 @@ export default function SupportPage() {
     <div className="max-w-2xl px-4 md:px-8 py-6 md:py-10 space-y-8">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Help & Support</h1>
-        <p className="text-sm text-foreground-dim mt-1">Submit a ticket — we review and respond to every one</p>
+        <p className="text-sm text-foreground-dim mt-1">Submit a ticket — we review and respond to every one.</p>
+        <p className="text-sm text-foreground-dim mt-0.5">You can also email us at <a href="mailto:support@train2race.com" className="text-signal hover:underline">support@train2race.com</a></p>
       </header>
 
       {/* Submit form */}

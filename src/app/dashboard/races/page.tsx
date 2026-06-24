@@ -37,6 +37,7 @@ export default function RacesPage() {
   const [plansLoading, setPlansLoading] = useState(true);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState<string | null>(null);
 
   // Events
   const [events, setEvents] = useState<any[]>([]);
@@ -300,7 +301,15 @@ export default function RacesPage() {
                     <p className="text-xs text-signal font-medium">You are registered for this event</p>
                     <a href={`/dashboard/community?race=${selEvent.id}`}
                       className="block w-full py-2 rounded-full bg-signal text-background text-sm font-medium text-center">View community →</a>
-                    <button onClick={() => handleUnreg(selEvent.id)} className="text-sm text-red-400 hover:text-red-300">Leave this event</button>
+                    {confirmLeave === selEvent.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-foreground-dim">Leave this event?</span>
+                        <button onClick={() => { handleUnreg(selEvent.id); setConfirmLeave(null); }} className="text-sm text-red-400 hover:text-red-300">Yes, leave</button>
+                        <button onClick={() => setConfirmLeave(null)} className="text-sm text-foreground-dim hover:text-foreground">Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmLeave(selEvent.id)} className="text-sm text-red-400 hover:text-red-300">Leave this event</button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -362,7 +371,15 @@ export default function RacesPage() {
                         className={"text-xs font-medium px-3 py-1.5 rounded-full transition-colors " + (isOpen ? "bg-signal text-background" : "border border-signal text-signal hover:bg-signal/10")}>
                         {isOpen ? "Close" : "Find community"}
                       </button>
-                      <button onClick={() => handleUnreg(reg.majorRaceId)} className="text-xs text-red-400 hover:text-red-300">Leave</button>
+                      {confirmLeave === reg.majorRaceId ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-foreground-dim">Leave?</span>
+                          <button onClick={() => { handleUnreg(reg.majorRaceId); setConfirmLeave(null); }} className="text-xs text-red-400 hover:text-red-300">Yes</button>
+                          <button onClick={() => setConfirmLeave(null)} className="text-xs text-foreground-dim hover:text-foreground">No</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmLeave(reg.majorRaceId)} className="text-xs text-red-400 hover:text-red-300">Leave</button>
+                      )}
                     </div>
                   </div>
                 </div>

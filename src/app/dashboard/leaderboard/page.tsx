@@ -22,9 +22,9 @@ function Chips({ items, value, onChange }: { items: { v: string; l: string }[]; 
 }
 
 export default function LeaderboardPage() {
-  const [period,    setPeriod]    = useState("month");
+  const [period,    setPeriod]    = useState("week");
   const [metric,    setMetric]    = useState("distance");
-  const [type,      setType]      = useState("all");
+  const [type,      setType]      = useState("run");
   const [sex,       setSex]       = useState("all");
   const [ageGroup,  setAgeGroup]  = useState("all");
   const [city,      setCity]      = useState("");
