@@ -145,7 +145,7 @@ export default async function TodayPage() {
 
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, recentTeamMessages] = await Promise.all([
+  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, recentTeamMessages, unreadDms] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
@@ -156,6 +156,7 @@ export default async function TodayPage() {
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
     prisma.teamMessage.findMany({where:{team:{members:{some:{userId}}},userId:{not:userId},isDeleted:false,createdAt:{gte:last24h}},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},user:{select:{name:true}}},orderBy:{createdAt:"desc"},take:50}),
+    (prisma as any).directMessage.findMany({where:{toUserId:userId,isRead:false},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},fromUser:{select:{name:true}}},orderBy:{createdAt:"desc"},take:20}),
   ]);
 
   const primaryTeam = await prisma.team.findFirst({
@@ -222,7 +223,7 @@ export default async function TodayPage() {
     .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
     .slice(0, 10);
 
-  // Group new messages by team
+  // Group new team chat messages by team
   const msgByTeam = new Map<string, {teamId:string;teamName:string;count:number;senderName:string;preview:string}>();
   for (const msg of recentTeamMessages) {
     const key = msg.teamId;
@@ -232,6 +233,17 @@ export default async function TodayPage() {
     msgByTeam.get(key)!.count++;
   }
   const teamMessageGroups = Array.from(msgByTeam.values());
+
+  // Group unread DMs by team
+  const dmByTeam = new Map<string, {teamId:string;teamName:string;count:number;senderName:string;preview:string}>();
+  for (const dm of (unreadDms as any[])) {
+    const key = dm.teamId;
+    if (!dmByTeam.has(key)) {
+      dmByTeam.set(key, { teamId: dm.team.id, teamName: dm.team.name, count: 0, senderName: dm.fromUser.name ?? "Captain", preview: dm.content });
+    }
+    dmByTeam.get(key)!.count++;
+  }
+  const dmGroups = Array.from(dmByTeam.values());
 
   const leaderboard = primaryTeam ? primaryTeam.members.map(m => {
     const p = m.user.trainingPlans[0];
@@ -277,9 +289,19 @@ export default async function TodayPage() {
       {/* Team invitations */}
       <TeamInvitations />
 
-      {/* Team chat notifications */}
-      {teamMessageGroups.length > 0 && (
+      {/* Team chat & DM notifications */}
+      {(teamMessageGroups.length > 0 || dmGroups.length > 0) && (
         <div className="mb-6 space-y-2">
+          {dmGroups.map(g => (
+            <Link key={"dm-"+g.teamId} href={`/dashboard/teams/${g.teamId}`} className="flex items-start gap-3 rounded-2xl border border-signal/50 bg-signal/10 px-4 py-3 hover:bg-signal/15 transition-colors">
+              <span className="text-base shrink-0 mt-0.5">✉️</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{g.count} new private {g.count === 1 ? "message" : "messages"} from {g.senderName}</p>
+                <p className="text-xs text-foreground-dim truncate">{g.teamName} · "{g.preview.length > 60 ? g.preview.slice(0, 60) + "…" : g.preview}"</p>
+              </div>
+              <span className="text-foreground-dim text-xs shrink-0 self-center">→</span>
+            </Link>
+          ))}
           {teamMessageGroups.map(g => (
             <Link key={g.teamId} href={`/dashboard/teams/${g.teamId}`} className="flex items-start gap-3 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3 hover:bg-signal/10 transition-colors">
               <span className="text-base shrink-0 mt-0.5">💬</span>

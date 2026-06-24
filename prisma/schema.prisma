@@ -46,6 +46,8 @@ model User {
   teamInvitations          TeamInvitation[] @relation("InvitationReceived")
   sentInvitations          TeamInvitation[] @relation("InvitationSent")
   supportTickets           SupportTicket[]
+  directMessagesSent       DirectMessage[]  @relation("DMsSent")
+  directMessagesReceived   DirectMessage[]  @relation("DMsReceived")
   @@map("users")
 }
 
@@ -332,6 +334,7 @@ model Team {
   messages    TeamMessage[]
   challenges  TeamChallenge[]
   invitations TeamInvitation[]
+  directMessages DirectMessage[]
   majorRace   MajorRace?   @relation(fields: [majorRaceId], references: [id])
   @@map("teams")
 }
@@ -408,6 +411,22 @@ model TeamMessage {
   replies     TeamMessage[] @relation("teamReplies")
   @@index([teamId, createdAt])
   @@map("team_messages")
+}
+
+model DirectMessage {
+  id          String   @id @default(cuid())
+  teamId      String
+  fromUserId  String
+  toUserId    String
+  content     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  fromUser    User     @relation("DMsSent",      fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser      User     @relation("DMsReceived",  fields: [toUserId],   references: [id], onDelete: Cascade)
+  @@index([teamId, toUserId, createdAt])
+  @@index([toUserId, isRead])
+  @@map("direct_messages")
 }
 
 model Setting {

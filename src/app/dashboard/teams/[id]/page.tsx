@@ -15,6 +15,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
+  const [dmTarget,setDmTarget]=useState<string|null>(null);const [dmThread,setDmThread]=useState<any[]>([]);const [dmContent,setDmContent]=useState("");const [sendingDm,setSendingDm]=useState(false);const [dmLoading,setDmLoading]=useState(false);const [myThreads,setMyThreads]=useState<any[]>([]);const [threadsLoaded,setThreadsLoaded]=useState(false);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);});}, []);
   async function loadTeam(tid:string){const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);setMyUserId(data.team?.members?.find((m:any)=>m.isMe)?.userId||"");if(data.team?.majorRace){setLbType(data.team.majorRace.isTriathlon?"triathlon":"run");}}
   async function loadMessages(tid:string){const res=await fetch(`/api/teams/${tid}/messages`);const data=await res.json();setMessages(data.messages||[]);setIsAdmin(data.isAdmin||false);}
@@ -44,6 +45,25 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function deleteChallenge(cId:string){setConfirmDeleteChId(null);setDeletingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}`,{method:"DELETE"});setDeletingChallenge(null);if(res.ok)setChallenges(prev=>prev.filter(c=>c.id!==cId));}
   async function leaveChallenge(cId:string){setConfirmLeaveChallenge(null);setLeavingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}/entries`,{method:"DELETE"});setLeavingChallenge(null);if(res.ok)setChallenges(prev=>prev.filter(c=>c.id!==cId));}
   async function removeParticipant(cId:string,uId:string){const key=`${cId}:${uId}`;setRemovingParticipant(key);setConfirmRemoveParticipant(null);const res=await fetch(`/api/teams/${id}/challenges/${cId}/entries?userId=${uId}`,{method:"DELETE"});setRemovingParticipant(null);if(res.ok)setChallenges(prev=>prev.map(c=>c.id===cId?{...c,entries:c.entries.filter((e:any)=>e.userId!==uId)}:c));}
+  async function openDm(memberId:string){
+    if(dmTarget===memberId){setDmTarget(null);return;}
+    setDmTarget(memberId);setDmThread([]);setDmContent("");setDmLoading(true);
+    const res=await fetch(`/api/teams/${id}/dm?withUserId=${memberId}`);
+    const d=await res.json().catch(()=>({}));
+    setDmThread(d.messages||[]);setDmLoading(false);
+  }
+  async function sendDm(toUserId:string){
+    if(!dmContent.trim())return;setSendingDm(true);
+    const res=await fetch(`/api/teams/${id}/dm`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({toUserId,content:dmContent.trim()})});
+    if(res.ok){const d=await res.json();setDmThread(prev=>[...prev,d.message]);setDmContent("");}
+    setSendingDm(false);
+  }
+  async function loadMyThreads(){
+    if(threadsLoaded)return;
+    const res=await fetch(`/api/teams/${id}/dm`);
+    const d=await res.json().catch(()=>({}));
+    setMyThreads(d.threads||[]);setThreadsLoaded(true);
+  }
   async function submitEntry(){if(!logEntry||!logEntry.value)return;setSavingEntry(true);const todayStr=new Date().toISOString().split("T")[0];const res=await fetch(`/api/teams/${id}/challenges/${logEntry.challengeId}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:logEntry.value,date:todayStr,note:logEntry.note})});if(res.ok){const d=await res.json();setChallenges(prev=>prev.map(c=>c.id===logEntry.challengeId?{...c,entries:[...c.entries,d.entry]}:c));setLogEntry(null);}else{const d=await res.json().catch(()=>({}));setLogEntry(l=>l?{...l,error:d.error||"Failed to save entry."}:null);}setSavingEntry(false);}
   function handleChallengesTab(){if(!challengesLoaded&&id){loadChallenges(id);}setActiveTab("challenges");}
   const METRIC_UNITS:{[k:string]:string[]}={distance:["mi","km"],duration:["min"],count:["sessions","steps"]};
@@ -153,7 +173,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
         <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
         <button onClick={()=>setActiveTab("chat")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="chat"?"bg-signal text-background":"border border-border hover:bg-surface")}>Chat ({messages.length})</button>
-        <button onClick={()=>setActiveTab("members")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
+        <button onClick={()=>{setActiveTab("members");loadMyThreads();}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
       </div>
       {activeTab==="plan"&&<div className="space-y-3">
           {team.members.map((member:any,i:number)=>(
@@ -274,20 +294,93 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         />
       </div>}
       {activeTab==="members"&&<div className="space-y-2">
-        {team.members.map((member:any)=>(
-          <div key={member.userId} className={"flex items-center justify-between rounded-2xl border px-4 py-3 "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-medium text-sm">{member.name}{member.isMe?" (you)":""}</p>
-                {member.role==="admin"&&<span className="text-xs px-1.5 py-0.5 rounded bg-signal/20 text-signal">Captain</span>}
-                {member.userId===team.createdBy&&<span className="text-xs text-foreground-dim">Owner</span>}
-              </div>
-              <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(member.joinedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
+        {/* Inbox for non-captain members: show threads where captain messaged them */}
+        {!isCreator&&myThreads.length>0&&(
+          <div className="rounded-2xl border border-border bg-surface p-4 mb-2">
+            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Messages from captain</p>
+            <div className="space-y-2">
+              {myThreads.map((t:any)=>(
+                <div key={t.userId}>
+                  <button onClick={()=>openDm(t.userId)} className={"w-full text-left flex items-center justify-between rounded-xl px-3 py-2 transition-colors "+(dmTarget===t.userId?"bg-signal/10 border border-signal/30":"bg-background border border-border hover:bg-surface-raised")}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{t.name}{t.unread>0&&<span className="ml-2 text-xs bg-signal text-background rounded-full px-1.5 py-0.5">{t.unread}</span>}</p>
+                      <p className="text-xs text-foreground-dim truncate">{t.lastMessage}</p>
+                    </div>
+                    <span className="text-foreground-dim text-xs ml-2 shrink-0">{dmTarget===t.userId?"▲":"▼"}</span>
+                  </button>
+                  {dmTarget===t.userId&&(
+                    <div className="mt-2 rounded-xl border border-border bg-background p-3 space-y-2">
+                      {dmLoading?<p className="text-xs text-foreground-dim">Loading…</p>:(
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {dmThread.map((m:any)=>(
+                            <div key={m.id} className={"flex "+(m.fromUser.id===myUserId?"justify-end":"justify-start")}>
+                              <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface border border-border")}>
+                                <p>{m.content}</p>
+                                <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{m.fromUser.name} · {new Date(m.createdAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {dmThread.length===0&&<p className="text-xs text-foreground-dim text-center py-2">No messages yet.</p>}
+                        </div>
+                      )}
+                      <div className="flex gap-2 pt-1">
+                        <input value={dmContent} onChange={e=>setDmContent(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendDm(t.userId);}}} placeholder="Reply…" className="flex-1 bg-surface border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal"/>
+                        <button onClick={()=>sendDm(t.userId)} disabled={sendingDm||!dmContent.trim()} className="px-3 py-2 rounded-xl bg-signal text-background text-xs font-medium disabled:opacity-50">{sendingDm?"…":"Send"}</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            {team.isAdmin&&!member.isMe&&(
-              <div className="flex gap-2 shrink-0">
-                {isCreator&&<button onClick={()=>toggleMemberRole(member.userId,member.role)} disabled={promotingId===member.userId} className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-40">{promotingId===member.userId?"...":(member.role==="admin"?"Remove captain":"Make captain")}</button>}
-                {member.userId!==team.createdBy&&(confirmRemoveId===member.userId?<><button onClick={()=>{setConfirmRemoveId(null);removeMember(member.userId,member.name);}} disabled={removingId===member.userId} className="text-xs px-3 py-1.5 rounded-full bg-red-600/80 text-white disabled:opacity-40">{removingId===member.userId?"Removing...":"Confirm"}</button><button onClick={()=>setConfirmRemoveId(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button></>:<button onClick={()=>setConfirmRemoveId(member.userId)} className="text-xs px-3 py-1.5 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">Remove</button>)}
+          </div>
+        )}
+
+        {team.members.map((member:any)=>(
+          <div key={member.userId} className={"rounded-2xl border "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-medium text-sm">{member.name}{member.isMe?" (you)":""}</p>
+                  {member.role==="admin"&&<span className="text-xs px-1.5 py-0.5 rounded bg-signal/20 text-signal">Captain</span>}
+                  {member.userId===team.createdBy&&<span className="text-xs text-foreground-dim">Owner</span>}
+                </div>
+                <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(member.joinedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
+              </div>
+              <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                {/* Message button — captains only, not self */}
+                {isCreator&&!member.isMe&&(
+                  <button onClick={()=>openDm(member.userId)} className={"text-xs px-3 py-1.5 rounded-full border transition-colors "+(dmTarget===member.userId?"border-signal text-signal bg-signal/10":"border-border hover:border-signal hover:text-signal")}>
+                    {dmTarget===member.userId?"✕ Close":"💬 Message"}
+                  </button>
+                )}
+                {team.isAdmin&&!member.isMe&&(
+                  <>
+                    {isCreator&&<button onClick={()=>toggleMemberRole(member.userId,member.role)} disabled={promotingId===member.userId} className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-40">{promotingId===member.userId?"...":(member.role==="admin"?"Remove captain":"Make captain")}</button>}
+                    {member.userId!==team.createdBy&&(confirmRemoveId===member.userId?<><button onClick={()=>{setConfirmRemoveId(null);removeMember(member.userId,member.name);}} disabled={removingId===member.userId} className="text-xs px-3 py-1.5 rounded-full bg-red-600/80 text-white disabled:opacity-40">{removingId===member.userId?"Removing...":"Confirm"}</button><button onClick={()=>setConfirmRemoveId(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button></>:<button onClick={()=>setConfirmRemoveId(member.userId)} className="text-xs px-3 py-1.5 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">Remove</button>)}
+                  </>
+                )}
+              </div>
+            </div>
+            {/* DM thread panel — shown below the member row when open */}
+            {dmTarget===member.userId&&(
+              <div className="border-t border-border px-4 pb-4 pt-3">
+                {dmLoading?<p className="text-xs text-foreground-dim">Loading…</p>:(
+                  <div className="space-y-2 max-h-60 overflow-y-auto mb-3">
+                    {dmThread.map((m:any)=>(
+                      <div key={m.id} className={"flex "+(m.fromUser.id===myUserId?"justify-end":"justify-start")}>
+                        <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface-raised border border-border")}>
+                          <p>{m.content}</p>
+                          <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{new Date(m.createdAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {dmThread.length===0&&<p className="text-xs text-foreground-dim py-2">No messages yet. Send the first one.</p>}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input value={dmContent} onChange={e=>setDmContent(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendDm(member.userId);}}} placeholder={`Message ${member.name}…`} className="flex-1 bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-signal" autoFocus/>
+                  <button onClick={()=>sendDm(member.userId)} disabled={sendingDm||!dmContent.trim()} className="px-4 py-2 rounded-xl bg-signal text-background text-sm font-medium disabled:opacity-50">{sendingDm?"…":"Send"}</button>
+                </div>
               </div>
             )}
           </div>
