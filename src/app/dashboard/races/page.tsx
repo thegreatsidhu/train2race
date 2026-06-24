@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { NewRaceForm } from "@/components/NewRaceForm";
 import { ChatPanel } from "@/components/ChatPanel";
 
 const DFILTERS = [
@@ -30,13 +29,7 @@ function fmtGoal(sec: number) {
 }
 
 export default function RacesPage() {
-  const [tab, setTab] = useState("plans");
-
-  // Plans
-  const [plans, setPlans] = useState<any[]>([]);
-  const [plansLoading, setPlansLoading] = useState(true);
-  const [confirmDel, setConfirmDel] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [tab, setTab] = useState("myevents");
   const [confirmLeave, setConfirmLeave] = useState<string | null>(null);
 
   // Events
@@ -69,7 +62,6 @@ export default function RacesPage() {
   const [subResult, setSubResult] = useState<any>(null);
 
   useEffect(() => {
-    fetch("/api/races").then(r => r.json()).then(d => { setPlans(d.races || []); setPlansLoading(false); });
     fetch("/api/major-races/register").then(r => r.json()).then(d => setMyRegs(d.registrations || []));
   }, []);
 
@@ -79,13 +71,6 @@ export default function RacesPage() {
       fetch("/api/major-races?upcoming=1").then(r => r.json()).then(d => { setEvents(d.races || []); setEventsLoading(false); });
     }
   }, [tab]);
-
-  async function deleteRace(id: string) {
-    setDeleting(true);
-    const res = await fetch(`/api/races?id=${id}`, { method: "DELETE" });
-    if (res.ok) { setPlans(prev => prev.filter(r => r.id !== id)); setConfirmDel(null); }
-    setDeleting(false);
-  }
 
   async function handleReg(race: any) {
     setReging(true);
@@ -156,12 +141,10 @@ export default function RacesPage() {
     const md = f.tri ? r.isTriathlon : (!f.min || (r.distanceM >= f.min && r.distanceM <= f.max));
     return ms && md;
   });
-  const hasActivePlan = plans.some((r: any) => r.trainingPlan && r.trainingPlan._count?.workouts > 0);
 
   const TABS = [
-    { id: "plans", label: "My plans" },
-    { id: "events", label: "Browse events" },
     { id: "myevents", label: `My events${myRegs.length > 0 ? ` (${myRegs.length})` : ""}` },
+    { id: "events", label: "Browse events" },
     { id: "submit", label: "Submit a race" },
   ];
 
@@ -180,61 +163,6 @@ export default function RacesPage() {
           </button>
         ))}
       </div>
-
-      {/* ── Plans ── */}
-      {tab === "plans" && (
-        <div>
-          {hasActivePlan ? (
-            <div className="rounded-2xl border border-border bg-surface p-5 mb-6">
-              <p className="text-sm font-medium mb-1">You have an active training plan</p>
-              <p className="text-xs text-foreground-dim">Complete your current race plan before adding a new one.</p>
-            </div>
-          ) : (
-            <div className="mb-6"><NewRaceForm /></div>
-          )}
-          <div className="space-y-3">
-            {plansLoading && [1, 2].map(i => <div key={i} className="h-24 rounded-2xl bg-surface animate-pulse" />)}
-            {!plansLoading && plans.length === 0 && <p className="text-sm text-foreground-dim">No races added yet.</p>}
-            {plans.map((r: any) => {
-              const due = r.trainingPlan?.workouts ?? [];
-              const total = due.length;
-              const done = due.filter((w: any) => w.completed).length;
-              const totalPlan = r.trainingPlan?._count?.workouts ?? 0;
-              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-              return (
-                <div key={r.id} className="rounded-2xl border border-border bg-surface p-5">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium">{r.raceName}</h3>
-                    <span className="text-xs text-foreground-dim">{new Date(r.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                  </div>
-                  <p className="text-sm text-foreground-dim">{(r.distanceM / 1609.34).toFixed(1)} mi{r.goalTimeSec ? ` · goal ${fmtGoal(r.goalTimeSec)}` : ""}</p>
-                  {totalPlan > 0 && (
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs text-foreground-dim mb-1">
-                        <span>{done}/{total} scheduled workouts done{total < totalPlan ? ` · ${totalPlan} total` : ""}</span>
-                        <span>{pct}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-border rounded-full"><div className="h-1.5 bg-signal rounded-full" style={{ width: `${pct}%` }} /></div>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between mt-3">
-                    <a href="/dashboard/plan" className="text-sm text-signal hover:underline">View training plan →</a>
-                    {confirmDel === r.id ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-foreground-dim">Delete race?</span>
-                        <button onClick={() => deleteRace(r.id)} disabled={deleting} className="text-xs text-red-400 hover:text-red-300 disabled:opacity-60">Yes</button>
-                        <button onClick={() => setConfirmDel(null)} className="text-xs text-foreground-dim hover:text-foreground">No</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setConfirmDel(r.id)} className="text-xs text-foreground-dim hover:text-red-400 transition-colors">Delete</button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ── Events ── */}
       {tab === "events" && (
