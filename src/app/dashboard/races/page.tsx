@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NewRaceForm } from "@/components/NewRaceForm";
 
 const DFILTERS = [
@@ -49,6 +49,14 @@ export default function RacesPage() {
   const [pub, setPub] = useState(true);
   const [reging, setReging] = useState(false);
 
+  // My events — inline community
+  const [expandedReg, setExpandedReg] = useState<string | null>(null);
+  const [commData, setCommData] = useState<Record<string, { comm: any[]; messages: any[]; loading: boolean }>>({});
+  const [commTab, setCommTab] = useState<Record<string, string>>({});
+  const [newMsgMap, setNewMsgMap] = useState<Record<string, string>>({});
+  const [sendingMap, setSendingMap] = useState<Record<string, boolean>>({});
+  const msgEndRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   // Submit
   const [rName, setRName] = useState("");
   const [rDate, setRDate] = useState("");
@@ -92,6 +100,44 @@ export default function RacesPage() {
     await fetch("/api/major-races/register", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ majorRaceId }) });
     const d = await fetch("/api/major-races/register").then(r => r.json());
     setMyRegs(d.registrations || []);
+  }
+
+  async function toggleCommunity(majorRaceId: string) {
+    if (expandedReg === majorRaceId) { setExpandedReg(null); return; }
+    setExpandedReg(majorRaceId);
+    if (!commData[majorRaceId]) {
+      setCommData(prev => ({ ...prev, [majorRaceId]: { comm: [], messages: [], loading: true } }));
+      setCommTab(prev => ({ ...prev, [majorRaceId]: "leaderboard" }));
+      const [cr, mr] = await Promise.all([
+        fetch("/api/major-races/community?raceId=" + majorRaceId),
+        fetch("/api/major-races/messages?raceId=" + majorRaceId),
+      ]);
+      const cd = await cr.json();
+      const md = await mr.json();
+      setCommData(prev => ({ ...prev, [majorRaceId]: { comm: cd.community || [], messages: md.messages || [], loading: false } }));
+    }
+  }
+
+  async function sendMsg(majorRaceId: string) {
+    const content = (newMsgMap[majorRaceId] || "").trim();
+    if (!content) return;
+    setSendingMap(prev => ({ ...prev, [majorRaceId]: true }));
+    const res = await fetch("/api/major-races/messages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ majorRaceId, content }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: [...prev[majorRaceId].messages, data.message] } }));
+      setNewMsgMap(prev => ({ ...prev, [majorRaceId]: "" }));
+      setTimeout(() => msgEndRefs.current[majorRaceId]?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+    setSendingMap(prev => ({ ...prev, [majorRaceId]: false }));
+  }
+
+  async function deleteMsg(majorRaceId: string, messageId: string) {
+    await fetch("/api/major-races/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId }) });
+    setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: prev[majorRaceId].messages.filter((m: any) => m.id !== messageId) } }));
   }
 
   async function handleSub() {
@@ -295,22 +341,117 @@ export default function RacesPage() {
               <p className="text-sm text-foreground-dim mb-3">No events joined yet.</p>
               <button onClick={() => setTab("events")} className="text-sm text-signal hover:underline">Browse events</button>
             </div>
-          ) : myRegs.map((reg: any) => (
-            <div key={reg.id} className="rounded-2xl border border-border bg-surface p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="font-medium truncate">{reg.majorRace.name}</h3>
-                  <p className="text-sm text-foreground-dim">{reg.majorRace.city}, {reg.majorRace.country}</p>
-                  <p className="text-sm text-foreground-dim">{new Date(reg.majorRace.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
-                  {reg.goalTimeSec && <p className="text-xs text-foreground-dim mt-0.5">Goal: {fmtGoal(reg.goalTimeSec)}</p>}
+          ) : myRegs.map((reg: any) => {
+            const isOpen = expandedReg === reg.majorRaceId;
+            const data = commData[reg.majorRaceId];
+            const cTab = commTab[reg.majorRaceId] || "leaderboard";
+            const myUserId = data?.comm.find((a: any) => a.isMe)?.userId;
+            return (
+              <div key={reg.id} className={"rounded-2xl border bg-surface overflow-hidden transition-colors " + (isOpen ? "border-signal/40" : "border-border")}>
+                {/* Card header */}
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-medium truncate">{reg.majorRace.name}</h3>
+                      <p className="text-sm text-foreground-dim">{reg.majorRace.city}, {reg.majorRace.country}</p>
+                      <p className="text-sm text-foreground-dim">{new Date(reg.majorRace.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                      {reg.goalTimeSec && <p className="text-xs text-foreground-dim mt-0.5">Goal: {fmtGoal(reg.goalTimeSec)}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <button onClick={() => toggleCommunity(reg.majorRaceId)}
+                        className={"text-xs font-medium px-3 py-1.5 rounded-full transition-colors " + (isOpen ? "bg-signal text-background" : "border border-signal text-signal hover:bg-signal/10")}>
+                        {isOpen ? "Close" : "Find community"}
+                      </button>
+                      <button onClick={() => handleUnreg(reg.majorRaceId)} className="text-xs text-red-400 hover:text-red-300">Leave</button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <a href={`/dashboard/community?race=${reg.majorRaceId}`} className="text-xs text-signal hover:underline whitespace-nowrap">Community →</a>
-                  <button onClick={() => handleUnreg(reg.majorRaceId)} className="text-xs text-red-400 hover:text-red-300">Leave</button>
-                </div>
+
+                {/* Inline community panel */}
+                {isOpen && (
+                  <div className="border-t border-border/60 p-5">
+                    <div className="flex gap-2 mb-4">
+                      {["leaderboard", "chat"].map(t => (
+                        <button key={t} onClick={() => setCommTab(prev => ({ ...prev, [reg.majorRaceId]: t }))}
+                          className={"px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-colors " + (cTab === t ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
+                          {t}{!data?.loading && t === "leaderboard" ? ` (${data?.comm.length ?? 0})` : ""}
+                          {!data?.loading && t === "chat" ? ` (${data?.messages.length ?? 0})` : ""}
+                        </button>
+                      ))}
+                    </div>
+
+                    {data?.loading ? (
+                      <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-12 rounded-xl bg-border animate-pulse" />)}</div>
+                    ) : cTab === "leaderboard" ? (
+                      data.comm.length === 0 ? (
+                        <p className="text-sm text-foreground-dim text-center py-4">No public athletes yet — be the first!</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {data.comm.map((a: any, i: number) => (
+                            <div key={a.userId} className={"rounded-xl border p-3 " + (a.isMe ? "border-signal bg-signal/5" : "border-border bg-background")}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-foreground-dim w-6">#{i + 1}</span>
+                                  <span className={"text-sm font-medium " + (a.isMe ? "text-signal" : "")}>{a.name}{a.isMe ? " (you)" : ""}</span>
+                                </div>
+                                <div className="flex gap-3 text-xs text-foreground-dim">
+                                  {a.goalTimeSec && <span>Goal {fmtGoal(a.goalTimeSec)}</span>}
+                                  {a.weeklyMiles > 0 && <span>{a.weeklyMiles}mi/wk</span>}
+                                  <span className="font-semibold text-foreground">{a.pct}%</span>
+                                </div>
+                              </div>
+                              {a.totalWorkouts > 0 && (
+                                <div>
+                                  <p className="text-xs text-foreground-dim mb-1">{a.doneWorkouts}/{a.totalWorkouts} workouts</p>
+                                  <div className="w-full h-1 bg-border rounded-full">
+                                    <div className={"h-1 rounded-full " + (a.isMe ? "bg-signal" : "bg-foreground-dim")} style={{ width: a.pct + "%" }} />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ) : (
+                      <div className="flex flex-col" style={{ height: "320px" }}>
+                        <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1">
+                          {data.messages.length === 0 ? (
+                            <div className="text-center py-6"><p className="text-sm text-foreground-dim">No messages yet. Start the conversation!</p></div>
+                          ) : data.messages.map((msg: any) => {
+                            const isMe = msg.user.id === myUserId;
+                            return (
+                              <div key={msg.id} className={"flex gap-2 " + (isMe ? "flex-row-reverse" : "")}>
+                                <div className={"max-w-xs rounded-2xl px-3 py-2 text-sm " + (isMe ? "bg-signal text-background" : "bg-background border border-border")}>
+                                  {!isMe && <p className="text-xs font-medium mb-0.5 opacity-70">{msg.user.name}</p>}
+                                  <p>{msg.content}</p>
+                                  <div className="flex items-center justify-between gap-2 mt-1">
+                                    <p className="text-xs opacity-50">{new Date(msg.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
+                                    {isMe && <button onClick={() => deleteMsg(reg.majorRaceId, msg.id)} className="text-xs opacity-50 hover:opacity-100">Delete</button>}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div ref={el => { msgEndRefs.current[reg.majorRaceId] = el; }} />
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            value={newMsgMap[reg.majorRaceId] || ""}
+                            onChange={e => setNewMsgMap(prev => ({ ...prev, [reg.majorRaceId]: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMsg(reg.majorRaceId)}
+                            placeholder="Message the group..."
+                            className="flex-1 px-3 py-2 rounded-full bg-background border border-border focus:border-signal outline-none text-sm"
+                          />
+                          <button onClick={() => sendMsg(reg.majorRaceId)} disabled={sendingMap[reg.majorRaceId] || !newMsgMap[reg.majorRaceId]?.trim()}
+                            className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">Send</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

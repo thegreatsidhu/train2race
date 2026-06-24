@@ -38,6 +38,7 @@ function CommunityPageInner() {
 
   async function loadEvent(race: any) {
     setSel(race);
+    setEventTab("leaderboard");
     setDataLoading(true);
     setComm([]);
     setMessages([]);
@@ -82,24 +83,23 @@ function CommunityPageInner() {
     <div className="max-w-3xl px-4 md:px-8 py-6 md:py-10">
       <header className="mb-6">
         <h1 className="text-3xl font-semibold tracking-tight mb-1">Community</h1>
-        <p className="text-foreground-dim text-sm">Training leaderboards and chat for your race events.</p>
+        <p className="text-foreground-dim text-sm">Chat and train with people racing the same events as you.</p>
       </header>
 
       {loading ? (
         <div className="space-y-3">{[1, 2].map(i => <div key={i} className="h-16 rounded-2xl bg-surface animate-pulse" />)}</div>
       ) : myRegs.length === 0 ? (
         <div className="rounded-2xl border border-border bg-surface p-10 text-center">
-          <p className="font-medium mb-2">No race events joined yet</p>
-          <p className="text-sm text-foreground-dim mb-5">Join a race event to see the training leaderboard and chat with other athletes.</p>
-          <a href="/dashboard/races" className="px-5 py-2.5 rounded-full bg-signal text-background text-sm font-medium">Browse events →</a>
+          <p className="font-medium mb-2">You haven't joined any race events yet</p>
+          <p className="text-sm text-foreground-dim">Join a race event from the Races page to connect with other athletes training for the same goal.</p>
         </div>
       ) : (
         <div>
-          {/* Race selector — only shown when multiple registrations */}
+          {/* Race selector */}
           {myRegs.length > 1 && (
             <div className="flex gap-2 flex-wrap mb-5">
               {myRegs.map((reg: any) => (
-                <button key={reg.id} onClick={() => { loadEvent(reg.majorRace); setEventTab("leaderboard"); }}
+                <button key={reg.id} onClick={() => loadEvent(reg.majorRace)}
                   className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (sel?.id === reg.majorRaceId ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
                   {reg.majorRace.name}
                 </button>
@@ -120,7 +120,7 @@ function CommunityPageInner() {
               <div className="flex gap-2 mb-5">
                 <button onClick={() => setEventTab("leaderboard")}
                   className={"px-4 py-1.5 rounded-full text-sm font-medium transition-colors " + (eventTab === "leaderboard" ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
-                  Leaderboard {!dataLoading && `(${comm.length})`}
+                  Athletes {!dataLoading && `(${comm.length})`}
                 </button>
                 <button onClick={() => setEventTab("chat")}
                   className={"px-4 py-1.5 rounded-full text-sm font-medium transition-colors " + (eventTab === "chat" ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
@@ -128,13 +128,13 @@ function CommunityPageInner() {
                 </button>
               </div>
 
-              {/* Leaderboard */}
+              {/* Athletes */}
               {eventTab === "leaderboard" && (
                 dataLoading ? (
                   <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-surface animate-pulse" />)}</div>
                 ) : comm.length === 0 ? (
                   <div className="rounded-xl border border-border bg-surface p-6 text-center text-sm text-foreground-dim">
-                    No public athletes yet — be the first to appear here!
+                    No public athletes yet — be the first!
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -167,10 +167,15 @@ function CommunityPageInner() {
 
               {/* Chat */}
               {eventTab === "chat" && (
-                <div className="flex flex-col" style={{ height: "420px" }}>
+                <div className="flex flex-col" style={{ height: "460px" }}>
                   <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1">
-                    {messages.length === 0 ? (
-                      <div className="text-center py-8"><p className="text-sm text-foreground-dim">No messages yet. Start the conversation!</p></div>
+                    {dataLoading ? (
+                      <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-12 rounded-2xl bg-surface animate-pulse" />)}</div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-2">
+                        <p className="text-sm text-foreground-dim">No messages yet.</p>
+                        <p className="text-xs text-foreground-dim">Say hi to your fellow athletes!</p>
+                      </div>
                     ) : messages.map((msg: any) => (
                       <div key={msg.id} className={"flex gap-2 " + (msg.user.id === myUserId ? "flex-row-reverse" : "")}>
                         <div className={"max-w-xs rounded-2xl px-3 py-2 text-sm " + (msg.user.id === myUserId ? "bg-signal text-background" : "bg-surface border border-border")}>
@@ -188,7 +193,7 @@ function CommunityPageInner() {
                   <div className="flex gap-2">
                     <input value={newMsg} onChange={e => setNewMsg(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                      placeholder="Message the group..."
+                      placeholder="Message your group..."
                       className="flex-1 px-3 py-2 rounded-full bg-surface border border-border focus:border-signal outline-none text-sm" />
                     <button onClick={sendMessage} disabled={sending || !newMsg.trim()}
                       className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">Send</button>
@@ -198,7 +203,7 @@ function CommunityPageInner() {
             </div>
           ) : (
             <div className="rounded-2xl border border-border bg-surface p-8 text-center text-foreground-dim text-sm">
-              Select a race above to see the leaderboard and chat
+              Select a race above to connect with your group
             </div>
           )}
         </div>
