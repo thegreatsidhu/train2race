@@ -372,13 +372,14 @@ model TeamChallengeEntry {
   @@map("team_challenge_entries")
 }
 model TeamMember {
-  id        String   @id @default(cuid())
-  teamId    String
-  userId    String
-  role      String   @default("member")
-  joinedAt  DateTime @default(now())
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String    @id @default(cuid())
+  teamId           String
+  userId           String
+  role             String    @default("member")
+  joinedAt         DateTime  @default(now())
+  lastViewedChatAt DateTime?
+  team             Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([teamId, userId])
   @@map("team_members")
 }
