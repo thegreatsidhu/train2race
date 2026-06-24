@@ -40,49 +40,58 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
 
   return (
     <div className="space-y-2">
-      {activities.map((a) => (
-        <div key={a.id} className="rounded-xl border border-border bg-surface px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0 flex-1 mr-3">
-              <p className="text-sm font-medium capitalize">{a.title ?? a.type}</p>
-              <p className="text-xs text-foreground-dim">
-                {new Date(a.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {a.source.toLowerCase()}
-              </p>
-              {a.raw?.notes && (
-                <p className="text-xs text-foreground-dim mt-0.5 italic truncate">{a.raw.notes}</p>
-              )}
+      {activities.map((a) => {
+        const isPlan = a.source === "plan";
+        return (
+          <div key={a.id} className="rounded-xl border border-border bg-surface px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1 mr-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium capitalize">{a.title ?? a.type}</p>
+                  {isPlan && <span className="text-xs px-1.5 py-0.5 rounded-md bg-signal/10 text-signal border border-signal/20">Plan</span>}
+                </div>
+                <p className="text-xs text-foreground-dim">
+                  {new Date(a.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {" · "}{isPlan ? "Training Plan" : a.source.toLowerCase()}
+                </p>
+                {a.raw?.notes && (
+                  <p className="text-xs text-foreground-dim mt-0.5 italic truncate">{a.raw.notes}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="font-data text-sm text-foreground-dim">
+                  {a.durationSec > 0 ? Math.round(a.durationSec / 60) + " min" : ""}
+                  {formatDistance(a.distanceM, a.type) ? (a.durationSec > 0 ? " · " : "") + formatDistance(a.distanceM, a.type) : ""}
+                </span>
+                {a.source === "MANUAL" && (
+                  <button onClick={() => router.push(`/dashboard/log-workout/edit/${a.id}`)}
+                    className="text-xs text-foreground-dim hover:text-signal transition-colors" title="Edit">
+                    ✎
+                  </button>
+                )}
+                {!isPlan && (
+                  <button onClick={() => setConfirmDel(confirmDel === a.id ? null : a.id)}
+                    className="text-xs text-foreground-dim hover:text-alert transition-colors" title="Delete">
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="font-data text-sm text-foreground-dim">
-                {Math.round(a.durationSec / 60)} min
-                {formatDistance(a.distanceM, a.type) ? ` · ${formatDistance(a.distanceM, a.type)}` : ""}
-              </span>
-              {a.source === "MANUAL" && (
-                <button onClick={() => router.push(`/dashboard/log-workout/edit/${a.id}`)}
-                  className="text-xs text-foreground-dim hover:text-signal transition-colors" title="Edit">
-                  ✎
-                </button>
-              )}
-              <button onClick={() => setConfirmDel(confirmDel === a.id ? null : a.id)}
-                className="text-xs text-foreground-dim hover:text-alert transition-colors" title="Delete">
-                ✕
-              </button>
-            </div>
-          </div>
 
-          {confirmDel === a.id && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-              <p className="text-xs text-foreground-dim flex-1">Delete this workout?</p>
-              <button onClick={() => setConfirmDel(null)}
-                className="text-xs px-3 py-1 rounded-full border border-border hover:bg-surface">Cancel</button>
-              <button onClick={() => handleDelete(a.id)} disabled={deleting === a.id}
-                className="text-xs px-3 py-1 rounded-full bg-alert text-background disabled:opacity-50">
-                {deleting === a.id ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
+            {confirmDel === a.id && !isPlan && (
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                <p className="text-xs text-foreground-dim flex-1">Delete this workout?</p>
+                <button onClick={() => setConfirmDel(null)}
+                  className="text-xs px-3 py-1 rounded-full border border-border hover:bg-surface">Cancel</button>
+                <button onClick={() => handleDelete(a.id)} disabled={deleting === a.id}
+                  className="text-xs px-3 py-1 rounded-full bg-alert text-background disabled:opacity-50">
+                  {deleting === a.id ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

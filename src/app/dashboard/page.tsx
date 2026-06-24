@@ -143,15 +143,16 @@ export default async function TodayPage() {
   const fortyFiveDaysAgo = new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000);
   const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(),0,0).getTime()) / 86400000);
 
-  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak] = await Promise.all([
+  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
-    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:7,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
+    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:weekStart,lte:weekEnd}},select:{distanceM:true,durationSec:true,type:true}}),
     prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true}}),
     prisma.raceRegistration.findFirst({where:{userId,majorRace:{raceDate:{gte:today},status:"active"}},orderBy:{majorRace:{raceDate:"asc"}},include:{majorRace:{select:{id:true,name:true,city:true,country:true,raceDate:true}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
+    prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
   ]);
 
   const primaryTeam = await prisma.team.findFirst({
@@ -198,6 +199,25 @@ export default async function TodayPage() {
   const streak = computeStreak(recentForStreak, today);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const isNewUser = !hasConnection && !activeRace && !hasData && recentActivities.length === 0;
+
+  const workoutItems = completedWorkouts.map((w: any) => ({
+    id: `workout_${w.id}`,
+    title: w.title,
+    type: w.type,
+    startTime: w.completedAt ?? new Date(w.date),
+    durationSec: w.durationMin ? w.durationMin * 60 : 0,
+    distanceM: w.distanceKm ? Math.round(w.distanceKm * 1000) : null,
+    source: "plan",
+    raw: null,
+  }));
+  const loggedItems = recentActivities.map((a: any) => ({
+    id: a.id, title: a.title, type: a.type, startTime: a.startTime,
+    durationSec: a.durationSec, distanceM: a.distanceM, source: a.source,
+    raw: a.raw?.notes ? { notes: a.raw.notes } : null,
+  }));
+  const mergedActivities = [...loggedItems, ...workoutItems]
+    .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+    .slice(0, 10);
 
   const leaderboard = primaryTeam ? primaryTeam.members.map(m => {
     const p = m.user.trainingPlans[0];
@@ -456,8 +476,8 @@ export default async function TodayPage() {
           </div>
         </summary>
         <div className="pt-1">
-          {recentActivities.length > 0
-            ? <ActivityList activities={recentActivities.map(a=>({id:a.id,title:a.title,type:a.type,startTime:a.startTime,durationSec:a.durationSec,distanceM:a.distanceM,source:a.source,raw:a.raw?.notes?{notes:a.raw.notes}:null}))}/>
+          {mergedActivities.length > 0
+            ? <ActivityList activities={mergedActivities}/>
             : <p className="text-sm text-foreground-dim">No activities yet — log your first workout and start the streak.</p>
           }
         </div>
