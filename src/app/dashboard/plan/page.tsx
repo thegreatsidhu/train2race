@@ -279,7 +279,11 @@ export default function PlanPage() {
                       </a>
                     )}
                   </div>
-                  <div className="shrink-0" onClick={e => e.stopPropagation()}>
+                  <div className="shrink-0 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                    <a href={`/dashboard/races/${r.id}`}
+                      className="text-xs text-signal hover:underline px-2 py-1">
+                      Edit plan
+                    </a>
                     {confirmDel === r.id ? (
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-foreground-dim">Delete?</span>
@@ -325,7 +329,6 @@ export default function PlanPage() {
           </div>
 
           {/* Week accordion */}
-          <p className="text-xs text-foreground-dim mb-3 px-1">Tap a workout to edit it.</p>
           <div className="space-y-2">
             {selPlan.weeks.map((wk: any) => {
               const isCurrent = wk.week === currentWeekNum(selPlan);
@@ -442,8 +445,8 @@ export default function PlanPage() {
                               )}
                             </div>
                             <button onClick={() => startEdit(w)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-foreground-dim hover:text-foreground shrink-0 mt-0.5 px-2 py-1 rounded-lg hover:bg-surface">
-                              Edit
+                              className="text-xs text-foreground-dim hover:text-signal transition-colors shrink-0 mt-0.5 px-2 py-1 rounded-lg hover:bg-surface border border-transparent hover:border-border">
+                              ✎
                             </button>
                           </div>
                         );
