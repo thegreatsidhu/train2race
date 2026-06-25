@@ -368,7 +368,7 @@ export default async function TodayPage() {
       )}
 
       {/* Weather + team leaderboard */}
-      <Accordion label="Leaderboard" defaultOpen>
+      <Accordion label="Leaderboard">
         <LocalSection
           defaultCity={timezoneCity ?? raceCity}
           leaderboard={leaderboard}
@@ -465,7 +465,7 @@ export default async function TodayPage() {
 
       {/* Active challenges */}
       {activeChallenges.length > 0 && (
-        <Accordion label={`Active challenges (${activeChallenges.length})`} defaultOpen>
+        <Accordion label={`Active challenges (${activeChallenges.length})`}>
           <div className="space-y-3">
             {activeChallenges.map(c => {
               const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
@@ -513,7 +513,7 @@ export default async function TodayPage() {
 
       {/* Health metrics + weekly stats */}
       {hasData&&(
-        <Accordion label="Health & stats" defaultOpen>
+        <Accordion label="Health & stats">
           {flags.length>0&&(
             <div className={"rounded-2xl border px-4 py-3 mb-4 flex items-center gap-2 flex-wrap "+(flags.some(f=>f.type==="warning")?"border-yellow-600/40 bg-yellow-900/10":"border-border bg-surface")}>
               <span className={flags.some(f=>f.type==="warning")?"text-yellow-400 text-sm":"text-foreground-dim text-sm"}>{flags.some(f=>f.type==="warning")?"⚠":"ℹ"}</span>
@@ -536,7 +536,7 @@ export default async function TodayPage() {
       )}
 
       {/* Recent activity */}
-      <details open className="mb-6 group">
+      <details className="mb-6 group">
         <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
           <h2 className="text-sm font-medium text-foreground-dim select-none">Recent activity</h2>
           <div className="flex items-center gap-2">
