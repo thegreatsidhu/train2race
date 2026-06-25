@@ -151,7 +151,7 @@ export default async function TodayPage() {
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:weekStart,lte:weekEnd}},select:{distanceM:true,durationSec:true,type:true}}),
-    prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true}}),
+    prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true,city:true}}),
     prisma.raceRegistration.findFirst({where:{userId,majorRace:{raceDate:{gte:today},status:"active"}},orderBy:{majorRace:{raceDate:"asc"}},include:{majorRace:{select:{id:true,name:true,city:true,country:true,raceDate:true}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
@@ -216,6 +216,7 @@ export default async function TodayPage() {
   const greetingText = getGreeting(user?.timezone ?? null);
   const timezoneCity = TIMEZONE_CITY[user?.timezone ?? ""] ?? null;
   const raceCity = raceReg?.majorRace?.city ?? null;
+  const displayCity = (user as any)?.city ?? timezoneCity ?? raceCity;
   const quote = QUOTES[dayOfYear % QUOTES.length];
   const streak = computeStreak(recentForStreak, today);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
@@ -455,14 +456,6 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {/* Upcoming races nearby */}
-      <Accordion label="Upcoming races">
-        <UpcomingRacesSection
-          defaultCity={timezoneCity ?? raceCity}
-          registeredRaceId={raceReg?.majorRace?.id ?? null}
-        />
-      </Accordion>
-
       {/* Active challenges */}
       {activeChallenges.length > 0 && (
         <Accordion label={`Active challenges (${activeChallenges.length})`}>
@@ -499,6 +492,14 @@ export default async function TodayPage() {
           </div>
         </Accordion>
       )}
+
+      {/* Upcoming races nearby */}
+      <Accordion label={displayCity ? `Upcoming races in ${displayCity}` : "Upcoming races"}>
+        <UpcomingRacesSection
+          defaultCity={timezoneCity ?? raceCity}
+          registeredRaceId={raceReg?.majorRace?.id ?? null}
+        />
+      </Accordion>
 
       {/* Connect device prompt */}
       {!hasConnection && !isNewUser && (
