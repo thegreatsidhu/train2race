@@ -150,9 +150,12 @@ export default function RacesPage() {
   async function handleSub() {
     setSubbing(true); setSubResult(null);
     const res = await fetch("/api/major-races/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: rName, raceDate: rDate, distanceM: DISTS[rDist], city: rCity, country: rCountry, website: rWeb || null, isTriathlon: rTri }) });
-    setSubResult(await res.json());
+    const result = await res.json();
+    setSubResult(result);
     setSubbing(false);
-    setSubsLoaded(false);
+    if (!result.duplicate) {
+      fetch("/api/major-races/submit").then(r => r.json()).then(d => { setMySubmissions(d.submissions || []); setSubsLoaded(true); });
+    }
   }
 
   async function loadMySubmissions() {
