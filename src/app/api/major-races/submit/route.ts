@@ -30,6 +30,19 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ race: updated });
 }
 
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+  const { raceId } = await req.json();
+  const race = await prisma.majorRace.findUnique({ where: { id: raceId } });
+  if (!race) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (race.submittedBy !== userId) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  if (race.status !== "pending") return NextResponse.json({ error: "Race already reviewed" }, { status: 400 });
+  await prisma.majorRace.delete({ where: { id: raceId } });
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

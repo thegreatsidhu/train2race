@@ -73,6 +73,8 @@ export default function RacesPage() {
   const [editSubCountry, setEditSubCountry] = useState("USA");
   const [editSubWeb, setEditSubWeb] = useState("");
   const [savingSub, setSavingSub] = useState(false);
+  const [confirmDeleteSubId, setConfirmDeleteSubId] = useState<string | null>(null);
+  const [deletingSub, setDeletingSub] = useState(false);
 
   // Report inaccuracy
   const [reportingRaceId, setReportingRaceId] = useState<string | null>(null);
@@ -180,6 +182,14 @@ export default function RacesPage() {
       setMySubmissions(prev => prev.map(s => s.id === raceId ? d.race : s));
       setEditingSubId(null);
     }
+  }
+
+  async function deleteSubmission(raceId: string) {
+    setDeletingSub(true);
+    await fetch("/api/major-races/submit", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raceId }) });
+    setMySubmissions(prev => prev.filter(s => s.id !== raceId));
+    setConfirmDeleteSubId(null);
+    setDeletingSub(false);
   }
 
   async function submitReport(raceId: string) {
@@ -530,16 +540,26 @@ export default function RacesPage() {
                           <p className="text-xs text-foreground-dim">{s.city}, {s.country} · {(s.distanceM/1609.34).toFixed(1)}mi</p>
                           <p className="text-xs text-foreground-dim">{new Date(s.raceDate).toLocaleDateString()} · Pending review</p>
                         </div>
-                        <button onClick={() => {
-                          setEditingSubId(s.id);
-                          setEditSubName(s.name);
-                          setEditSubDate(new Date(s.raceDate).toISOString().split("T")[0]);
-                          setEditSubCity(s.city);
-                          setEditSubCountry(s.country);
-                          setEditSubWeb(s.website || "");
-                          const distKey = Object.entries(DISTS).find(([,v]) => Math.abs(v - s.distanceM) < 100)?.[0] || "Marathon";
-                          setEditSubDist(distKey);
-                        }} className="text-xs text-signal hover:underline shrink-0">Edit</button>
+                        <div className="flex gap-3 shrink-0">
+                          <button onClick={() => {
+                            setEditingSubId(s.id);
+                            setEditSubName(s.name);
+                            setEditSubDate(new Date(s.raceDate).toISOString().split("T")[0]);
+                            setEditSubCity(s.city);
+                            setEditSubCountry(s.country);
+                            setEditSubWeb(s.website || "");
+                            const distKey = Object.entries(DISTS).find(([,v]) => Math.abs(v - s.distanceM) < 100)?.[0] || "Marathon";
+                            setEditSubDist(distKey);
+                          }} className="text-xs text-signal hover:underline">Edit</button>
+                          {confirmDeleteSubId === s.id ? (
+                            <div className="flex items-center gap-1.5">
+                              <button onClick={() => deleteSubmission(s.id)} disabled={deletingSub} className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50">{deletingSub ? "..." : "Confirm"}</button>
+                              <button onClick={() => setConfirmDeleteSubId(null)} className="text-xs text-foreground-dim hover:text-foreground">Cancel</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setConfirmDeleteSubId(s.id)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
