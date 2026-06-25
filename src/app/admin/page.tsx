@@ -80,6 +80,9 @@ export default function AdminPage() {
   const [newRaceWeb, setNewRaceWeb] = useState("");
   const [newRaceTri, setNewRaceTri] = useState(false);
   const [creatingRace, setCreatingRace] = useState(false);
+  const [raceSearch, setRaceSearch] = useState("");
+  const [raceDistFilter, setRaceDistFilter] = useState("all");
+  const [raceYearFilter, setRaceYearFilter] = useState("all");
 
   async function handleLogin() {
     setLoading(true); setError("");
@@ -543,7 +546,7 @@ export default function AdminPage() {
               <div className="flex gap-1.5">
                 {[
                   { id: "pending", label: `Pending (${data?.pendingRaces?.length || 0})` },
-                  { id: "active", label: `All races (${allRaces.filter(r => r.status === "active").length})` },
+                  { id: "active", label: `All races (${allRaces.filter(r => r.status === "active").length || "..."})` },
                 ].map(vt => (
                   <button key={vt.id} onClick={() => { setRaceViewTab(vt.id); if (vt.id === "active") loadAllRaces(); }} className={"text-xs px-3 py-1.5 rounded-full border transition-colors " + (raceViewTab === vt.id ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
                     {vt.label}
@@ -615,13 +618,50 @@ export default function AdminPage() {
 
             {raceViewTab === "active" && (
               <div>
+                <div className="space-y-2 mb-3">
+                  <input
+                    value={raceSearch} onChange={e => setRaceSearch(e.target.value)}
+                    placeholder="Search by name or city..."
+                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none"
+                  />
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[["all","All"],["5K","5K"],["10K","10K"],["half","Half"],["marathon","Marathon"],["ultra","Ultra"],["tri","Triathlon"]].map(([v,l]) => (
+                      <button key={v} onClick={() => setRaceDistFilter(v)} className={"text-xs px-2.5 py-1 rounded-full border transition-colors " + (raceDistFilter === v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>{l}</button>
+                    ))}
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[["all","Any year"],["2026","2026"],["2027","2027"]].map(([v,l]) => (
+                      <button key={v} onClick={() => setRaceYearFilter(v)} className={"text-xs px-2.5 py-1 rounded-full border transition-colors " + (raceYearFilter === v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>{l}</button>
+                    ))}
+                  </div>
+                </div>
                 {!allRacesLoaded ? (
                   <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
-                ) : allRaces.filter(r => r.status === "active").length === 0 ? (
-                  <p className="text-sm text-foreground-dim">No active races.</p>
+                ) : (() => {
+                  const activeRaces = allRaces.filter(r => {
+                    if (r.status !== "active") return false;
+                    if (raceSearch) {
+                      const q = raceSearch.toLowerCase();
+                      if (!r.name.toLowerCase().includes(q) && !r.city?.toLowerCase().includes(q)) return false;
+                    }
+                    if (raceYearFilter !== "all" && new Date(r.raceDate).getFullYear() !== parseInt(raceYearFilter)) return false;
+                    if (raceDistFilter !== "all") {
+                      if (raceDistFilter === "tri") { if (!r.isTriathlon) return false; }
+                      else if (raceDistFilter === "5K") { if (r.distanceM < 4000 || r.distanceM > 7000 || r.isTriathlon) return false; }
+                      else if (raceDistFilter === "10K") { if (r.distanceM < 7000 || r.distanceM > 15000 || r.isTriathlon) return false; }
+                      else if (raceDistFilter === "half") { if (r.distanceM < 15000 || r.distanceM > 30000 || r.isTriathlon) return false; }
+                      else if (raceDistFilter === "marathon") { if (r.distanceM < 30000 || r.distanceM > 50000 || r.isTriathlon) return false; }
+                      else if (raceDistFilter === "ultra") { if (r.distanceM < 50000 || r.isTriathlon) return false; }
+                    }
+                    return true;
+                  });
+                  return activeRaces.length === 0 ? (
+                  <p className="text-sm text-foreground-dim">No races match these filters.</p>
                 ) : (
+                  <>
+                  <p className="text-xs text-foreground-dim mb-2">{activeRaces.length} races</p>
                   <div className="space-y-3">
-                    {allRaces.filter(r => r.status === "active").map((race) => (
+                    {activeRaces.map((race) => (
                       <div key={race.id} className="rounded-2xl border border-border bg-surface p-4">
                         {editingRaceId === race.id ? (
                           <div className="space-y-3">
@@ -666,7 +706,9 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
-                )}
+                  </>
+                );
+                })()}
               </div>
             )}
           </div>

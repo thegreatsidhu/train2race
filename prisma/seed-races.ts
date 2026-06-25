@@ -202,6 +202,41 @@ const RACES = [
   // Ultras 2027
   { name: "UTMB", slug: "utmb-2027", city: "Chamonix", country: "France", raceDate: new Date("2027-08-27"), distanceM: 170000, series: "UTMB" },
   { name: "JFK 50 Mile", slug: "jfk-50-2027", city: "Boonsboro", country: "USA", raceDate: new Date("2027-11-20"), distanceM: 80000, series: "Ultra" },
+
+  // ── California 5K / 10K ─────────────────────────────────────────────────────
+
+  // 5Ks
+  { name: "Carlsbad 5000", slug: "carlsbad-5000-2027", city: "Carlsbad", country: "USA", raceDate: new Date("2027-04-04"), distanceM: 5000, series: "Major 5K" },
+  { name: "Carlsbad 5000", slug: "carlsbad-5000-2026", city: "Carlsbad", country: "USA", raceDate: new Date("2026-04-05"), distanceM: 5000, series: "Major 5K" },
+  { name: "Disneyland 5K", slug: "disneyland-5k-2026", city: "Anaheim", country: "USA", raceDate: new Date("2026-08-28"), distanceM: 5000, series: "runDisney" },
+  { name: "Disneyland 5K", slug: "disneyland-5k-2027", city: "Anaheim", country: "USA", raceDate: new Date("2027-08-27"), distanceM: 5000, series: "runDisney" },
+  { name: "LA Big 5K", slug: "la-big-5k-2027", city: "Los Angeles", country: "USA", raceDate: new Date("2027-03-20"), distanceM: 5000, series: "Major 5K" },
+  { name: "LA Big 5K", slug: "la-big-5k-2026", city: "Los Angeles", country: "USA", raceDate: new Date("2026-10-04"), distanceM: 5000, series: "Major 5K" },
+  { name: "Santa Monica Classic 5K", slug: "santa-monica-classic-5k-2026", city: "Santa Monica", country: "USA", raceDate: new Date("2026-09-13"), distanceM: 5000, series: "Major 5K" },
+  { name: "Santa Monica Classic 5K", slug: "santa-monica-classic-5k-2027", city: "Santa Monica", country: "USA", raceDate: new Date("2027-09-12"), distanceM: 5000, series: "Major 5K" },
+  { name: "San Francisco 5K", slug: "sf-5k-2026", city: "San Francisco", country: "USA", raceDate: new Date("2026-07-26"), distanceM: 5000, series: "Major 5K" },
+  { name: "San Francisco 5K", slug: "sf-5k-2027", city: "San Francisco", country: "USA", raceDate: new Date("2027-07-25"), distanceM: 5000, series: "Major 5K" },
+  { name: "Kaiser Permanente SF Half 5K", slug: "kp-sf-5k-2027", city: "San Francisco", country: "USA", raceDate: new Date("2027-02-07"), distanceM: 5000, series: "Major 5K" },
+  { name: "Surf City 5K", slug: "surf-city-5k-2027", city: "Huntington Beach", country: "USA", raceDate: new Date("2027-02-07"), distanceM: 5000, series: "Major 5K" },
+  { name: "Surf City 5K", slug: "surf-city-5k-2026", city: "Huntington Beach", country: "USA", raceDate: new Date("2026-02-01"), distanceM: 5000, series: "Major 5K" },
+
+  // 10Ks
+  { name: "Santa Monica Classic 10K", slug: "santa-monica-classic-10k-2026", city: "Santa Monica", country: "USA", raceDate: new Date("2026-09-13"), distanceM: 10000, series: "Major 10K" },
+  { name: "Santa Monica Classic 10K", slug: "santa-monica-classic-10k-2027", city: "Santa Monica", country: "USA", raceDate: new Date("2027-09-12"), distanceM: 10000, series: "Major 10K" },
+  { name: "Disneyland 10K", slug: "disneyland-10k-2026", city: "Anaheim", country: "USA", raceDate: new Date("2026-08-29"), distanceM: 10000, series: "runDisney" },
+  { name: "Disneyland 10K", slug: "disneyland-10k-2027", city: "Anaheim", country: "USA", raceDate: new Date("2027-08-28"), distanceM: 10000, series: "runDisney" },
+  { name: "Napa to Sonoma 10K", slug: "napa-sonoma-10k-2026", city: "Napa", country: "USA", raceDate: new Date("2026-07-19"), distanceM: 10000, series: "Major 10K" },
+  { name: "Napa to Sonoma 10K", slug: "napa-sonoma-10k-2027", city: "Napa", country: "USA", raceDate: new Date("2027-07-18"), distanceM: 10000, series: "Major 10K" },
+  { name: "San Diego Rock n Roll 10K", slug: "sd-rnr-10k-2026", city: "San Diego", country: "USA", raceDate: new Date("2026-06-07"), distanceM: 10000, series: "Rock n Roll" },
+  { name: "San Diego Rock n Roll 10K", slug: "sd-rnr-10k-2027", city: "San Diego", country: "USA", raceDate: new Date("2027-06-06"), distanceM: 10000, series: "Rock n Roll" },
+  { name: "San Jose Rock n Roll 10K", slug: "sj-rnr-10k-2026", city: "San Jose", country: "USA", raceDate: new Date("2026-10-04"), distanceM: 10000, series: "Rock n Roll" },
+  { name: "San Jose Rock n Roll 10K", slug: "sj-rnr-10k-2027", city: "San Jose", country: "USA", raceDate: new Date("2027-10-03"), distanceM: 10000, series: "Rock n Roll" },
+  { name: "LA Big 10K", slug: "la-big-10k-2027", city: "Los Angeles", country: "USA", raceDate: new Date("2027-03-20"), distanceM: 10000, series: "Major 10K" },
+  { name: "LA Big 10K", slug: "la-big-10k-2026", city: "Los Angeles", country: "USA", raceDate: new Date("2026-10-04"), distanceM: 10000, series: "Major 10K" },
+  { name: "Golden Gate 10K", slug: "golden-gate-10k-2026", city: "San Francisco", country: "USA", raceDate: new Date("2026-10-18"), distanceM: 10000, series: "Major 10K" },
+  { name: "Golden Gate 10K", slug: "golden-gate-10k-2027", city: "San Francisco", country: "USA", raceDate: new Date("2027-10-17"), distanceM: 10000, series: "Major 10K" },
+  { name: "Surf City 10K", slug: "surf-city-10k-2027", city: "Huntington Beach", country: "USA", raceDate: new Date("2027-02-07"), distanceM: 10000, series: "Major 10K" },
+  { name: "Surf City 10K", slug: "surf-city-10k-2026", city: "Huntington Beach", country: "USA", raceDate: new Date("2026-02-01"), distanceM: 10000, series: "Major 10K" },
 ];
 async function main() {
   let n = 0;

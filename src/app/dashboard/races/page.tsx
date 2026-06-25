@@ -39,6 +39,8 @@ export default function RacesPage() {
   const [selEvent, setSelEvent] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [df, setDf] = useState(0);
+  const [yearF, setYearF] = useState("all");
+  const [countryF, setCountryF] = useState("all");
   const [goalH, setGoalH] = useState("");
   const [goalM, setGoalM] = useState("");
   const [pub, setPub] = useState(true);
@@ -207,12 +209,14 @@ export default function RacesPage() {
   const isReg = (id: string) => myRegs.some((r: any) => r.majorRaceId === id);
   const f = DFILTERS[df] as any;
   const filtered = events.filter((r: any) => {
-    const ms = !search || r.name.toLowerCase().includes(search.toLowerCase());
+    const ms = !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.city?.toLowerCase().includes(search.toLowerCase());
     let md: boolean;
     if (f.tri === true) md = r.isTriathlon;
-    else if (f.tri === false) md = !r.isTriathlon && (!f.min || (r.distanceM >= f.min && r.distanceM <= f.max));
-    else md = !f.min || (r.distanceM >= f.min && r.distanceM <= f.max);
-    return ms && md;
+    else if (f.tri === false) md = !r.isTriathlon && (f.min == null || (r.distanceM >= f.min && r.distanceM <= f.max));
+    else md = f.min == null || (r.distanceM >= f.min && r.distanceM <= f.max);
+    const yr = yearF === "all" || new Date(r.raceDate).getFullYear() === parseInt(yearF);
+    const ct = countryF === "all" || (countryF === "USA" ? r.country === "USA" : r.country !== "USA");
+    return ms && md && yr && ct;
   });
 
   const TABS = [
@@ -241,13 +245,29 @@ export default function RacesPage() {
       {tab === "events" && (
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <input placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)}
+            <input placeholder="Search by name or city..." value={search} onChange={e => setSearch(e.target.value)}
               className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm mb-3" />
-            <div className="flex gap-1.5 flex-wrap mb-3">
+            <div className="flex gap-1.5 flex-wrap mb-2">
               {DFILTERS.map((fi, i) => (
                 <button key={fi.label} onClick={() => setDf(i)}
                   className={"text-xs px-3 py-1 rounded-full border transition-colors " + (df === i ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
                   {fi.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5 flex-wrap mb-2">
+              {["all","2026","2027"].map(y => (
+                <button key={y} onClick={() => setYearF(y)}
+                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (yearF === y ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                  {y === "all" ? "Any year" : y}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5 flex-wrap mb-3">
+              {[["all","All countries"],["USA","USA"],["international","International"]].map(([v,l]) => (
+                <button key={v} onClick={() => setCountryF(v)}
+                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (countryF === v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                  {l}
                 </button>
               ))}
             </div>
