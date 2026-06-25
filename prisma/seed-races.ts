@@ -203,6 +203,86 @@ const RACES = [
   { name: "UTMB", slug: "utmb-2027", city: "Chamonix", country: "France", raceDate: new Date("2027-08-27"), distanceM: 170000, series: "UTMB" },
   { name: "JFK 50 Mile", slug: "jfk-50-2027", city: "Boonsboro", country: "USA", raceDate: new Date("2027-11-20"), distanceM: 80000, series: "Ultra" },
 
+  // ── California Marathons ────────────────────────────────────────────────────
+
+  // Already seeded: LA Marathon (2027), SF Marathon (2026+2027), SD RnR (2026+2027), Big Sur (2027), CIM (2026+2027)
+
+  // Missing 2026 editions of already-seeded races
+  { name: "Los Angeles Marathon", slug: "la-marathon-2026", city: "Los Angeles", country: "USA", raceDate: new Date("2026-03-22"), distanceM: 42195, series: "Major US" },
+  { name: "Big Sur International Marathon", slug: "big-sur-2026", city: "Big Sur", country: "USA", raceDate: new Date("2026-04-26"), distanceM: 42195, series: "Major US" },
+
+  // Surf City Marathon – Huntington Beach (Feb)
+  { name: "Surf City Marathon", slug: "surf-city-marathon-2026", city: "Huntington Beach", country: "USA", raceDate: new Date("2026-02-01"), distanceM: 42195, series: "California Marathon" },
+  { name: "Surf City Marathon", slug: "surf-city-marathon-2027", city: "Huntington Beach", country: "USA", raceDate: new Date("2027-02-07"), distanceM: 42195, series: "California Marathon" },
+
+  // Pasadena Marathon (Feb)
+  { name: "Pasadena Marathon", slug: "pasadena-marathon-2026", city: "Pasadena", country: "USA", raceDate: new Date("2026-02-15"), distanceM: 42195, series: "California Marathon" },
+  { name: "Pasadena Marathon", slug: "pasadena-marathon-2027", city: "Pasadena", country: "USA", raceDate: new Date("2027-02-21"), distanceM: 42195, series: "California Marathon" },
+
+  // Napa Valley Marathon (Mar)
+  { name: "Napa Valley Marathon", slug: "napa-valley-marathon-2026", city: "Napa", country: "USA", raceDate: new Date("2026-03-01"), distanceM: 42195, series: "California Marathon" },
+  { name: "Napa Valley Marathon", slug: "napa-valley-marathon-2027", city: "Napa", country: "USA", raceDate: new Date("2027-03-07"), distanceM: 42195, series: "California Marathon" },
+
+  // Oakland Marathon (Mar)
+  { name: "Oakland Marathon", slug: "oakland-marathon-2026", city: "Oakland", country: "USA", raceDate: new Date("2026-03-22"), distanceM: 42195, series: "California Marathon" },
+  { name: "Oakland Marathon", slug: "oakland-marathon-2027", city: "Oakland", country: "USA", raceDate: new Date("2027-03-21"), distanceM: 42195, series: "California Marathon" },
+
+  // Catalina Island Marathon (Mar)
+  { name: "Catalina Island Marathon", slug: "catalina-marathon-2026", city: "Avalon", country: "USA", raceDate: new Date("2026-03-14"), distanceM: 42195, series: "California Marathon" },
+  { name: "Catalina Island Marathon", slug: "catalina-marathon-2027", city: "Avalon", country: "USA", raceDate: new Date("2027-03-20"), distanceM: 42195, series: "California Marathon" },
+
+  // Marin Marathon – San Rafael (Mar)
+  { name: "Marin Marathon", slug: "marin-marathon-2026", city: "San Rafael", country: "USA", raceDate: new Date("2026-03-22"), distanceM: 42195, series: "California Marathon" },
+  { name: "Marin Marathon", slug: "marin-marathon-2027", city: "San Rafael", country: "USA", raceDate: new Date("2027-03-21"), distanceM: 42195, series: "California Marathon" },
+
+  // Modesto Marathon (Mar)
+  { name: "Modesto Marathon", slug: "modesto-marathon-2026", city: "Modesto", country: "USA", raceDate: new Date("2026-03-29"), distanceM: 42195, series: "California Marathon" },
+  { name: "Modesto Marathon", slug: "modesto-marathon-2027", city: "Modesto", country: "USA", raceDate: new Date("2027-03-28"), distanceM: 42195, series: "California Marathon" },
+
+  // San Luis Obispo Marathon (Apr)
+  { name: "San Luis Obispo Marathon", slug: "slo-marathon-2026", city: "San Luis Obispo", country: "USA", raceDate: new Date("2026-04-19"), distanceM: 42195, series: "California Marathon" },
+  { name: "San Luis Obispo Marathon", slug: "slo-marathon-2027", city: "San Luis Obispo", country: "USA", raceDate: new Date("2027-04-18"), distanceM: 42195, series: "California Marathon" },
+
+  // OC Marathon – Costa Mesa (May)
+  { name: "OC Marathon", slug: "oc-marathon-2026", city: "Costa Mesa", country: "USA", raceDate: new Date("2026-05-03"), distanceM: 42195, series: "California Marathon" },
+  { name: "OC Marathon", slug: "oc-marathon-2027", city: "Costa Mesa", country: "USA", raceDate: new Date("2027-05-02"), distanceM: 42195, series: "California Marathon" },
+
+  // Avenue of the Giants Marathon – Humboldt Redwoods (May)
+  { name: "Avenue of the Giants Marathon", slug: "avenue-giants-2026", city: "Humboldt Redwoods", country: "USA", raceDate: new Date("2026-05-03"), distanceM: 42195, series: "California Marathon" },
+  { name: "Avenue of the Giants Marathon", slug: "avenue-giants-2027", city: "Humboldt Redwoods", country: "USA", raceDate: new Date("2027-05-02"), distanceM: 42195, series: "California Marathon" },
+
+  // Mountains 2 Beach Marathon – Ventura (May)
+  { name: "Mountains 2 Beach Marathon", slug: "m2b-marathon-2026", city: "Ventura", country: "USA", raceDate: new Date("2026-05-24"), distanceM: 42195, series: "California Marathon" },
+  { name: "Mountains 2 Beach Marathon", slug: "m2b-marathon-2027", city: "Ventura", country: "USA", raceDate: new Date("2027-05-23"), distanceM: 42195, series: "California Marathon" },
+
+  // Santa Rosa Marathon (Aug)
+  { name: "Santa Rosa Marathon", slug: "santa-rosa-marathon-2026", city: "Santa Rosa", country: "USA", raceDate: new Date("2026-08-23"), distanceM: 42195, series: "California Marathon" },
+  { name: "Santa Rosa Marathon", slug: "santa-rosa-marathon-2027", city: "Santa Rosa", country: "USA", raceDate: new Date("2027-08-22"), distanceM: 42195, series: "California Marathon" },
+
+  // Ventura Marathon (Sep)
+  { name: "Ventura Marathon", slug: "ventura-marathon-2026", city: "Ventura", country: "USA", raceDate: new Date("2026-09-06"), distanceM: 42195, series: "California Marathon" },
+  { name: "Ventura Marathon", slug: "ventura-marathon-2027", city: "Ventura", country: "USA", raceDate: new Date("2027-09-05"), distanceM: 42195, series: "California Marathon" },
+
+  // Lake Tahoe Marathon (Sep)
+  { name: "Lake Tahoe Marathon", slug: "lake-tahoe-marathon-2026", city: "South Lake Tahoe", country: "USA", raceDate: new Date("2026-09-20"), distanceM: 42195, series: "California Marathon" },
+  { name: "Lake Tahoe Marathon", slug: "lake-tahoe-marathon-2027", city: "South Lake Tahoe", country: "USA", raceDate: new Date("2027-09-19"), distanceM: 42195, series: "California Marathon" },
+
+  // Long Beach Marathon (Oct)
+  { name: "Long Beach Marathon", slug: "long-beach-marathon-2026", city: "Long Beach", country: "USA", raceDate: new Date("2026-10-11"), distanceM: 42195, series: "California Marathon" },
+  { name: "Long Beach Marathon", slug: "long-beach-marathon-2027", city: "Long Beach", country: "USA", raceDate: new Date("2027-10-10"), distanceM: 42195, series: "California Marathon" },
+
+  // Silicon Valley Marathon – San Jose (Oct)
+  { name: "Silicon Valley Marathon", slug: "silicon-valley-marathon-2026", city: "San Jose", country: "USA", raceDate: new Date("2026-10-04"), distanceM: 42195, series: "California Marathon" },
+  { name: "Silicon Valley Marathon", slug: "silicon-valley-marathon-2027", city: "San Jose", country: "USA", raceDate: new Date("2027-10-03"), distanceM: 42195, series: "California Marathon" },
+
+  // Revel Canyon City Marathon – Azusa (Nov)
+  { name: "Revel Canyon City Marathon", slug: "revel-canyon-city-2026", city: "Azusa", country: "USA", raceDate: new Date("2026-11-07"), distanceM: 42195, series: "Revel" },
+  { name: "Revel Canyon City Marathon", slug: "revel-canyon-city-2027", city: "Azusa", country: "USA", raceDate: new Date("2027-11-06"), distanceM: 42195, series: "Revel" },
+
+  // Santa Barbara Marathon (Nov)
+  { name: "Santa Barbara Marathon", slug: "santa-barbara-marathon-2026", city: "Santa Barbara", country: "USA", raceDate: new Date("2026-11-08"), distanceM: 42195, series: "California Marathon" },
+  { name: "Santa Barbara Marathon", slug: "santa-barbara-marathon-2027", city: "Santa Barbara", country: "USA", raceDate: new Date("2027-11-07"), distanceM: 42195, series: "California Marathon" },
+
   // ── California 5K / 10K ─────────────────────────────────────────────────────
 
   // 5Ks
