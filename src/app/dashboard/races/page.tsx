@@ -91,7 +91,7 @@ export default function RacesPage() {
   useEffect(() => {
     if (tab === "events" && events.length === 0 && !eventsLoading) {
       setEventsLoading(true);
-      fetch("/api/major-races?upcoming=1").then(r => r.json()).then(d => { setEvents(d.races || []); setEventsLoading(false); });
+      fetch("/api/major-races").then(r => r.json()).then(d => { setEvents(d.races || []); setEventsLoading(false); });
     }
     if (tab === "submit") { setSubsLoaded(false); loadMySubmissions(); }
   }, [tab]);
