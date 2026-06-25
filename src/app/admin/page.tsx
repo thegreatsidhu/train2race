@@ -119,9 +119,8 @@ export default function AdminPage() {
 
   async function approveRace(raceId, action) {
     await fetch("/api/admin/races", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, raceId, action }) });
-    const newStatus = action === "approve" ? "active" : "rejected";
-    setAllRaces(prev => prev.map(r => r.id === raceId ? { ...r, status: newStatus } : r));
-    await refreshData();
+    setData(prev => prev ? { ...prev, pendingRaces: prev.pendingRaces.filter(r => r.id !== raceId) } : prev);
+    setAllRaces(prev => prev.map(r => r.id === raceId ? { ...r, status: action === "approve" ? "active" : "rejected" } : r));
   }
 
   async function loadAllRaces() {
@@ -543,7 +542,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="flex gap-1.5">
                 {[
-                  { id: "pending", label: `Pending (${allRacesLoaded ? allRaces.filter(r => r.status === "pending").length : (data?.pendingRaces?.length || 0)})` },
+                  { id: "pending", label: `Pending (${data?.pendingRaces?.length || 0})` },
                   { id: "active", label: `All races (${allRaces.filter(r => r.status === "active").length})` },
                 ].map(vt => (
                   <button key={vt.id} onClick={() => { setRaceViewTab(vt.id); if (vt.id === "active") loadAllRaces(); }} className={"text-xs px-3 py-1.5 rounded-full border transition-colors " + (raceViewTab === vt.id ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
@@ -579,11 +578,13 @@ export default function AdminPage() {
 
             {raceViewTab === "pending" && (
               <div>
-                {!allRacesLoaded ? (
-                  <div className="space-y-3">{[1,2].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
-                ) : allRaces.filter(r => r.status === "pending").length === 0 ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-foreground-dim">{data?.pendingRaces?.length || 0} pending</p>
+                  <button onClick={refreshData} className="text-xs text-signal hover:underline">Refresh</button>
+                </div>
+                {(!data?.pendingRaces || data.pendingRaces.length === 0) ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
                   <div className="space-y-3">
-                    {allRaces.filter(r => r.status === "pending").map((race) => (
+                    {data.pendingRaces.map((race) => (
                       <div key={race.id} className="rounded-2xl border border-yellow-700/40 bg-surface p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div>

@@ -89,7 +89,7 @@ export default function RacesPage() {
       setEventsLoading(true);
       fetch("/api/major-races?upcoming=1").then(r => r.json()).then(d => { setEvents(d.races || []); setEventsLoading(false); });
     }
-    if (tab === "submit") loadMySubmissions();
+    if (tab === "submit") { setSubsLoaded(false); loadMySubmissions(); }
   }, [tab]);
 
   async function handleReg(race: any) {
@@ -159,7 +159,6 @@ export default function RacesPage() {
   }
 
   async function loadMySubmissions() {
-    if (subsLoaded) return;
     setSubsLoading(true);
     const res = await fetch("/api/major-races/submit");
     const d = await res.json();
