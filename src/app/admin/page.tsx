@@ -776,7 +776,7 @@ export default function AdminPage() {
                     {(newChMetric === "distance" ? ["mi","km"] : newChMetric === "duration" ? ["min"] : newChType === "walk" ? ["steps"] : ["sessions"]).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                   <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (required)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                  {newChMetric === "count" && <label className="flex items-center gap-2 text-sm col-span-2"><input type="checkbox" checked={newChGoalPerDay} onChange={e => setNewChGoalPerDay(e.target.checked)} /> Per day goal</label>}
+                  <label className="flex items-center gap-2 text-sm col-span-2"><input type="checkbox" checked={newChGoalPerDay} onChange={e => setNewChGoalPerDay(e.target.checked)} /> Per day goal</label>
                   <input type="date" value={newChStart} onChange={e => setNewChStart(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input type="date" value={newChEnd} onChange={e => setNewChEnd(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input value={newChDesc} onChange={e => setNewChDesc(e.target.value)} placeholder="Description (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />

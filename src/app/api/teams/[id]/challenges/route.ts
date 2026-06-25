@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       metric,
       unit,
       goal: Number(goal),
-      goalPerDay: metric === "count" && goalPerDay === true,
+      goalPerDay: goalPerDay === true,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       description: description?.trim() || null,

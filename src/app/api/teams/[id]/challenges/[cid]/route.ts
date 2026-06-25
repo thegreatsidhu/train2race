@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (metric !== undefined) data.metric = metric;
   if (unit !== undefined) data.unit = unit;
   if (goal !== undefined) data.goal = goal != null ? parseFloat(goal) : null;
-  if (goalPerDay !== undefined) data.goalPerDay = metric === "count" && goalPerDay === true;
+  if (goalPerDay !== undefined) data.goalPerDay = goalPerDay === true;
   if (startDate !== undefined) data.startDate = new Date(startDate);
   if (endDate !== undefined) data.endDate = new Date(endDate);
   if (description !== undefined) data.description = description || null;
