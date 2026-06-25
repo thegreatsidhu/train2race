@@ -52,13 +52,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Field edit
-  const { title, type, metric, unit, goal, startDate, endDate, description, status } = body;
+  const { title, type, metric, unit, goal, goalPerDay, startDate, endDate, description, status } = body;
   const data: any = {};
   if (title !== undefined) data.title = title;
   if (type !== undefined) data.type = type;
   if (metric !== undefined) data.metric = metric;
   if (unit !== undefined) data.unit = unit;
   if (goal !== undefined) data.goal = goal != null ? parseFloat(goal) : null;
+  if (goalPerDay !== undefined) data.goalPerDay = metric === "count" && goalPerDay === true;
   if (startDate !== undefined) data.startDate = new Date(startDate);
   if (endDate !== undefined) data.endDate = new Date(endDate);
   if (description !== undefined) data.description = description || null;

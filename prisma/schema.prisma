@@ -348,6 +348,7 @@ model TeamChallenge {
   metric      String   // distance, duration, count
   unit        String   // mi, km, min, sessions, steps
   goal        Float?
+  goalPerDay  Boolean  @default(false)
   startDate   DateTime
   endDate     DateTime
   description String?

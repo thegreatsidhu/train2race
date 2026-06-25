@@ -90,6 +90,7 @@ export default function AdminPage() {
   const [newChMetric, setNewChMetric] = useState("distance");
   const [newChUnit, setNewChUnit] = useState("mi");
   const [newChGoal, setNewChGoal] = useState("");
+  const [newChGoalPerDay, setNewChGoalPerDay] = useState(false);
   const [newChStart, setNewChStart] = useState("");
   const [newChEnd, setNewChEnd] = useState("");
   const [newChDesc, setNewChDesc] = useState("");
@@ -266,10 +267,10 @@ export default function AdminPage() {
   async function createPublicChallenge() {
     if (!newChTeamId || !newChTitle || !newChStart || !newChEnd) return;
     setCreatingCh(true); setCreateChMsg("");
-    const res = await fetch("/api/admin/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createChallenge", teamId: newChTeamId, title: newChTitle, type: newChType, metric: newChMetric, unit: newChUnit, goal: newChGoal || null, startDate: newChStart, endDate: newChEnd, description: newChDesc || null }) });
+    const res = await fetch("/api/admin/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createChallenge", teamId: newChTeamId, title: newChTitle, type: newChType, metric: newChMetric, unit: newChUnit, goal: newChGoal || null, goalPerDay: newChMetric === "count" && newChGoalPerDay, startDate: newChStart, endDate: newChEnd, description: newChDesc || null }) });
     const d = await res.json();
     setCreatingCh(false);
-    if (res.ok) { setAllChallenges(prev => [d.challenge, ...prev]); setShowCreateChallenge(false); setNewChTitle(""); setNewChGoal(""); setNewChStart(""); setNewChEnd(""); setNewChDesc(""); setCreateChMsg(""); }
+    if (res.ok) { setAllChallenges(prev => [d.challenge, ...prev]); setShowCreateChallenge(false); setNewChTitle(""); setNewChGoal(""); setNewChGoalPerDay(false); setNewChStart(""); setNewChEnd(""); setNewChDesc(""); setCreateChMsg(""); }
     else setCreateChMsg(d.error || "Failed to create challenge.");
   }
   async function loadTeams() {
@@ -765,23 +766,24 @@ export default function AdminPage() {
                     {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                   <input value={newChTitle} onChange={e => setNewChTitle(e.target.value)} placeholder="Challenge title" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                  <select value={newChType} onChange={e => { const v = e.target.value; if (v === "walk" || v === "steps") { setNewChType(v); setNewChMetric("count"); setNewChUnit("steps"); } else setNewChType(v); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
-                    <option value="run">Run</option><option value="walk">Walk</option><option value="swim">Swim</option><option value="bike">Bike</option><option value="steps">Steps</option><option value="custom">Custom</option>
+                  <select value={newChType} onChange={e => { const v = e.target.value; setNewChType(v); if (v === "walk") { setNewChMetric("count"); setNewChUnit("steps"); } else if (newChMetric === "count" && newChUnit === "steps") { setNewChUnit("sessions"); } }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                    <option value="run">Run</option><option value="walk">Walk</option><option value="swim">Swim</option><option value="bike">Bike</option><option value="custom">Custom</option>
                   </select>
-                  <select value={newChMetric} onChange={e => { const m = e.target.value; setNewChMetric(m); setNewChUnit(m === "distance" ? "mi" : m === "duration" ? "min" : "sessions"); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                  <select value={newChMetric} onChange={e => { const m = e.target.value; setNewChMetric(m); setNewChUnit(m === "distance" ? "mi" : m === "duration" ? "min" : newChType === "walk" ? "steps" : "sessions"); setNewChGoalPerDay(false); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
                     <option value="distance">Distance</option><option value="duration">Duration</option><option value="count">Count</option>
                   </select>
                   <select value={newChUnit} onChange={e => setNewChUnit(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
-                    {(newChMetric === "distance" ? ["mi","km"] : newChMetric === "duration" ? ["min"] : ["sessions","steps"]).map(u => <option key={u} value={u}>{u}</option>)}
+                    {(newChMetric === "distance" ? ["mi","km"] : newChMetric === "duration" ? ["min"] : newChType === "walk" ? ["steps"] : ["sessions"]).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (optional)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (required)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  {newChMetric === "count" && <label className="flex items-center gap-2 text-sm col-span-2"><input type="checkbox" checked={newChGoalPerDay} onChange={e => setNewChGoalPerDay(e.target.checked)} /> Per day goal</label>}
                   <input type="date" value={newChStart} onChange={e => setNewChStart(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input type="date" value={newChEnd} onChange={e => setNewChEnd(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input value={newChDesc} onChange={e => setNewChDesc(e.target.value)} placeholder="Description (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                 </div>
                 {createChMsg && <p className="text-xs text-red-400">{createChMsg}</p>}
                 <div className="flex gap-2">
-                  <button onClick={createPublicChallenge} disabled={creatingCh || !newChTeamId || !newChTitle || !newChStart || !newChEnd} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingCh ? "Creating..." : "Create"}</button>
+                  <button onClick={createPublicChallenge} disabled={creatingCh || !newChTeamId || !newChTitle || !newChGoal || !newChStart || !newChEnd} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingCh ? "Creating..." : "Create"}</button>
                   <button onClick={() => { setShowCreateChallenge(false); setCreateChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
                 </div>
               </div>
