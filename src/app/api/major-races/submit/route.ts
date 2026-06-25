@@ -2,6 +2,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+
+export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+  const submissions = await prisma.majorRace.findMany({
+    where: { submittedBy: userId, status: "pending" },
+    orderBy: { createdAt: "desc" },
+  });
+  return NextResponse.json({ submissions });
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
+  const { raceId, name, raceDate, distanceM, city, country, website, isTriathlon } = await req.json();
+  const race = await prisma.majorRace.findUnique({ where: { id: raceId } });
+  if (!race) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (race.submittedBy !== userId) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  if (race.status !== "pending") return NextResponse.json({ error: "Race already reviewed" }, { status: 400 });
+  const updated = await prisma.majorRace.update({
+    where: { id: raceId },
+    data: { name, raceDate: new Date(raceDate), distanceM: Number(distanceM), city, country, website: website || null, isTriathlon: !!isTriathlon },
+  });
+  return NextResponse.json({ race: updated });
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

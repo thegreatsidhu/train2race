@@ -7,11 +7,11 @@ const DFILTERS = [
   { label: "5K/10K", min: 0, max: 15000 },
   { label: "Half", min: 15000, max: 30000 },
   { label: "Marathon", min: 30000, max: 50000 },
-  { label: "Ultra", min: 50000, max: 150000 },
+  { label: "Ultra", min: 50000, max: 999999, tri: false },
   { label: "Triathlon", tri: true },
   { label: "Ironman", min: 100000, tri: true },
-] as const;
-const DISTS: Record<string, number> = { "5K":5000,"10K":10000,"Half Marathon":21097,"Marathon":42195,"Ultra (50K)":50000,"Sprint Triathlon":25750,"Olympic Triathlon":51500,"70.3 Half Ironman":113000,"140.6 Full Ironman":226000 };
+];
+const DISTS: Record<string, number> = { "5K":5000,"10K":10000,"Half Marathon":21097,"Marathon":42195,"Ultra 50K":50000,"Ultra 50M":80467,"Ultra 100K":100000,"Ultra 100M":160934,"Sprint Triathlon":25750,"Olympic Triathlon":51500,"70.3 Half Ironman":113000,"140.6 Full Ironman":226000 };
 const TRIS = ["Sprint Triathlon","Olympic Triathlon","70.3 Half Ironman","140.6 Full Ironman"];
 
 function distLabel(m: number) {
@@ -61,6 +61,25 @@ export default function RacesPage() {
   const [subbing, setSubbing] = useState(false);
   const [subResult, setSubResult] = useState<any>(null);
 
+  // My pending submissions
+  const [mySubmissions, setMySubmissions] = useState<any[]>([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [subsLoaded, setSubsLoaded] = useState(false);
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
+  const [editSubName, setEditSubName] = useState("");
+  const [editSubDate, setEditSubDate] = useState("");
+  const [editSubDist, setEditSubDist] = useState("Marathon");
+  const [editSubCity, setEditSubCity] = useState("");
+  const [editSubCountry, setEditSubCountry] = useState("USA");
+  const [editSubWeb, setEditSubWeb] = useState("");
+  const [savingSub, setSavingSub] = useState(false);
+
+  // Report inaccuracy
+  const [reportingRaceId, setReportingRaceId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reporting, setReporting] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
+
   useEffect(() => {
     fetch("/api/major-races/register").then(r => r.json()).then(d => setMyRegs(d.registrations || []));
   }, []);
@@ -70,6 +89,7 @@ export default function RacesPage() {
       setEventsLoading(true);
       fetch("/api/major-races?upcoming=1").then(r => r.json()).then(d => { setEvents(d.races || []); setEventsLoading(false); });
     }
+    if (tab === "submit") loadMySubmissions();
   }, [tab]);
 
   async function handleReg(race: any) {
@@ -132,13 +152,54 @@ export default function RacesPage() {
     const res = await fetch("/api/major-races/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: rName, raceDate: rDate, distanceM: DISTS[rDist], city: rCity, country: rCountry, website: rWeb || null, isTriathlon: rTri }) });
     setSubResult(await res.json());
     setSubbing(false);
+    setSubsLoaded(false);
+  }
+
+  async function loadMySubmissions() {
+    if (subsLoaded) return;
+    setSubsLoading(true);
+    const res = await fetch("/api/major-races/submit");
+    const d = await res.json();
+    setMySubmissions(d.submissions || []);
+    setSubsLoading(false);
+    setSubsLoaded(true);
+  }
+
+  async function saveSubEdit(raceId: string) {
+    setSavingSub(true);
+    const distM = DISTS[editSubDist] || DISTS["Marathon"];
+    const res = await fetch("/api/major-races/submit", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ raceId, name: editSubName, raceDate: editSubDate, distanceM: distM, city: editSubCity, country: editSubCountry, website: editSubWeb || null, isTriathlon: TRIS.includes(editSubDist) }),
+    });
+    setSavingSub(false);
+    if (res.ok) {
+      const d = await res.json();
+      setMySubmissions(prev => prev.map(s => s.id === raceId ? d.race : s));
+      setEditingSubId(null);
+    }
+  }
+
+  async function submitReport(raceId: string) {
+    setReporting(true);
+    await fetch(`/api/major-races/${raceId}/report`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: reportReason }),
+    });
+    setReporting(false);
+    setReportDone(true);
+    setReportingRaceId(null);
+    setReportReason("");
   }
 
   const isReg = (id: string) => myRegs.some((r: any) => r.majorRaceId === id);
   const f = DFILTERS[df] as any;
   const filtered = events.filter((r: any) => {
     const ms = !search || r.name.toLowerCase().includes(search.toLowerCase());
-    const md = f.tri ? r.isTriathlon : (!f.min || (r.distanceM >= f.min && r.distanceM <= f.max));
+    let md: boolean;
+    if (f.tri === true) md = r.isTriathlon;
+    else if (f.tri === false) md = !r.isTriathlon && (!f.min || (r.distanceM >= f.min && r.distanceM <= f.max));
+    else md = !f.min || (r.distanceM >= f.min && r.distanceM <= f.max);
     return ms && md;
   });
 
@@ -265,6 +326,26 @@ export default function RacesPage() {
             ) : (
               <div className="rounded-2xl border border-border bg-surface p-8 text-center text-foreground-dim text-sm">
                 Select an event to join and see participants
+              </div>
+            )}
+
+            {selEvent && (
+              <div className="mt-3 px-1">
+                {reportingRaceId === selEvent.id ? (
+                  <div className="rounded-xl border border-border bg-surface p-3 space-y-2">
+                    <p className="text-xs font-medium">Report inaccuracy</p>
+                    <textarea value={reportReason} onChange={e => setReportReason(e.target.value)} placeholder="Describe the issue (wrong date, distance, location...)" rows={3}
+                      className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-xs resize-none" />
+                    <div className="flex gap-2">
+                      <button onClick={() => submitReport(selEvent.id)} disabled={reporting || !reportReason.trim()} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-60">{reporting ? "Sending..." : "Send report"}</button>
+                      <button onClick={() => { setReportingRaceId(null); setReportReason(""); }} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                    </div>
+                  </div>
+                ) : reportDone ? (
+                  <p className="text-xs text-signal">Report submitted — thank you!</p>
+                ) : (
+                  <button onClick={() => { setReportingRaceId(selEvent.id); setReportDone(false); }} className="text-xs text-foreground-dim hover:text-foreground underline">Report inaccuracy</button>
+                )}
               </div>
             )}
           </div>
@@ -408,6 +489,59 @@ export default function RacesPage() {
                 </div>
                 <div><label className="block text-xs text-foreground-dim mb-1">Website (optional)</label><input value={rWeb} onChange={e => setRWeb(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" /></div>
                 <button onClick={handleSub} disabled={subbing || !rName || !rDate || !rCity || !rCountry} className="w-full py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{subbing ? "Checking..." : "Submit race"}</button>
+              </div>
+            )}
+          </div>
+
+          {/* My pending submissions */}
+          <div className="mt-6">
+            <h3 className="font-medium mb-3 text-sm">My pending submissions</h3>
+            {subsLoading ? (
+              <div className="space-y-2">{[1,2].map(i=><div key={i} className="h-14 rounded-xl bg-surface border border-border animate-pulse"/>)}</div>
+            ) : mySubmissions.length === 0 ? (
+              <p className="text-sm text-foreground-dim">No pending submissions.</p>
+            ) : (
+              <div className="space-y-3">
+                {mySubmissions.map((s: any) => (
+                  <div key={s.id} className="rounded-xl border border-border bg-surface p-4">
+                    {editingSubId === s.id ? (
+                      <div className="space-y-3">
+                        <input value={editSubName} onChange={e => setEditSubName(e.target.value)} placeholder="Race name" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                        <input type="date" value={editSubDate} onChange={e => setEditSubDate(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                        <select value={editSubDist} onChange={e => setEditSubDist(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm">
+                          {Object.keys(DISTS).map(d => <option key={d}>{d}</option>)}
+                        </select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={editSubCity} onChange={e => setEditSubCity(e.target.value)} placeholder="City" className="px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                          <input value={editSubCountry} onChange={e => setEditSubCountry(e.target.value)} placeholder="Country" className="px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                        </div>
+                        <input value={editSubWeb} onChange={e => setEditSubWeb(e.target.value)} placeholder="Website (optional)" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                        <div className="flex gap-2">
+                          <button onClick={() => saveSubEdit(s.id)} disabled={savingSub} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-60">{savingSub ? "Saving..." : "Save"}</button>
+                          <button onClick={() => setEditingSubId(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-sm">{s.name}</p>
+                          <p className="text-xs text-foreground-dim">{s.city}, {s.country} · {(s.distanceM/1609.34).toFixed(1)}mi</p>
+                          <p className="text-xs text-foreground-dim">{new Date(s.raceDate).toLocaleDateString()} · Pending review</p>
+                        </div>
+                        <button onClick={() => {
+                          setEditingSubId(s.id);
+                          setEditSubName(s.name);
+                          setEditSubDate(new Date(s.raceDate).toISOString().split("T")[0]);
+                          setEditSubCity(s.city);
+                          setEditSubCountry(s.country);
+                          setEditSubWeb(s.website || "");
+                          const distKey = Object.entries(DISTS).find(([,v]) => Math.abs(v - s.distanceM) < 100)?.[0] || "Marathon";
+                          setEditSubDist(distKey);
+                        }} className="text-xs text-signal hover:underline shrink-0">Edit</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>

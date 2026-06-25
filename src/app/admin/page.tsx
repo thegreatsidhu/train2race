@@ -56,6 +56,31 @@ export default function AdminPage() {
   const [editTeamDesc, setEditTeamDesc] = useState("");
   const [savingTeamEdit, setSavingTeamEdit] = useState(false);
 
+  // Race management
+  const [allRaces, setAllRaces] = useState([]);
+  const [allRacesLoaded, setAllRacesLoaded] = useState(false);
+  const [raceViewTab, setRaceViewTab] = useState("pending");
+  const [editingRaceId, setEditingRaceId] = useState(null);
+  const [editRaceName, setEditRaceName] = useState("");
+  const [editRaceDate, setEditRaceDate] = useState("");
+  const [editRaceCity, setEditRaceCity] = useState("");
+  const [editRaceCountry, setEditRaceCountry] = useState("");
+  const [editRaceDist, setEditRaceDist] = useState("");
+  const [editRaceWeb, setEditRaceWeb] = useState("");
+  const [editRaceTri, setEditRaceTri] = useState(false);
+  const [savingRaceEdit, setSavingRaceEdit] = useState(false);
+  const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState(null);
+  const [deletingRaceId, setDeletingRaceId] = useState(null);
+  const [showCreateRace, setShowCreateRace] = useState(false);
+  const [newRaceName, setNewRaceName] = useState("");
+  const [newRaceDate, setNewRaceDate] = useState("");
+  const [newRaceCity, setNewRaceCity] = useState("");
+  const [newRaceCountry, setNewRaceCountry] = useState("USA");
+  const [newRaceDist, setNewRaceDist] = useState("42195");
+  const [newRaceWeb, setNewRaceWeb] = useState("");
+  const [newRaceTri, setNewRaceTri] = useState(false);
+  const [creatingRace, setCreatingRace] = useState(false);
+
   async function handleLogin() {
     setLoading(true); setError("");
     const res = await fetch("/api/admin", {
@@ -95,6 +120,53 @@ export default function AdminPage() {
   async function approveRace(raceId, action) {
     await fetch("/api/admin/races", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, raceId, action }) });
     await refreshData();
+    setAllRacesLoaded(false);
+  }
+
+  async function loadAllRaces() {
+    if (allRacesLoaded) return;
+    const res = await fetch(`/api/admin/races?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    const combined = [...(d.pending || []), ...(d.active || [])].sort((a, b) => new Date(a.raceDate).getTime() - new Date(b.raceDate).getTime());
+    setAllRaces(combined);
+    setAllRacesLoaded(true);
+  }
+
+  async function saveRaceEdit(raceId) {
+    setSavingRaceEdit(true);
+    const res = await fetch("/api/admin/races", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, raceId, name: editRaceName, city: editRaceCity, country: editRaceCountry, raceDate: editRaceDate, distanceM: parseFloat(editRaceDist), website: editRaceWeb || null, isTriathlon: editRaceTri }),
+    });
+    setSavingRaceEdit(false);
+    if (res.ok) {
+      setAllRaces(prev => prev.map(r => r.id === raceId ? { ...r, name: editRaceName, city: editRaceCity, country: editRaceCountry, raceDate: new Date(editRaceDate).toISOString(), distanceM: parseFloat(editRaceDist), website: editRaceWeb || null, isTriathlon: editRaceTri } : r));
+      setEditingRaceId(null);
+    }
+  }
+
+  async function deleteRace(raceId) {
+    setDeletingRaceId(raceId);
+    await fetch("/api/admin/races", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, raceId }) });
+    setAllRaces(prev => prev.filter(r => r.id !== raceId));
+    setData(prev => prev ? { ...prev, pendingRaces: (prev.pendingRaces || []).filter(r => r.id !== raceId) } : prev);
+    setDeletingRaceId(null);
+    setConfirmDeleteRaceId(null);
+  }
+
+  async function createRaceAdmin() {
+    if (!newRaceName || !newRaceDate || !newRaceCity || !newRaceCountry || !newRaceDist) return;
+    setCreatingRace(true);
+    const res = await fetch("/api/admin/races", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, action: "create", name: newRaceName, city: newRaceCity, country: newRaceCountry, raceDate: newRaceDate, distanceM: parseFloat(newRaceDist), website: newRaceWeb || null, isTriathlon: newRaceTri }),
+    });
+    const d = await res.json();
+    setCreatingRace(false);
+    if (res.ok && d.race) {
+      setAllRaces(prev => [...prev, d.race].sort((a, b) => new Date(a.raceDate).getTime() - new Date(b.raceDate).getTime()));
+      setNewRaceName(""); setNewRaceDate(""); setNewRaceCity(""); setNewRaceCountry("USA"); setNewRaceDist("42195"); setNewRaceWeb(""); setNewRaceTri(false); setShowCreateRace(false);
+    }
   }
 
   async function changeAdminPassword() {
@@ -252,6 +324,7 @@ export default function AdminPage() {
     if (id === "challenges") loadChallenges();
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
+    if (id === "races") loadAllRaces();
   }
 
   if (!authed) {
@@ -466,24 +539,130 @@ export default function AdminPage() {
 
         {activeTab === "races" && (
           <div>
-            <h2 className="font-medium mb-3">Pending ({data?.pendingRaces?.length || 0})</h2>
-            {(!data?.pendingRaces || data.pendingRaces.length === 0) ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
-              <div className="space-y-3">
-                {data.pendingRaces.map((race) => (
-                  <div key={race.id} className="rounded-2xl border border-border bg-surface p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-medium">{race.name}</p>
-                        <p className="text-sm text-foreground-dim">{race.city}, {race.country} - {(race.distanceM/1609.34).toFixed(1)} mi</p>
-                        <p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => approveRace(race.id,"approve")} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs">Approve</button>
-                        <button onClick={() => approveRace(race.id,"reject")} className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">Reject</button>
-                      </div>
-                    </div>
-                  </div>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex gap-1.5">
+                {[
+                  { id: "pending", label: `Pending (${data?.pendingRaces?.length || 0})` },
+                  { id: "active", label: `All races (${allRaces.filter(r => r.status === "active").length})` },
+                ].map(vt => (
+                  <button key={vt.id} onClick={() => { setRaceViewTab(vt.id); if (vt.id === "active") loadAllRaces(); }} className={"text-xs px-3 py-1.5 rounded-full border transition-colors " + (raceViewTab === vt.id ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                    {vt.label}
+                  </button>
                 ))}
+              </div>
+              <button onClick={() => setShowCreateRace(v => !v)} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Add race</button>
+            </div>
+
+            {showCreateRace && (
+              <div className="rounded-2xl border border-signal/30 bg-surface p-4 mb-4 space-y-3">
+                <p className="text-sm font-medium">Add race (goes live immediately)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={newRaceName} onChange={e => setNewRaceName(e.target.value)} placeholder="Race name" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input type="date" value={newRaceDate} onChange={e => setNewRaceDate(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input type="number" value={newRaceDist} onChange={e => setNewRaceDist(e.target.value)} placeholder="Distance (meters)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input value={newRaceCity} onChange={e => setNewRaceCity(e.target.value)} placeholder="City" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input value={newRaceCountry} onChange={e => setNewRaceCountry(e.target.value)} placeholder="Country" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input value={newRaceWeb} onChange={e => setNewRaceWeb(e.target.value)} placeholder="Website (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={newRaceTri} onChange={e => setNewRaceTri(e.target.checked)} className="rounded" />
+                  Triathlon
+                </label>
+                <p className="text-xs text-foreground-dim">Common distances: 5K=5000, 10K=10000, Half=21097, Marathon=42195, 50K=50000, 50M=80467, 100K=100000, 100M=160934</p>
+                <div className="flex gap-2">
+                  <button onClick={createRaceAdmin} disabled={creatingRace || !newRaceName || !newRaceDate || !newRaceCity || !newRaceCountry || !newRaceDist} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingRace ? "Creating..." : "Create"}</button>
+                  <button onClick={() => setShowCreateRace(false)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {raceViewTab === "pending" && (
+              <div>
+                {(!data?.pendingRaces || data.pendingRaces.length === 0) ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
+                  <div className="space-y-3">
+                    {data.pendingRaces.map((race) => (
+                      <div key={race.id} className="rounded-2xl border border-yellow-700/40 bg-surface p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-medium">{race.name}</p>
+                            <p className="text-sm text-foreground-dim">{race.city}, {race.country} · {(race.distanceM/1609.34).toFixed(1)} mi{race.isTriathlon ? " · Triathlon" : ""}</p>
+                            <p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString()}</p>
+                            {race.website && <a href={race.website} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline">{race.website}</a>}
+                          </div>
+                          <div className="flex gap-2 flex-wrap justify-end">
+                            <button onClick={() => approveRace(race.id,"approve")} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs">Approve</button>
+                            <button onClick={() => approveRace(race.id,"reject")} className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">Reject</button>
+                            {confirmDeleteRaceId === race.id ? (
+                              <>
+                                <button onClick={() => deleteRace(race.id)} disabled={deletingRaceId === race.id} className="px-3 py-1.5 rounded-full bg-red-600 text-white text-xs disabled:opacity-50">{deletingRaceId === race.id ? "..." : "Confirm delete"}</button>
+                                <button onClick={() => setConfirmDeleteRaceId(null)} className="px-3 py-1.5 rounded-full border border-border text-xs">Cancel</button>
+                              </>
+                            ) : (
+                              <button onClick={() => setConfirmDeleteRaceId(race.id)} className="px-3 py-1.5 rounded-full border border-red-700/40 text-red-400 text-xs">Delete</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {raceViewTab === "active" && (
+              <div>
+                {!allRacesLoaded ? (
+                  <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
+                ) : allRaces.filter(r => r.status === "active").length === 0 ? (
+                  <p className="text-sm text-foreground-dim">No active races.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {allRaces.filter(r => r.status === "active").map((race) => (
+                      <div key={race.id} className="rounded-2xl border border-border bg-surface p-4">
+                        {editingRaceId === race.id ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <input value={editRaceName} onChange={e => setEditRaceName(e.target.value)} placeholder="Race name" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <input type="date" value={editRaceDate} onChange={e => setEditRaceDate(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <input type="number" value={editRaceDist} onChange={e => setEditRaceDist(e.target.value)} placeholder="Distance (meters)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <input value={editRaceCity} onChange={e => setEditRaceCity(e.target.value)} placeholder="City" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <input value={editRaceCountry} onChange={e => setEditRaceCountry(e.target.value)} placeholder="Country" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <input value={editRaceWeb} onChange={e => setEditRaceWeb(e.target.value)} placeholder="Website" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                            </div>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                              <input type="checkbox" checked={editRaceTri} onChange={e => setEditRaceTri(e.target.checked)} className="rounded" />
+                              Triathlon
+                            </label>
+                            <div className="flex gap-2">
+                              <button onClick={() => saveRaceEdit(race.id)} disabled={savingRaceEdit} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{savingRaceEdit ? "Saving..." : "Save"}</button>
+                              <button onClick={() => setEditingRaceId(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="font-medium">{race.name}</p>
+                              <p className="text-sm text-foreground-dim">{race.city}, {race.country} · {(race.distanceM/1609.34).toFixed(1)} mi{race.isTriathlon ? " · Triathlon" : ""}</p>
+                              <p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString()}</p>
+                              {race.website && <a href={race.website} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline">{race.website}</a>}
+                            </div>
+                            <div className="flex gap-2 flex-wrap justify-end shrink-0">
+                              <button onClick={() => { setEditingRaceId(race.id); setEditRaceName(race.name); setEditRaceDate(new Date(race.raceDate).toISOString().split("T")[0]); setEditRaceCity(race.city); setEditRaceCountry(race.country); setEditRaceDist(String(race.distanceM)); setEditRaceWeb(race.website || ""); setEditRaceTri(race.isTriathlon); }} className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors">Edit</button>
+                              {confirmDeleteRaceId === race.id ? (
+                                <>
+                                  <button onClick={() => deleteRace(race.id)} disabled={deletingRaceId === race.id} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">{deletingRaceId === race.id ? "..." : "Confirm delete"}</button>
+                                  <button onClick={() => setConfirmDeleteRaceId(null)} className="text-xs px-2.5 py-1 rounded-full border border-border">Cancel</button>
+                                </>
+                              ) : (
+                                <button onClick={() => setConfirmDeleteRaceId(race.id)} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">Delete</button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

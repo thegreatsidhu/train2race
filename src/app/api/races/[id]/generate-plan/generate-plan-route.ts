@@ -96,13 +96,14 @@ RULES:
 - Build max 10% per week
 - Cutback week every 3-4 weeks (reduce 20%)
 - Final 1-2 weeks: taper
+- Last day of week ${weeksToRace}: include exactly ONE workout with type:"race", title:"Race Day", distanceMiles:${distanceMiles}, description:"Race day! Run your goal time."
 - Generate ONLY ${days} workout days per week, NO rest days in JSON
 ${triathlonInstructions}
 
 Return ONLY a JSON array. Keep descriptions under 15 words:
 [{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"Easy conversational pace, focus on form","distanceMiles":3,"durationMin":null}]
 
-Valid types: easy_run, tempo, intervals, long_run, cross_train${isTriathlon ? ", swim, bike, brick" : ""}
+Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlon ? ", swim, bike, brick" : ""}
 No markdown. No explanation. Just the array.`;
 
   try {
@@ -119,7 +120,9 @@ No markdown. No explanation. Just the array.`;
       .filter((w: any) => w.type !== "rest")
       .map((w: any) => ({
         ...w,
-        distanceMiles: w.distanceMiles > g.maxMi ? g.maxMi : w.distanceMiles,
+        distanceMiles: w.type === "race"
+          ? parseFloat(distanceMiles)
+          : (w.distanceMiles > g.maxMi ? g.maxMi : w.distanceMiles),
       }));
 
     await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
