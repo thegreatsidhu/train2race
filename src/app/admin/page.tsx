@@ -83,6 +83,18 @@ export default function AdminPage() {
   const [raceSearch, setRaceSearch] = useState("");
   const [raceDistFilter, setRaceDistFilter] = useState("all");
   const [raceYearFilter, setRaceYearFilter] = useState("all");
+  const [showCreateChallenge, setShowCreateChallenge] = useState(false);
+  const [newChTeamId, setNewChTeamId] = useState("");
+  const [newChTitle, setNewChTitle] = useState("");
+  const [newChType, setNewChType] = useState("run");
+  const [newChMetric, setNewChMetric] = useState("distance");
+  const [newChUnit, setNewChUnit] = useState("mi");
+  const [newChGoal, setNewChGoal] = useState("");
+  const [newChStart, setNewChStart] = useState("");
+  const [newChEnd, setNewChEnd] = useState("");
+  const [newChDesc, setNewChDesc] = useState("");
+  const [creatingCh, setCreatingCh] = useState(false);
+  const [createChMsg, setCreateChMsg] = useState("");
 
   async function handleLogin() {
     setLoading(true); setError("");
@@ -251,6 +263,15 @@ export default function AdminPage() {
     setTicketsLoaded(true);
   }
 
+  async function createPublicChallenge() {
+    if (!newChTeamId || !newChTitle || !newChStart || !newChEnd) return;
+    setCreatingCh(true); setCreateChMsg("");
+    const res = await fetch("/api/admin/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createChallenge", teamId: newChTeamId, title: newChTitle, type: newChType, metric: newChMetric, unit: newChUnit, goal: newChGoal || null, startDate: newChStart, endDate: newChEnd, description: newChDesc || null }) });
+    const d = await res.json();
+    setCreatingCh(false);
+    if (res.ok) { setAllChallenges(prev => [d.challenge, ...prev]); setShowCreateChallenge(false); setNewChTitle(""); setNewChGoal(""); setNewChStart(""); setNewChEnd(""); setNewChDesc(""); setCreateChMsg(""); }
+    else setCreateChMsg(d.error || "Failed to create challenge.");
+  }
   async function loadTeams() {
     if (teamsLoaded) return;
     const res = await fetch(`/api/admin/teams?password=${encodeURIComponent(password)}`);
@@ -324,7 +345,7 @@ export default function AdminPage() {
 
   function switchTab(id) {
     setActiveTab(id);
-    if (id === "challenges") loadChallenges();
+    if (id === "challenges") { loadChallenges(); loadTeams(); }
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
     if (id === "races") loadAllRaces();
@@ -718,6 +739,8 @@ export default function AdminPage() {
           <div>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <h2 className="font-medium">All Challenges ({filteredChallenges.length})</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={() => { setShowCreateChallenge(v => !v); setCreateChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create challenge</button>
               <div className="flex gap-1.5 flex-wrap">
                 {[
                   { v: "all", l: "All" },
@@ -731,7 +754,38 @@ export default function AdminPage() {
                   </button>
                 ))}
               </div>
+              </div>
             </div>
+            {showCreateChallenge && (
+              <div className="rounded-2xl border border-signal/30 bg-surface p-4 mb-4 space-y-3">
+                <p className="text-sm font-medium">Create public challenge (goes live immediately)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={newChTeamId} onChange={e => setNewChTeamId(e.target.value)} className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                    <option value="">— Select team —</option>
+                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <input value={newChTitle} onChange={e => setNewChTitle(e.target.value)} placeholder="Challenge title" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <select value={newChType} onChange={e => { const v = e.target.value; if (v === "walk" || v === "steps") { setNewChType(v); setNewChMetric("count"); setNewChUnit("steps"); } else setNewChType(v); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                    <option value="run">Run</option><option value="walk">Walk</option><option value="swim">Swim</option><option value="bike">Bike</option><option value="steps">Steps</option><option value="custom">Custom</option>
+                  </select>
+                  <select value={newChMetric} onChange={e => { const m = e.target.value; setNewChMetric(m); setNewChUnit(m === "distance" ? "mi" : m === "duration" ? "min" : "sessions"); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                    <option value="distance">Distance</option><option value="duration">Duration</option><option value="count">Count</option>
+                  </select>
+                  <select value={newChUnit} onChange={e => setNewChUnit(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                    {(newChMetric === "distance" ? ["mi","km"] : newChMetric === "duration" ? ["min"] : ["sessions","steps"]).map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                  <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (optional)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input type="date" value={newChStart} onChange={e => setNewChStart(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input type="date" value={newChEnd} onChange={e => setNewChEnd(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input value={newChDesc} onChange={e => setNewChDesc(e.target.value)} placeholder="Description (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                </div>
+                {createChMsg && <p className="text-xs text-red-400">{createChMsg}</p>}
+                <div className="flex gap-2">
+                  <button onClick={createPublicChallenge} disabled={creatingCh || !newChTeamId || !newChTitle || !newChStart || !newChEnd} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingCh ? "Creating..." : "Create"}</button>
+                  <button onClick={() => { setShowCreateChallenge(false); setCreateChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                </div>
+              </div>
+            )}
             {!challengesLoaded ? (
               <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
             ) : filteredChallenges.length === 0 ? (

@@ -78,13 +78,41 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { password, action, challengeId, userId } = await req.json();
+  const body = await req.json();
+  const { password, action, challengeId, userId } = body;
   if (!(await verifyAdmin(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (action === "removeParticipant") {
     if (!challengeId || !userId) return NextResponse.json({ error: "challengeId and userId required" }, { status: 400 });
     await prisma.teamChallengeEntry.deleteMany({ where: { challengeId, userId } });
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === "createChallenge") {
+    const { teamId, title, type, metric, unit, goal, startDate, endDate, description } = body;
+    if (!teamId || !title?.trim() || !type || !metric || !unit || !startDate || !endDate) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    const [challenge, team] = await Promise.all([
+      prisma.teamChallenge.create({
+        data: {
+          teamId,
+          createdBy: "admin",
+          title: title.trim(),
+          type,
+          metric,
+          unit,
+          goal: goal ? Number(goal) : null,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          description: description?.trim() || null,
+          isPublic: true,
+          status: "approved",
+        },
+      }),
+      prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
+    ]);
+    return NextResponse.json({ challenge: { ...challenge, teamName: team?.name || "", participants: [], creator: { name: "Admin" } } }, { status: 201 });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
