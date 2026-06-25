@@ -368,7 +368,7 @@ export default async function TodayPage() {
       )}
 
       {/* Weather + team leaderboard */}
-      <Accordion label="Leaderboard">
+      <Accordion label="Leaderboard" defaultOpen>
         <LocalSection
           defaultCity={timezoneCity ?? raceCity}
           leaderboard={leaderboard}
