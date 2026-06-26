@@ -145,7 +145,7 @@ export default async function TodayPage() {
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, myMemberships, rawTeamMessages] = await Promise.all([
+  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, myMemberships, rawTeamMessages, allRaceRegs] = await Promise.all([
     getMergedDailyMetrics(userId, 30),
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
@@ -157,6 +157,7 @@ export default async function TodayPage() {
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
     prisma.teamMember.findMany({where:{userId},select:{teamId:true,lastViewedChatAt:true}}),
     prisma.teamMessage.findMany({where:{team:{members:{some:{userId}}},userId:{not:userId},isDeleted:false,createdAt:{gte:thirtyDaysAgo}},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},user:{select:{name:true}}},orderBy:{createdAt:"desc"},take:100}),
+    prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
   ]);
 
   // Only show chat messages newer than when the user last viewed that team's chat
@@ -464,7 +465,7 @@ export default async function TodayPage() {
               const pct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
               const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
               return (
-                <Link key={c.id} href={`/dashboard/teams/${c.team.id}`} className="block rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-surface-raised transition-colors">
+                <Link key={c.id} href={`/dashboard/teams/${c.team.id}?tab=challenges&challenge=${c.id}`} className="block rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-surface-raised transition-colors">
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <p className="text-sm font-medium">{c.title}</p>
@@ -496,7 +497,7 @@ export default async function TodayPage() {
       <Accordion label={displayCity ? `Upcoming races in ${displayCity}` : "Upcoming races"}>
         <UpcomingRacesSection
           defaultCity={timezoneCity ?? raceCity}
-          registeredRaceId={raceReg?.majorRace?.id ?? null}
+          registeredRaceIds={(allRaceRegs as any[]).map((r: any) => r.majorRaceId)}
         />
       </Accordion>
 

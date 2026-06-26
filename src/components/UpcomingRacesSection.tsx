@@ -6,10 +6,10 @@ const STORAGE_KEY = "t2r-location";
 
 export function UpcomingRacesSection({
   defaultCity,
-  registeredRaceId,
+  registeredRaceIds,
 }: {
   defaultCity: string | null;
-  registeredRaceId?: string | null;
+  registeredRaceIds?: string[];
 }) {
   const [city, setCity] = useState<string>(defaultCity || "");
 
@@ -26,7 +26,7 @@ export function UpcomingRacesSection({
       <h2 className="text-sm font-medium text-foreground-dim mb-3">
         Upcoming races in {city}
       </h2>
-      <UpcomingRacesNearby city={city} registeredRaceId={registeredRaceId} />
+      <UpcomingRacesNearby city={city} registeredRaceIds={registeredRaceIds ?? []} />
     </section>
   );
 }

@@ -29,7 +29,13 @@ function fmtGoal(sec: number) {
 }
 
 export default function RacesPage() {
-  const [tab, setTab] = useState("myevents");
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("tab") === "events") return "events";
+    }
+    return "myevents";
+  });
   const [confirmLeave, setConfirmLeave] = useState<string | null>(null);
 
   // Events

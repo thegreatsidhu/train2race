@@ -7,7 +7,7 @@ function milesLabel(distanceM: number) {
   return mi >= 26 ? "Marathon" : mi >= 13 ? "Half marathon" : mi >= 6 ? `${mi.toFixed(0)}mi` : `${mi.toFixed(1)}mi`;
 }
 
-export function UpcomingRacesNearby({ city, registeredRaceId }: { city: string | null; registeredRaceId?: string | null }) {
+export function UpcomingRacesNearby({ city, registeredRaceIds }: { city: string | null; registeredRaceIds: string[] }) {
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,7 +40,7 @@ export function UpcomingRacesNearby({ city, registeredRaceId }: { city: string |
   return (
     <div className="space-y-2">
       {races.map(race => {
-        const isRegistered = registeredRaceId === race.id;
+        const isRegistered = registeredRaceIds.includes(race.id);
         const daysAway = Math.ceil((new Date(race.raceDate).getTime() - today.getTime()) / 86400000);
         return (
           <div key={race.id} className={"rounded-xl border bg-surface px-4 py-3 flex items-center justify-between " + (isRegistered ? "border-signal/40" : "border-border")}>
@@ -54,7 +54,11 @@ export function UpcomingRacesNearby({ city, registeredRaceId }: { city: string |
               </p>
               <p className="text-xs text-foreground-dim">{race._count.registrations} registered</p>
             </div>
-            <Link href={`/dashboard/community?race=${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">View →</Link>
+            {isRegistered ? (
+              <Link href={`/dashboard/community?race=${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">Community →</Link>
+            ) : (
+              <Link href="/dashboard/races?tab=events" className="text-xs text-signal hover:underline shrink-0 ml-4">View →</Link>
+            )}
           </div>
         );
       })}
