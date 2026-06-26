@@ -281,7 +281,7 @@ export default async function TodayPage() {
       {(teamMessageGroups.length > 0 || dmGroups.length > 0) && (
         <div className="mb-6 space-y-2">
           {dmGroups.map(g => (
-            <Link key={"dm-"+g.teamId} href={`/dashboard/teams/${g.teamId}`} className="flex items-start gap-3 rounded-2xl border border-signal/50 bg-signal/10 px-4 py-3 hover:bg-signal/15 transition-colors">
+            <Link key={"dm-"+g.teamId} href={`/dashboard/teams/${g.teamId}?tab=chat`} className="flex items-start gap-3 rounded-2xl border border-signal/50 bg-signal/10 px-4 py-3 hover:bg-signal/15 transition-colors">
               <span className="text-base shrink-0 mt-0.5">✉️</span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{g.count} new private {g.count===1?"message":"messages"} from {g.senderName}</p>
@@ -291,7 +291,7 @@ export default async function TodayPage() {
             </Link>
           ))}
           {teamMessageGroups.map(g => (
-            <Link key={g.teamId} href={`/dashboard/teams/${g.teamId}`} className="flex items-start gap-3 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3 hover:bg-signal/10 transition-colors">
+            <Link key={g.teamId} href={`/dashboard/teams/${g.teamId}?tab=chat`} className="flex items-start gap-3 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3 hover:bg-signal/10 transition-colors">
               <span className="text-base shrink-0 mt-0.5">💬</span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{g.count} new {g.count===1?"message":"messages"} in {g.teamName}</p>
