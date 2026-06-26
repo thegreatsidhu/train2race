@@ -24,6 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <NavLink href="/dashboard/nutrition" label="Nutrition" />
           <NavLink href="/dashboard/profile" label="Profile" />
           <NavLink href="/dashboard/support" label="Help & Support" />
+          <NavLink href="/dashboard/feature-request" label="Request a Feature" />
         </nav>
         <div className="px-2">
           <p className="text-xs text-foreground-dim mb-2 truncate">{session.user.email}</p>

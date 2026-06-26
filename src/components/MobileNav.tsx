@@ -39,6 +39,7 @@ export function MobileNav({ email }: { email: string }) {
               { href: "/dashboard/nutrition", label: "Nutrition" },
               { href: "/dashboard/profile", label: "Profile" },
               { href: "/dashboard/support", label: "Help & Support" },
+              { href: "/dashboard/feature-request", label: "Request a Feature" },
             ].map((link) => (
               <Link
                 key={link.href}
