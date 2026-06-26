@@ -440,7 +440,7 @@ export default function AdminPage() {
     const d = await res.json();
     setFulfillingId(null);
     if (d.code) {
-      setFulfillCodes(prev => ({ ...prev, [id]: d.code }));
+      setFulfillCodes(prev => ({ ...prev, [id]: { code: d.code, emailError: d.emailError || null } }));
       setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "sent", inviteCode: d.code } : r));
     }
   }
@@ -1494,10 +1494,17 @@ export default function AdminPage() {
                         <p className="text-xs text-foreground-dim">{new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                         {r.message && <p className="text-sm mt-1 italic text-foreground-dim">"{r.message}"</p>}
                         {fulfillCodes[r.id] && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <span className="text-xs text-foreground-dim">Invite code:</span>
-                            <code className="text-sm font-mono font-bold text-signal bg-signal/10 px-2 py-0.5 rounded">{fulfillCodes[r.id]}</code>
-                            <button onClick={() => navigator.clipboard.writeText(fulfillCodes[r.id])} className="text-xs text-foreground-dim hover:text-foreground">Copy</button>
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-foreground-dim">Invite code:</span>
+                              <code className="text-sm font-mono font-bold text-signal bg-signal/10 px-2 py-0.5 rounded">{fulfillCodes[r.id].code}</code>
+                              <button onClick={() => navigator.clipboard.writeText(fulfillCodes[r.id].code)} className="text-xs text-foreground-dim hover:text-foreground">Copy</button>
+                            </div>
+                            {fulfillCodes[r.id].emailError ? (
+                              <p className="text-xs text-red-400">Email failed: {fulfillCodes[r.id].emailError}. Copy the code above and send it manually.</p>
+                            ) : (
+                              <p className="text-xs text-signal">Email sent to {r.email}</p>
+                            )}
                           </div>
                         )}
                       </div>

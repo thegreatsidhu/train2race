@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM = process.env.RESEND_FROM || "Train2Race <onboarding@resend.dev>";
 
 export async function POST(req: NextRequest) {
   const { name, email, message } = await req.json();
@@ -18,8 +19,8 @@ export async function POST(req: NextRequest) {
     data: { name: name.trim(), email: email.trim().toLowerCase(), message: message?.trim() || null },
   });
 
-  await resend.emails.send({
-    from: "Train2Race <onboarding@resend.dev>",
+  const { error } = await resend.emails.send({
+    from: FROM,
     to: email.trim(),
     subject: "We received your Train2Race request",
     html: `
@@ -30,7 +31,8 @@ export async function POST(req: NextRequest) {
         <p style="color: #9aa3ab; font-size: 12px; margin-top: 24px; border-top: 1px solid #2e3440; padding-top: 16px;">Train2Race · team training for endurance athletes</p>
       </div>
     `,
-  }).catch(() => {});
+  });
+  if (error) console.error("Resend confirmation email error:", error);
 
   return NextResponse.json({ ok: true });
 }

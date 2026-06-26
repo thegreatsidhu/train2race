@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM = process.env.RESEND_FROM || "Train2Race <onboarding@resend.dev>";
 
 export async function POST(req: Request) {
   try {
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     const { error: sendError } = await resend.emails.send({
-      from: "Train2Race <onboarding@resend.dev>",
+      from: FROM,
       to: email,
       subject: "Reset your Train2Race password",
       html: `

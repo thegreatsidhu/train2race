@@ -5,11 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { isAdminAuthorized } from "@/lib/adminAuth";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM = process.env.RESEND_FROM || "Train2Race <onboarding@resend.dev>";
 
-async function sendInviteEmail(name: string, email: string, code: string) {
+async function sendInviteEmail(name: string, email: string, code: string): Promise<string | null> {
   const signupUrl = `https://train2race.com/signup?invite=${code}`;
-  await resend.emails.send({
-    from: "Train2Race <onboarding@resend.dev>",
+  const { error } = await resend.emails.send({
+    from: FROM,
     to: email,
     subject: "Your Train2Race invite code",
     html: `
@@ -27,6 +28,11 @@ async function sendInviteEmail(name: string, email: string, code: string) {
       </div>
     `,
   });
+  if (error) {
+    console.error("Resend invite email error:", error);
+    return (error as any).message || "Email failed to send";
+  }
+  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -50,15 +56,15 @@ export async function PATCH(req: NextRequest) {
     await prisma.inviteCode.create({ data: { code, note: `For invite request ${id}` } });
     await prisma.inviteRequest.update({ where: { id }, data: { status: "sent", inviteCode: code } });
 
-    await sendInviteEmail(request.name, request.email, code);
-    return NextResponse.json({ ok: true, code });
+    const emailError = await sendInviteEmail(request.name, request.email, code);
+    return NextResponse.json({ ok: true, code, emailError });
   }
 
   if (action === "resend") {
     const request = await prisma.inviteRequest.findUnique({ where: { id } });
     if (!request || !request.inviteCode) return NextResponse.json({ error: "No code to resend" }, { status: 400 });
-    await sendInviteEmail(request.name, request.email, request.inviteCode);
-    return NextResponse.json({ ok: true, code: request.inviteCode });
+    const emailError = await sendInviteEmail(request.name, request.email, request.inviteCode);
+    return NextResponse.json({ ok: true, code: request.inviteCode, emailError });
   }
 
   if (action === "decline") {
