@@ -41,6 +41,11 @@ export default function AdminPage() {
   const [adminMsgs, setAdminMsgs] = useState([]);
   const [adminAnns, setAdminAnns] = useState([]);
   const [adminMsgsLoaded, setAdminMsgsLoaded] = useState(false);
+  const [inviteRequests, setInviteRequests] = useState([]);
+  const [inviteRequestsLoaded, setInviteRequestsLoaded] = useState(false);
+  const [fulfillCodes, setFulfillCodes] = useState({});
+  const [fulfillingId, setFulfillingId] = useState(null);
+  const [decliningId, setDecliningId] = useState(null);
 
   const [allChallenges, setAllChallenges] = useState([]);
   const [challengesLoaded, setChallengesLoaded] = useState(false);
@@ -421,6 +426,32 @@ export default function AdminPage() {
     }
   }
 
+  async function loadInviteRequests() {
+    if (inviteRequestsLoaded) return;
+    const res = await fetch(`/api/admin/invite-requests?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setInviteRequests(d.requests || []);
+    setInviteRequestsLoaded(true);
+  }
+
+  async function fulfillRequest(id) {
+    setFulfillingId(id);
+    const res = await fetch("/api/admin/invite-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "fulfill" }) });
+    const d = await res.json();
+    setFulfillingId(null);
+    if (d.code) {
+      setFulfillCodes(prev => ({ ...prev, [id]: d.code }));
+      setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "sent" } : r));
+    }
+  }
+
+  async function declineRequest(id) {
+    setDecliningId(id);
+    await fetch("/api/admin/invite-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "decline" }) });
+    setDecliningId(null);
+    setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "declined" } : r));
+  }
+
   function switchTab(id) {
     setActiveTab(id);
     if (id === "challenges") { loadChallenges(); loadTeams(); }
@@ -428,6 +459,7 @@ export default function AdminPage() {
     if (id === "teams") loadTeams();
     if (id === "races") loadAllRaces();
     if (id === "messages") loadAdminMsgs();
+    if (id === "requests") loadInviteRequests();
   }
 
   if (!authed && loading) {
@@ -551,6 +583,7 @@ export default function AdminPage() {
             { id: "races", label: "Races (" + (data?.pendingRaces?.length || 0) + " pending)" },
             { id: "chat", label: "Chat" },
             { id: "messages", label: "Messages" },
+            { id: "requests", label: "Requests" + (inviteRequestsLoaded && inviteRequests.filter(r=>r.status==="pending").length > 0 ? " (" + inviteRequests.filter(r=>r.status==="pending").length + ")" : "") },
             { id: "challenges", label: "Challenges" + (challengesLoaded && pendingChallengeCount > 0 ? " (" + pendingChallengeCount + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "teams", label: "Teams (" + teams.length + ")" },
@@ -1427,6 +1460,55 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "requests" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-medium">Invite Code Requests ({inviteRequests.filter(r => r.status === "pending").length} pending)</h2>
+              <button onClick={() => { setInviteRequestsLoaded(false); loadInviteRequests(); }} className="text-xs text-foreground-dim hover:text-foreground">Refresh</button>
+            </div>
+            {!inviteRequestsLoaded ? (
+              <p className="text-sm text-foreground-dim">Loading…</p>
+            ) : inviteRequests.length === 0 ? (
+              <p className="text-sm text-foreground-dim">No requests yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {inviteRequests.map(r => (
+                  <div key={r.id} className={"rounded-xl border p-4 " + (r.status === "pending" ? "border-signal/30 bg-signal/5" : "border-border bg-surface opacity-60")}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-sm font-medium">{r.name}</span>
+                          <span className="text-xs text-foreground-dim">{r.email}</span>
+                          <span className={"text-xs px-2 py-0.5 rounded-full " + (r.status === "pending" ? "bg-signal/15 text-signal" : r.status === "sent" ? "bg-green-900/30 text-green-400" : "bg-red-900/20 text-red-400")}>{r.status}</span>
+                        </div>
+                        <p className="text-xs text-foreground-dim">{new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                        {r.message && <p className="text-sm mt-1 italic text-foreground-dim">"{r.message}"</p>}
+                        {fulfillCodes[r.id] && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-foreground-dim">Invite code:</span>
+                            <code className="text-sm font-mono font-bold text-signal bg-signal/10 px-2 py-0.5 rounded">{fulfillCodes[r.id]}</code>
+                            <button onClick={() => navigator.clipboard.writeText(fulfillCodes[r.id])} className="text-xs text-foreground-dim hover:text-foreground">Copy</button>
+                          </div>
+                        )}
+                      </div>
+                      {r.status === "pending" && (
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => fulfillRequest(r.id)} disabled={fulfillingId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium bg-signal text-background disabled:opacity-50">
+                            {fulfillingId === r.id ? "Generating…" : "Generate code"}
+                          </button>
+                          <button onClick={() => declineRequest(r.id)} disabled={decliningId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium border border-red-600/40 text-red-400 disabled:opacity-50">
+                            {decliningId === r.id ? "…" : "Decline"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

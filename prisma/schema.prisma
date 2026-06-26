@@ -474,6 +474,16 @@ model Announcement {
   @@map("announcements")
 }
 
+model InviteRequest {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  @@map("invite_requests")
+}
+
 model EventMessage {
   id          String         @id @default(cuid())
   majorRaceId String

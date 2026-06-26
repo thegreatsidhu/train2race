@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { InviteRequestForm } from "@/components/InviteRequestForm";
 
 export default function Home() {
   return (
@@ -23,9 +24,12 @@ export default function Home() {
             <p className="font-data text-xs uppercase tracking-[0.18em] text-signal mb-5">Train together · Race together</p>
             <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.08] mb-6">The team that trains together<br/>races better.</h1>
             <p className="text-foreground-dim text-lg leading-relaxed max-w-md mb-8">Train2Race brings your crew together around a shared race goal — team leaderboards, group chat, training plans, and a global community all in one place.</p>
-            <div className="flex items-center gap-4 flex-wrap mb-6">
+            <div className="flex items-center gap-4 flex-wrap mb-4">
               <Link href="/signup" className="px-6 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Join for free</Link>
               <Link href="/login" className="px-6 py-3 rounded-full border border-border hover:border-foreground-dim transition-colors">Log in</Link>
+            </div>
+            <div className="mb-6">
+              <InviteRequestForm label="Need an invite code? Request one →" />
             </div>
             <div className="flex items-center gap-6 text-xs text-foreground-dim flex-wrap">
               <div><span className="text-signal font-semibold">100+</span> major races</div>

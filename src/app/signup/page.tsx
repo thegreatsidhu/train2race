@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { InviteRequestForm } from "@/components/InviteRequestForm";
 
 function SignupForm() {
   const router = useRouter();
@@ -89,6 +90,11 @@ export default function SignupPage() {
           Already have an account?{" "}
           <Link href="/login" className="text-signal hover:underline">Log in</Link>
         </p>
+
+        <div className="mt-6 pt-6 border-t border-border">
+          <p className="text-center text-xs text-foreground-dim mb-3">Don't have an invite code yet?</p>
+          <InviteRequestForm label="Request an invite code →" />
+        </div>
       </div>
     </div>
   );
