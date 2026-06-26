@@ -54,6 +54,9 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
   const [userSort, setUserSort] = useState("newest");
   const [teamSearch, setTeamSearch] = useState("");
+  const [teamSort, setTeamSort] = useState("members");
+  const [challengeSearch, setChallengeSearch] = useState("");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("open");
   const [editingTeamId, setEditingTeamId] = useState(null);
   const [editTeamName, setEditTeamName] = useState("");
   const [editTeamDesc, setEditTeamDesc] = useState("");
@@ -393,6 +396,8 @@ export default function AdminPage() {
   const usedCodes = data?.inviteCodes?.filter((c) => c.usedBy) || [];
   const pendingChallengeCount = allChallenges.filter(c => c.status === "pending").length;
 
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
   const filteredUsers = (data?.users || [])
     .filter(u => {
       if (!userSearch) return true;
@@ -404,14 +409,32 @@ export default function AdminPage() {
       if (userSort === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       if (userSort === "name") return (a.name || "").localeCompare(b.name || "");
       if (userSort === "races") return (b.raceTargets?.length || 0) - (a.raceTargets?.length || 0);
+      if (userSort === "active") return (b._count?.activities || 0) - (a._count?.activities || 0);
       return 0;
     });
 
-  const filteredTeams = teams.filter(t => {
-    if (!teamSearch) return true;
-    const q = teamSearch.toLowerCase();
-    return t.name.toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q);
+  const filteredTeams = teams
+    .filter(t => {
+      if (!teamSearch) return true;
+      const q = teamSearch.toLowerCase();
+      return t.name.toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (teamSort === "members") return b.members.length - a.members.length;
+      if (teamSort === "name") return a.name.localeCompare(b.name);
+      if (teamSort === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return 0;
+    });
+
+  const filteredChallengesSearched = filteredChallenges.filter(c => {
+    if (!challengeSearch) return true;
+    const q = challengeSearch.toLowerCase();
+    return c.title.toLowerCase().includes(q) || (c.teamName || "").toLowerCase().includes(q);
   });
+
+  const filteredTickets = tickets.filter(t =>
+    ticketStatusFilter === "all" ? true : t.status === ticketStatusFilter
+  );
 
   const filteredChallenges = allChallenges.filter(c => {
     if (challengeStatusFilter === "all") return true;
@@ -430,11 +453,12 @@ export default function AdminPage() {
           <button onClick={() => { setAuthed(false); setData(null); setPassword(""); }} className="px-4 py-2 rounded-full border border-border text-sm">Sign out</button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           {[
             { label: "Total users", value: data?.users?.length || 0 },
-            { label: "Activities", value: data?.activityCount || 0 },
+            { label: "Activities logged", value: data?.activityCount || 0 },
             { label: "Race plans", value: data?.raceCount || 0 },
+            { label: "Teams", value: data?.teamCount ?? teams.length },
             { label: "Unused invites", value: unusedCodes.length },
           ].map(stat => (
             <div key={stat.label} className="rounded-2xl border border-border bg-surface p-4">
@@ -476,6 +500,7 @@ export default function AdminPage() {
                 <option value="oldest">Oldest first</option>
                 <option value="name">Name A–Z</option>
                 <option value="races">Most races</option>
+                <option value="active">Most active</option>
               </select>
             </div>
             {userSearch && (
@@ -486,9 +511,16 @@ export default function AdminPage() {
               <div key={user.id} className="rounded-2xl border border-border bg-surface p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-medium">{user.name || "No name"}</p>
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <p className="font-medium">{user.name || "No name"}</p>
+                      {new Date(user.createdAt).getTime() > sevenDaysAgo && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">New</span>
+                      )}
+                    </div>
                     <a href={`mailto:${user.email}`} className="text-sm text-foreground-dim hover:text-signal transition-colors">{user.email}</a>
-                    <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(user.createdAt).toLocaleDateString()} · {user.raceTargets?.length || 0} race{user.raceTargets?.length !== 1 ? "s" : ""}</p>
+                    <p className="text-xs text-foreground-dim mt-0.5">
+                      Joined {new Date(user.createdAt).toLocaleDateString()} · {user.raceTargets?.length || 0} race{user.raceTargets?.length !== 1 ? "s" : ""} · {user._count?.activities || 0} activities
+                    </p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {user.connections?.map((c) => (
                         <span key={c.source} className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border">{c.source}</span>
@@ -784,14 +816,21 @@ export default function AdminPage() {
 
         {activeTab === "challenges" && (
           <div>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <h2 className="font-medium">All Challenges ({filteredChallenges.length})</h2>
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="font-medium">All Challenges ({filteredChallengesSearched.length})</h2>
               <button onClick={() => { setShowCreateChallenge(v => !v); setCreateChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create challenge</button>
+            </div>
+            <div className="flex flex-col gap-2 mb-4">
+              <input
+                value={challengeSearch}
+                onChange={e => setChallengeSearch(e.target.value)}
+                placeholder="Search by title or team..."
+                className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none"
+              />
               <div className="flex gap-1.5 flex-wrap">
                 {[
                   { v: "all", l: "All" },
-                  { v: "pending", l: "Pending" },
+                  { v: "pending", l: "Pending" + (allChallenges.filter(c=>c.status==="pending").length > 0 ? ` (${allChallenges.filter(c=>c.status==="pending").length})` : "") },
                   { v: "active", l: "Active" },
                   { v: "ended", l: "Ended" },
                   { v: "rejected", l: "Rejected" },
@@ -800,7 +839,6 @@ export default function AdminPage() {
                     {f.l}
                   </button>
                 ))}
-              </div>
               </div>
             </div>
             {showCreateChallenge && (
@@ -836,11 +874,11 @@ export default function AdminPage() {
             )}
             {!challengesLoaded ? (
               <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
-            ) : filteredChallenges.length === 0 ? (
+            ) : filteredChallengesSearched.length === 0 ? (
               <p className="text-sm text-foreground-dim">No challenges found.</p>
             ) : (
               <div className="space-y-3">
-                {filteredChallenges.map((c) => {
+                {filteredChallengesSearched.map((c) => {
                   const isActive = c.status === "approved" && new Date() < new Date(c.endDate);
                   const isEnded = c.status === "approved" && new Date() >= new Date(c.endDate);
                   const isPending = c.status === "pending";
@@ -939,12 +977,30 @@ export default function AdminPage() {
 
         {activeTab === "tickets" && (
           <div>
-            <h2 className="font-medium mb-4">Support Tickets</h2>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="font-medium">Support Tickets</h2>
+              {ticketsLoaded && <span className="text-xs text-foreground-dim">{filteredTickets.length} shown · {tickets.filter(t=>t.status==="open").length} open</span>}
+            </div>
+            {ticketsLoaded && (
+              <div className="flex gap-1.5 flex-wrap mb-4">
+                {[
+                  { v: "open", l: "Open" + (tickets.filter(t=>t.status==="open").length > 0 ? ` (${tickets.filter(t=>t.status==="open").length})` : "") },
+                  { v: "in_progress", l: "In progress" },
+                  { v: "resolved", l: "Resolved" },
+                  { v: "closed", l: "Closed" },
+                  { v: "all", l: "All" },
+                ].map(f => (
+                  <button key={f.v} onClick={() => setTicketStatusFilter(f.v)} className={"text-xs px-3 py-1 rounded-full border transition-colors " + (ticketStatusFilter === f.v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                    {f.l}
+                  </button>
+                ))}
+              </div>
+            )}
             {!ticketsLoaded ? (
               <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
-            ) : tickets.length === 0 ? <p className="text-sm text-foreground-dim">No tickets yet.</p> : (
+            ) : filteredTickets.length === 0 ? <p className="text-sm text-foreground-dim">{tickets.length === 0 ? "No tickets yet." : `No ${ticketStatusFilter === "all" ? "" : ticketStatusFilter.replace("_"," ")+" "}tickets.`}</p> : (
               <div className="space-y-3">
-                {tickets.map((t)=>{
+                {filteredTickets.map((t)=>{
                   const STATUS_COLORS={open:"border-yellow-600/40 bg-yellow-900/10 text-yellow-300",in_progress:"border-blue-600/40 bg-blue-900/10 text-blue-300",resolved:"border-green-600/40 bg-green-900/10 text-green-300",closed:"border-border bg-surface text-foreground-dim"};
                   return(
                     <div key={t.id} className="rounded-2xl border border-border bg-surface p-4">
@@ -994,12 +1050,19 @@ export default function AdminPage() {
               <button onClick={() => setShowCreateTeam(v => !v)} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create team</button>
             </div>
             {teams.length > 0 && (
-              <input
-                value={teamSearch}
-                onChange={e => setTeamSearch(e.target.value)}
-                placeholder="Search teams by name..."
-                className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none mb-4"
-              />
+              <div className="flex gap-2 mb-4">
+                <input
+                  value={teamSearch}
+                  onChange={e => setTeamSearch(e.target.value)}
+                  placeholder="Search teams by name..."
+                  className="flex-1 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none"
+                />
+                <select value={teamSort} onChange={e => setTeamSort(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                  <option value="members">Most members</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="newest">Newest first</option>
+                </select>
+              </div>
             )}
             {showCreateTeam && (
               <div className="rounded-2xl border border-signal/30 bg-surface p-4 mb-4 space-y-3">
