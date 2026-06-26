@@ -17,6 +17,7 @@ export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addErrorId, setAddErrorId] = useState<string | null>(null);
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!city) { setLoading(false); return; }
@@ -29,6 +30,18 @@ export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { 
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [city]);
+
+  async function joinEvent(race: any, navigate: boolean) {
+    setAddingId(race.id);
+    await fetch("/api/major-races/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ majorRaceId: race.id, isPublic: true }),
+    });
+    setJoinedIds(prev => new Set(prev).add(race.id));
+    setAddingId(null);
+    if (navigate) router.push(`/dashboard/community?race=${race.id}`);
+  }
 
   async function addToPlan(race: any) {
     setAddingId(race.id);
@@ -70,7 +83,7 @@ export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { 
   return (
     <div className="space-y-2">
       {races.map(race => {
-        const isRegistered = registeredRaceIds.includes(race.id);
+        const isRegistered = registeredRaceIds.includes(race.id) || joinedIds.has(race.id);
         const isExpanded = expandedId === race.id;
         const daysAway = Math.ceil((new Date(race.raceDate).getTime() - today.getTime()) / 86400000);
 
@@ -140,12 +153,21 @@ export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { 
                       Go to community →
                     </Link>
                   ) : hasRacePlan ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-foreground-dim text-center">You already have a race in your plan.</p>
-                      <Link href="/dashboard/plan"
-                        className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-surface transition-colors">
-                        View my plan →
-                      </Link>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => joinEvent(race, true)}
+                        disabled={addingId === race.id}
+                        className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-signal text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {addingId === race.id ? "Joining…" : "Join community →"}
+                      </button>
+                      <button
+                        onClick={() => joinEvent(race, false)}
+                        disabled={addingId === race.id}
+                        className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-surface transition-colors disabled:opacity-50"
+                      >
+                        Add to my events
+                      </button>
                     </div>
                   ) : (
                     <button
