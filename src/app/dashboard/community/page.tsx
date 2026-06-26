@@ -1,11 +1,18 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
 
 function fmtGoal(sec: number) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function milesLabel(distanceM: number) {
+  const mi = distanceM / 1609.34;
+  if (distanceM >= 200000) return "140.6 Ironman";
+  if (distanceM >= 100000) return "70.3 Half Ironman";
+  return mi >= 26 ? "Marathon" : mi >= 13 ? "Half Marathon" : `${mi.toFixed(0)} mi`;
 }
 
 function CommunityPageInner() {
@@ -23,19 +30,40 @@ function CommunityPageInner() {
   const [eventTab, setEventTab] = useState("athletes");
   const [sending, setSending] = useState(false);
 
+  // Search
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function loadMyRegs(autoOpenId?: string) {
+    const d = await fetch("/api/major-races/register").then(r => r.json());
+    const regs = d.registrations || [];
+    setMyRegs(regs);
+    setLoading(false);
+    const targetId = autoOpenId || preselectedRaceId;
+    if (targetId) {
+      const found = regs.find((r: any) => r.majorRaceId === targetId);
+      if (found) { loadEvent(found.majorRace); return; }
+    }
+    if (!autoOpenId && regs.length === 1) loadEvent(regs[0].majorRace);
+    if (regs.length === 0) setShowSearch(true);
+  }
+
+  useEffect(() => { loadMyRegs(); }, []);
+
   useEffect(() => {
-    fetch("/api/major-races/register").then(r => r.json()).then(d => {
-      const regs = d.registrations || [];
-      setMyRegs(regs);
-      setLoading(false);
-      if (preselectedRaceId) {
-        const found = regs.find((r: any) => r.majorRaceId === preselectedRaceId);
-        if (found) loadEvent(found.majorRace);
-      } else if (regs.length === 1) {
-        loadEvent(regs[0].majorRace);
-      }
-    });
-  }, []);
+    if (!searchQ.trim()) { setSearchResults([]); return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      const d = await fetch(`/api/major-races?search=${encodeURIComponent(searchQ)}&upcoming=1`).then(r => r.json());
+      setSearchResults(d.races || []);
+      setSearchLoading(false);
+    }, 320);
+  }, [searchQ]);
 
   async function loadEvent(race: any) {
     setSel(race);
@@ -54,6 +82,20 @@ function CommunityPageInner() {
     setIsAdmin(md.isAdmin || false);
     setMyUserId(cd.community?.find((a: any) => a.isMe)?.userId || "");
     setDataLoading(false);
+  }
+
+  async function joinCommunity(race: any) {
+    setJoiningId(race.id);
+    await fetch("/api/major-races/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ majorRaceId: race.id, isPublic: true }),
+    });
+    setJoiningId(null);
+    setShowSearch(false);
+    setSearchQ("");
+    setSearchResults([]);
+    await loadMyRegs(race.id);
   }
 
   async function sendMessage(content: string, replyToId?: string) {
@@ -88,21 +130,105 @@ function CommunityPageInner() {
     setMessages([]);
   }
 
+  const isJoined = (raceId: string) => myRegs.some((r: any) => r.majorRaceId === raceId);
+
   return (
     <div className="max-w-3xl px-4 md:px-8 py-6 md:py-10">
-      <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight mb-1">Community</h1>
-        <p className="text-foreground-dim text-sm">Chat and train with people racing the same events as you.</p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight mb-1">Community</h1>
+          <p className="text-foreground-dim text-sm">Chat and train with people racing the same events as you.</p>
+        </div>
+        {!loading && !showSearch && (
+          <button
+            onClick={() => setShowSearch(true)}
+            className="shrink-0 mt-1 px-4 py-2 rounded-full bg-signal text-background text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            + Find a race
+          </button>
+        )}
       </header>
 
+      {/* Search panel */}
+      {showSearch && (
+        <div className="mb-6 rounded-2xl border border-border bg-surface p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold">Find a race community</h2>
+            {myRegs.length > 0 && (
+              <button onClick={() => { setShowSearch(false); setSearchQ(""); setSearchResults([]); }}
+                className="text-xs text-foreground-dim hover:text-foreground">
+                Cancel
+              </button>
+            )}
+          </div>
+          <input
+            type="text"
+            placeholder="Search by race name…"
+            value={searchQ}
+            onChange={e => setSearchQ(e.target.value)}
+            autoFocus
+            className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm placeholder:text-foreground-dim focus:outline-none focus:border-signal/50 mb-4"
+          />
+
+          {searchLoading && (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => <div key={i} className="h-14 rounded-xl bg-background animate-pulse" />)}
+            </div>
+          )}
+
+          {!searchLoading && searchQ.trim() && searchResults.length === 0 && (
+            <p className="text-sm text-foreground-dim text-center py-4">No upcoming races found for "{searchQ}"</p>
+          )}
+
+          {!searchLoading && searchResults.length > 0 && (
+            <div className="space-y-2">
+              {searchResults.map((race: any) => {
+                const joined = isJoined(race.id);
+                return (
+                  <div key={race.id} className={"rounded-xl border p-3.5 flex items-center justify-between gap-3 " + (joined ? "border-signal/40 bg-signal/5" : "border-border bg-background")}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium">{race.name}</p>
+                        {race.isTriathlon && <span className="text-xs px-1.5 py-0.5 rounded-full bg-cyan-900/40 text-cyan-300 border border-cyan-700/40">Triathlon</span>}
+                        {joined && <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">Joined</span>}
+                      </div>
+                      <p className="text-xs text-foreground-dim mt-0.5">
+                        {[race.city, race.country].filter(Boolean).join(", ")}
+                        {" · "}{new Date(race.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {" · "}{milesLabel(race.distanceM)}
+                        {" · "}{race._count.registrations} athletes
+                      </p>
+                    </div>
+                    {joined ? (
+                      <button onClick={() => { setShowSearch(false); setSearchQ(""); setSearchResults([]); loadEvent(myRegs.find((r: any) => r.majorRaceId === race.id)?.majorRace || race); }}
+                        className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-signal/40 text-signal hover:bg-signal/10 transition-colors">
+                        View →
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => joinCommunity(race)}
+                        disabled={joiningId === race.id}
+                        className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-signal text-background hover:opacity-90 disabled:opacity-50 transition-opacity"
+                      >
+                        {joiningId === race.id ? "Joining…" : "Join"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!searchQ.trim() && (
+            <p className="text-sm text-foreground-dim text-center py-2">Type a race name to search upcoming events</p>
+          )}
+        </div>
+      )}
+
+      {/* My races */}
       {loading ? (
         <div className="space-y-3">{[1, 2].map(i => <div key={i} className="h-16 rounded-2xl bg-surface animate-pulse" />)}</div>
-      ) : myRegs.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-surface p-10 text-center">
-          <p className="font-medium mb-2">You haven't joined any race events yet</p>
-          <p className="text-sm text-foreground-dim">Join a race event from the Races page to connect with other athletes training for the same goal.</p>
-        </div>
-      ) : (
+      ) : myRegs.length === 0 && !showSearch ? null : myRegs.length === 0 ? null : (
         <div>
           {myRegs.length > 1 && (
             <div className="flex gap-2 flex-wrap mb-5">
