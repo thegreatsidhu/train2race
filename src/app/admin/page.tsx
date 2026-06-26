@@ -221,7 +221,7 @@ export default function AdminPage() {
     else { const d = await res.json(); setUserMsg(userId, d.error || "Failed to send email", false); }
   }
 
-  function copyCode(code) { navigator.clipboard.writeText(code); setCopied(code); setTimeout(() => setCopied(null), 2000); }
+  function copyCode(code) { navigator.clipboard.writeText(`${window.location.origin}/signup?invite=${code}`); setCopied(code); setTimeout(() => setCopied(null), 2000); }
 
   async function loadChallenges() {
     if (challengesLoaded) return;
