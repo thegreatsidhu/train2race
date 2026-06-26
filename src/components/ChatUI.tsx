@@ -2,9 +2,23 @@
 
 import { useState, useRef, useEffect } from "react";
 
+function fmtMsgDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (msgDay.getTime() === today.getTime()) return time;
+  if (msgDay.getTime() === yesterday.getTime()) return `Yesterday · ${time}`;
+  if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ` · ${time}`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + ` · ${time}`;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
+  sentAt?: string;
 }
 
 export function ChatUI({ initialMessages }: { initialMessages: Message[] }) {
@@ -21,7 +35,8 @@ export function ChatUI({ initialMessages }: { initialMessages: Message[] }) {
     const text = input.trim();
     if (!text || sending) return;
 
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    const now = new Date().toISOString();
+    setMessages((prev) => [...prev, { role: "user", content: text, sentAt: now }]);
     setInput("");
     setSending(true);
 
@@ -32,12 +47,13 @@ export function ChatUI({ initialMessages }: { initialMessages: Message[] }) {
         body: JSON.stringify({ message: text }),
       });
       const data = await res.json();
+      const replyAt = new Date().toISOString();
       if (res.ok) {
-        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reply, sentAt: replyAt }]);
       } else {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: "Something went wrong — try again in a moment." },
+          { role: "assistant", content: "Something went wrong — try again in a moment.", sentAt: replyAt },
         ]);
       }
     } finally {
@@ -63,6 +79,11 @@ export function ChatUI({ initialMessages }: { initialMessages: Message[] }) {
               }`}
             >
               {m.content}
+              {m.sentAt && (
+                <p className={"text-xs mt-1.5 " + (m.role === "user" ? "opacity-50 text-right" : "text-foreground-dim/60")}>
+                  {fmtMsgDate(m.sentAt)}
+                </p>
+              )}
             </div>
           </div>
         ))}

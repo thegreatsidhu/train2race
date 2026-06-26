@@ -1,6 +1,19 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 
+function fmtMsgDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (msgDay.getTime() === today.getTime()) return time;
+  if (msgDay.getTime() === yesterday.getTime()) return `Yesterday · ${time}`;
+  if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ` · ${time}`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + ` · ${time}`;
+}
+
 interface Message {
   id: string;
   content: string;
@@ -100,7 +113,7 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
                   )}
                   <p className="leading-snug">{msg.content}</p>
                   <p className={"text-xs mt-1 " + (isMe ? "opacity-50" : "text-foreground-dim/60")}>
-                    {new Date(msg.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    {fmtMsgDate(msg.createdAt)}
                   </p>
                 </div>
 

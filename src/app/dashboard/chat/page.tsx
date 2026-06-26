@@ -21,7 +21,7 @@ export default async function ChatPage() {
         </p>
       </header>
       <ChatUI
-        initialMessages={messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))}
+        initialMessages={messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content, sentAt: m.createdAt.toISOString() }))}
       />
     </div>
   );
