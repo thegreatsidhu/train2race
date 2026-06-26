@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 function milesLabel(distanceM: number) {
   const mi = distanceM / 1609.34;
@@ -8,8 +9,11 @@ function milesLabel(distanceM: number) {
 }
 
 export function UpcomingRacesNearby({ city, registeredRaceIds }: { city: string | null; registeredRaceIds: string[] }) {
+  const router = useRouter();
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [addErrorId, setAddErrorId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!city) { setLoading(false); return; }
@@ -22,6 +26,29 @@ export function UpcomingRacesNearby({ city, registeredRaceIds }: { city: string 
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [city]);
+
+  async function addToPlan(race: any) {
+    setAddingId(race.id);
+    setAddErrorId(null);
+    try {
+      const rtRes = await fetch("/api/races", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raceName: race.name, raceDate: race.raceDate, distanceM: race.distanceM, isTriathlon: race.isTriathlon ?? false }),
+      });
+      if (!rtRes.ok) throw new Error();
+      const { race: rt } = await rtRes.json();
+      await fetch("/api/major-races/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ majorRaceId: race.id, raceTargetId: rt.id, isPublic: true }),
+      });
+      router.push("/dashboard/plan");
+    } catch {
+      setAddErrorId(race.id);
+      setAddingId(null);
+    }
+  }
 
   if (!city) return null;
 
@@ -57,7 +84,13 @@ export function UpcomingRacesNearby({ city, registeredRaceIds }: { city: string 
             {isRegistered ? (
               <Link href={`/dashboard/community?race=${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">Community →</Link>
             ) : (
-              <Link href="/dashboard/races?tab=events" className="text-xs text-signal hover:underline shrink-0 ml-4">View →</Link>
+              <button
+                onClick={() => addToPlan(race)}
+                disabled={addingId === race.id}
+                className="text-xs text-signal hover:underline shrink-0 ml-4 disabled:opacity-50"
+              >
+                {addingId === race.id ? "Adding..." : addErrorId === race.id ? "Failed — retry" : "Add to plan →"}
+              </button>
             )}
           </div>
         );
