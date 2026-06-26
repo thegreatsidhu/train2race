@@ -434,14 +434,14 @@ export default function AdminPage() {
     setInviteRequestsLoaded(true);
   }
 
-  async function fulfillRequest(id) {
+  async function fulfillRequest(id, action = "fulfill") {
     setFulfillingId(id);
-    const res = await fetch("/api/admin/invite-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "fulfill" }) });
+    const res = await fetch("/api/admin/invite-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action }) });
     const d = await res.json();
     setFulfillingId(null);
     if (d.code) {
       setFulfillCodes(prev => ({ ...prev, [id]: d.code }));
-      setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "sent" } : r));
+      setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "sent", inviteCode: d.code } : r));
     }
   }
 
@@ -450,6 +450,11 @@ export default function AdminPage() {
     await fetch("/api/admin/invite-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "decline" }) });
     setDecliningId(null);
     setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "declined" } : r));
+  }
+
+  async function deleteInviteRequest(id) {
+    await fetch("/api/admin/invite-requests", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id }) });
+    setInviteRequests(prev => prev.filter(r => r.id !== id));
   }
 
   function switchTab(id) {
@@ -1496,16 +1501,26 @@ export default function AdminPage() {
                           </div>
                         )}
                       </div>
-                      {r.status === "pending" && (
-                        <div className="flex gap-2 shrink-0">
-                          <button onClick={() => fulfillRequest(r.id)} disabled={fulfillingId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium bg-signal text-background disabled:opacity-50">
-                            {fulfillingId === r.id ? "Generating…" : "Generate code"}
+                      <div className="flex gap-2 shrink-0 items-start flex-wrap justify-end">
+                        {r.status === "pending" && (
+                          <>
+                            <button onClick={() => fulfillRequest(r.id, "fulfill")} disabled={fulfillingId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium bg-signal text-background disabled:opacity-50">
+                              {fulfillingId === r.id ? "Sending…" : "Send invite"}
+                            </button>
+                            <button onClick={() => declineRequest(r.id)} disabled={decliningId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium border border-red-600/40 text-red-400 disabled:opacity-50">
+                              {decliningId === r.id ? "…" : "Decline"}
+                            </button>
+                          </>
+                        )}
+                        {r.status === "sent" && (
+                          <button onClick={() => fulfillRequest(r.id, "resend")} disabled={fulfillingId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium border border-signal/40 text-signal hover:bg-signal/10 disabled:opacity-50">
+                            {fulfillingId === r.id ? "Resending…" : "Resend"}
                           </button>
-                          <button onClick={() => declineRequest(r.id)} disabled={decliningId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium border border-red-600/40 text-red-400 disabled:opacity-50">
-                            {decliningId === r.id ? "…" : "Decline"}
-                          </button>
-                        </div>
-                      )}
+                        )}
+                        <button onClick={() => deleteInviteRequest(r.id)} className="px-3 py-1.5 rounded-full text-xs font-medium border border-border text-foreground-dim hover:text-red-400 hover:border-red-600/40">
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -475,12 +475,13 @@ model Announcement {
 }
 
 model InviteRequest {
-  id        String   @id @default(cuid())
-  name      String
-  email     String
-  message   String?
-  status    String   @default("pending")
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  message    String?
+  status     String   @default("pending")
+  inviteCode String?
+  createdAt  DateTime @default(now())
   @@map("invite_requests")
 }
 
