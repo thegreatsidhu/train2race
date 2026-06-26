@@ -351,7 +351,6 @@ export default async function TodayPage() {
             <div className="space-y-2">
               {[
                 { href:"/dashboard/races", label:"Add a target race", desc:"Set your goal race and generate a personalized training plan" },
-                { href:"/dashboard/connections", label:"Connect a device", desc:"Sync Garmin, Whoop, or Apple Watch for recovery insights" },
                 { href:"/dashboard/log-workout", label:"Log your first workout", desc:"Manually record a run, ride, or swim" },
                 { href:"/dashboard/teams", label:"Join a team", desc:"Train alongside your crew and compete on the leaderboard" },
               ].map(item=>(
@@ -501,16 +500,6 @@ export default async function TodayPage() {
         />
       </Accordion>
 
-      {/* Connect device prompt */}
-      {!hasConnection && !isNewUser && (
-        <div className="rounded-2xl border border-border bg-surface p-5 mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">Connect a wearable</p>
-            <p className="text-xs text-foreground-dim mt-0.5">Sync Garmin, Whoop, or Apple Watch to unlock HRV, sleep, and recovery insights.</p>
-          </div>
-          <Link href="/dashboard/connections" className="px-4 py-2 rounded-full bg-signal text-background text-xs font-medium ml-4 shrink-0">Connect</Link>
-        </div>
-      )}
 
       {/* Health metrics + weekly stats */}
       {hasData&&(

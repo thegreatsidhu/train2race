@@ -33,7 +33,6 @@ export function MobileNav({ email }: { email: string }) {
               { href: "/dashboard/community", label: "Community" },
               { href: "/dashboard/teams", label: "Teams" },
               { href: "/dashboard/leaderboard", label: "Leaderboard" },
-              { href: "/dashboard/connections", label: "Connections" },
               { href: "/dashboard/profile", label: "Profile" },
               { href: "/dashboard/support", label: "Help & Support" },
             ].map((link) => (
