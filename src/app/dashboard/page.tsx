@@ -1,9 +1,7 @@
 export const revalidate = 0;
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getMergedDailyMetrics, computeBaselineComparisons } from "@/lib/ai/metrics";
 import { ActivityList } from "@/components/ActivityList";
-import { LocalSection } from "@/components/LocalSection";
 import { UpcomingRacesSection } from "@/components/UpcomingRacesSection";
 import { TeamInvitations } from "@/components/TeamInvitations";
 import Link from "next/link";
@@ -47,8 +45,6 @@ const QUOTES = [
   { text: "There will be days when I don't know if I can run a marathon. Those are the days I run a marathon.", author: "Unknown" },
   { text: "Hills are just speed work in disguise.", author: "Frank Shorter" },
   { text: "The voice inside your head that says you can't do this is a liar.", author: "Unknown" },
-  { text: "I run because if I didn't, I'd be sluggish and glum and spend too much time on the couch.", author: "Paul Carrozza" },
-  { text: "That's the thing about running: your greatest runs are rarely measured in how fast or slow you ran. They are measured in moments.", author: "Dean Karnazes" },
   { text: "What seems hard now will one day be your warm-up.", author: "Unknown" },
   { text: "Success isn't always about greatness. It's about consistency. Consistent hard work leads to success.", author: "Dwayne Johnson" },
   { text: "The more difficult the victory, the greater the happiness in winning.", author: "Pelé" },
@@ -61,11 +57,9 @@ const QUOTES = [
   { text: "Strength does not come from the body. It comes from the will.", author: "Unknown" },
   { text: "Life is short. Run fast.", author: "Unknown" },
   { text: "Your only competition is who you were yesterday.", author: "Unknown" },
-  { text: "A mile is a mile whether you run it fast or slow — but you'll feel better about the fast one.", author: "Unknown" },
   { text: "Courage is not having the strength to go on; it is going on when you don't have the strength.", author: "Theodore Roosevelt" },
   { text: "You are stronger than you think.", author: "Unknown" },
   { text: "Train hard, win easy.", author: "Unknown" },
-  { text: "Excellence is not a destination; it is a continuous journey that never ends.", author: "Brian Tracy" },
   { text: "The pain you feel today will be the strength you feel tomorrow.", author: "Unknown" },
   { text: "You were built for this. Every mile, every rep, every early morning led here.", author: "Unknown" },
 ];
@@ -85,19 +79,6 @@ const TIMEZONE_CITY: Record<string, string> = {
 function formatDuration(sec: number) {
   const h=Math.floor(sec/3600); const m=Math.floor((sec%3600)/60);
   return h>0 ? h+"h "+m+"m" : m+"m";
-}
-
-function computeFlags(comparisons: any[]) {
-  const flags: {type:string;metric:string;message:string}[] = [];
-  const hrv = comparisons.find(c=>c.field==="hrvMs");
-  const rhr = comparisons.find(c=>c.field==="restingHeartRate");
-  const sleep = comparisons.find(c=>c.field==="sleepScore");
-  const recovery = comparisons.find(c=>c.field==="bodyBatteryOrRecoveryPct");
-  if (hrv?.deltaPct&&hrv.deltaPct<-20) flags.push({type:"warning",metric:"HRV",message:"HRV is "+Math.abs(hrv.deltaPct)+"% below your 30-day average. Consider an easy day."});
-  if (rhr?.deltaPct&&rhr.deltaPct>10) flags.push({type:"warning",metric:"Resting HR",message:"Resting HR is "+rhr.deltaPct+"% above your average. Monitor for fatigue."});
-  if (sleep?.deltaPct&&sleep.deltaPct<-15) flags.push({type:"info",metric:"Sleep",message:"Sleep score is below your usual range. Prioritize recovery tonight."});
-  if (recovery?.deltaPct&&recovery.deltaPct<-20) flags.push({type:"warning",metric:"Recovery",message:"Recovery is "+Math.abs(recovery.deltaPct)+"% below your baseline. Avoid hard efforts today."});
-  return flags;
 }
 
 function getGreeting(timezone: string | null) {
@@ -127,11 +108,6 @@ function computeStreak(activities: { startTime: Date }[], today: Date): number {
   return streak;
 }
 
-function milesLabel(distanceM: number) {
-  const mi = distanceM / 1609.34;
-  return mi >= 26 ? "Marathon" : mi >= 13 ? "Half marathon" : `${mi.toFixed(1)}mi`;
-}
-
 export default async function TodayPage() {
   const session = await auth();
   const userId = (session!.user as {id:string}).id;
@@ -142,11 +118,9 @@ export default async function TodayPage() {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const fortyFiveDaysAgo = new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000);
   const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(),0,0).getTime()) / 86400000);
-
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const [history, hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, myMemberships, rawTeamMessages, allRaceRegs] = await Promise.all([
-    getMergedDailyMetrics(userId, 30),
+  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, myMemberships, rawTeamMessages, allRaceRegs] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
@@ -160,26 +134,48 @@ export default async function TodayPage() {
     prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
   ]);
 
-  // Only show chat messages newer than when the user last viewed that team's chat
-  const chatViewMap = new Map((myMemberships as any[]).map((m: any) => [m.teamId, m.lastViewedChatAt]));
-  const recentTeamMessages = (rawTeamMessages as any[]).filter((msg: any) => {
-    const lastViewed = chatViewMap.get(msg.teamId);
-    return !lastViewed || new Date(msg.createdAt) > new Date(lastViewed);
+  // Teams with member counts + weekly activity
+  const userTeams = await prisma.team.findMany({
+    where: { members: { some: { userId } } },
+    select: { id: true, name: true, _count: { select: { members: true } }, members: { select: { userId: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 5,
   });
+  const allTeamMemberIds = [...new Set(userTeams.flatMap((t: any) => t.members.map((m: any) => m.userId)))];
+  const weeklyActiveUsers = allTeamMemberIds.length > 0
+    ? await prisma.activity.findMany({ where: { userId: { in: allTeamMemberIds }, startTime: { gte: weekStart, lte: weekEnd } }, select: { userId: true }, distinct: ["userId"] })
+    : [];
+  const weeklyActiveSet = new Set(weeklyActiveUsers.map((a: any) => a.userId));
+  const teamsWithActivity = userTeams.map((t: any) => ({
+    id: t.id, name: t.name,
+    memberCount: t._count.members,
+    weeklyActiveCount: t.members.filter((m: any) => weeklyActiveSet.has(m.userId)).length,
+  }));
 
-  const primaryTeam = await prisma.team.findFirst({
-    where:{members:{some:{userId}}},
-    orderBy:{createdAt:"desc"},
-    include:{members:{include:{user:{select:{id:true,name:true,trainingPlans:{take:1,orderBy:{createdAt:"desc"},select:{_count:{select:{workouts:true}},workouts:{where:{completed:true},select:{id:true}}}}}}},orderBy:{joinedAt:"asc"}}},
-  });
+  // Race community leaderboard
+  let raceLeaderboard: any[] = [];
+  if ((raceReg as any)?.majorRace?.id) {
+    try {
+      const communityRegs = await prisma.raceRegistration.findMany({
+        where: { majorRaceId: (raceReg as any).majorRace.id, isPublic: true },
+        include: { user: { select: { id: true, name: true } }, raceTarget: { select: { trainingPlan: { select: { _count: { select: { workouts: true } }, workouts: { where: { completed: true }, select: { id: true } } } } } } },
+        take: 20,
+      });
+      raceLeaderboard = communityRegs.map((r: any) => {
+        const tp = r.raceTarget?.trainingPlan;
+        const total = tp?._count?.workouts ?? 0;
+        const done = tp?.workouts?.length ?? 0;
+        return { userId: r.userId, name: r.user.name || "Athlete", isMe: r.userId === userId, pct: total > 0 ? Math.round((done / total) * 100) : 0, hasPlan: total > 0 };
+      }).sort((a: any, b: any) => b.pct - a.pct).slice(0, 8);
+    } catch {}
+  }
 
   let activeChallenges: any[] = [];
   try {
     activeChallenges = await (prisma as any).teamChallenge.findMany({
       where:{team:{members:{some:{userId}}},endDate:{gte:today},status:"approved"},
       include:{team:{select:{id:true,name:true}},entries:{where:{userId},select:{value:true}}},
-      orderBy:{endDate:"asc"},
-      take:10,
+      orderBy:{endDate:"asc"}, take:10,
     });
   } catch {}
 
@@ -188,15 +184,10 @@ export default async function TodayPage() {
     unreadDms = await (prisma as any).directMessage.findMany({
       where:{toUserId:userId,isRead:false,createdAt:{gte:thirtyDaysAgo}},
       select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},fromUser:{select:{name:true}}},
-      orderBy:{createdAt:"desc"},
-      take:20,
+      orderBy:{createdAt:"desc"}, take:20,
     });
   } catch {}
 
-  const comparisons = computeBaselineComparisons(history);
-  const latest = history[history.length-1];
-  const hasData = history.length > 0;
-  const flags = hasData ? computeFlags(comparisons) : [];
   const weeklyMiles = weeklyActivities.reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const weeklyTime = weeklyActivities.reduce((s,a)=>s+(a.durationSec||0),0);
   const plan = activeRace?.trainingPlan;
@@ -208,30 +199,23 @@ export default async function TodayPage() {
   const thisWeekWorkouts = allWorkouts.filter(w=>{const d=new Date(w.date);return d>=weekStart&&d<=weekEnd;});
   const todaysWorkout = thisWeekWorkouts.find(w=>w.day===todayDay);
   const upcomingWorkouts = thisWeekWorkouts.filter(w=>{const d=new Date(w.date);d.setHours(0,0,0,0);return d>today&&!w.completed;}).slice(0,2);
-  const hrvComparison = comparisons.find(c=>c.field==="hrvMs");
-  const sleepComparison = comparisons.find(c=>c.field==="sleepScore");
-  const recoveryComparison = comparisons.find(c=>c.field==="bodyBatteryOrRecoveryPct");
-  const rhrComparison = comparisons.find(c=>c.field==="restingHeartRate");
 
   const userName = user?.name?.split(" ")[0] ?? "Athlete";
   const greetingText = getGreeting(user?.timezone ?? null);
   const timezoneCity = TIMEZONE_CITY[user?.timezone ?? ""] ?? null;
-  const raceCity = raceReg?.majorRace?.city ?? null;
+  const raceCity = (raceReg as any)?.majorRace?.city ?? null;
   const displayCity = (user as any)?.city ?? timezoneCity ?? raceCity;
   const quote = QUOTES[dayOfYear % QUOTES.length];
   const streak = computeStreak(recentForStreak, today);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
-  const isNewUser = !hasConnection && !activeRace && !hasData && recentActivities.length === 0;
+  const isNewUser = !hasConnection && !activeRace && recentActivities.length === 0;
 
   const workoutItems = completedWorkouts.map((w: any) => ({
-    id: `workout_${w.id}`,
-    title: w.title,
-    type: w.type,
+    id: `workout_${w.id}`, title: w.title, type: w.type,
     startTime: w.completedAt ?? new Date(w.date),
     durationSec: w.durationMin ? w.durationMin * 60 : 0,
     distanceM: w.distanceKm ? Math.round(w.distanceKm * 1000) : null,
-    source: "plan",
-    raw: null,
+    source: "plan", raw: null,
   }));
   const loggedItems = recentActivities.map((a: any) => ({
     id: a.id, title: a.title, type: a.type, startTime: a.startTime,
@@ -242,81 +226,66 @@ export default async function TodayPage() {
     .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
     .slice(0, 10);
 
-  // Group new team chat messages by team
+  // Chat / DM notifications
+  const chatViewMap = new Map((myMemberships as any[]).map((m: any) => [m.teamId, m.lastViewedChatAt]));
+  const recentTeamMessages = (rawTeamMessages as any[]).filter((msg: any) => {
+    const lastViewed = chatViewMap.get(msg.teamId);
+    return !lastViewed || new Date(msg.createdAt) > new Date(lastViewed);
+  });
   const msgByTeam = new Map<string, {teamId:string;teamName:string;count:number;senderName:string;preview:string}>();
   for (const msg of recentTeamMessages) {
-    const key = msg.teamId;
-    if (!msgByTeam.has(key)) {
-      msgByTeam.set(key, { teamId: msg.team.id, teamName: msg.team.name, count: 0, senderName: msg.user.name ?? "Someone", preview: msg.content });
-    }
-    msgByTeam.get(key)!.count++;
+    if (!msgByTeam.has(msg.teamId)) msgByTeam.set(msg.teamId, { teamId: msg.team.id, teamName: msg.team.name, count: 0, senderName: msg.user.name ?? "Someone", preview: msg.content });
+    msgByTeam.get(msg.teamId)!.count++;
   }
   const teamMessageGroups = Array.from(msgByTeam.values());
-
-  // Group unread DMs by team
   const dmByTeam = new Map<string, {teamId:string;teamName:string;count:number;senderName:string;preview:string}>();
   for (const dm of (unreadDms as any[])) {
-    const key = dm.teamId;
-    if (!dmByTeam.has(key)) {
-      dmByTeam.set(key, { teamId: dm.team.id, teamName: dm.team.name, count: 0, senderName: dm.fromUser.name ?? "Captain", preview: dm.content });
-    }
-    dmByTeam.get(key)!.count++;
+    if (!dmByTeam.has(dm.teamId)) dmByTeam.set(dm.teamId, { teamId: dm.team.id, teamName: dm.team.name, count: 0, senderName: dm.fromUser.name ?? "Captain", preview: dm.content });
+    dmByTeam.get(dm.teamId)!.count++;
   }
   const dmGroups = Array.from(dmByTeam.values());
 
-  const leaderboard = primaryTeam ? primaryTeam.members.map(m => {
-    const p = m.user.trainingPlans[0];
-    const total = p?._count?.workouts ?? 0;
-    const done = p?.workouts?.length ?? 0;
-    return { userId: m.user.id, name: m.user.name || "Anonymous", pct: total>0?Math.round((done/total)*100):0, isMe: m.userId===userId };
-  }).sort((a,b)=>b.pct-a.pct).slice(0,5) : [];
-
   return (
-    <div className="max-w-4xl px-4 md:px-8 py-6 md:py-10">
+    <div className="max-w-2xl px-4 md:px-8 py-6 md:py-10">
 
-      {/* Header */}
-      <header className="mb-6">
-        <p className="font-data text-xs uppercase tracking-[0.16em] text-foreground-dim mb-1">
+      {/* ── Header ── */}
+      <header className="mb-8">
+        <p className="text-xs text-foreground-dim uppercase tracking-[0.16em] mb-2">
           {today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
         </p>
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight mb-3">{greetingText}, {userName}</h1>
-        {/* Stats bar */}
-        {(streak > 0 || monthlyMiles > 0) && (
-          <div className="flex items-center gap-3 flex-wrap">
-            {streak > 0 && (
-              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-surface border border-border">
-                <span>{streak >= 7 ? "🔥" : streak >= 3 ? "⚡" : "✓"}</span>
-                <span className="font-medium">{streak}-day streak</span>
-              </span>
-            )}
-            {monthlyMiles > 0 && (
-              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-surface border border-border">
-                <span className="font-medium">{monthlyMiles.toFixed(1)} mi</span>
-                <span className="text-foreground-dim">this month</span>
-              </span>
-            )}
-            {activeRace && (
-              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-surface border border-border">
-                <span className="font-medium">{daysToRace}d</span>
-                <span className="text-foreground-dim">to {activeRace.raceName}</span>
-              </span>
-            )}
-          </div>
-        )}
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4">{greetingText}, {userName}.</h1>
+        <div className="flex flex-wrap gap-2">
+          {streak > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-surface border border-border font-medium">
+              {streak >= 7 ? "🔥" : streak >= 3 ? "⚡" : "✓"} {streak}-day streak
+            </span>
+          )}
+          {monthlyMiles > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-surface border border-border">
+              <span className="font-medium">{monthlyMiles.toFixed(1)} mi</span>
+              <span className="text-foreground-dim">this month</span>
+            </span>
+          )}
+          {activeRace && daysToRace > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-signal/10 border border-signal/30 text-signal font-medium">
+              {daysToRace}d to race
+            </span>
+          )}
+        </div>
       </header>
 
-      {/* Team invitations */}
+      {/* ── Invitations ── */}
       <TeamInvitations />
 
-      {/* Team chat & DM notifications */}
+      {/* ── DM / chat notifications ── */}
       {(teamMessageGroups.length > 0 || dmGroups.length > 0) && (
         <div className="mb-6 space-y-2">
           {dmGroups.map(g => (
             <Link key={"dm-"+g.teamId} href={`/dashboard/teams/${g.teamId}`} className="flex items-start gap-3 rounded-2xl border border-signal/50 bg-signal/10 px-4 py-3 hover:bg-signal/15 transition-colors">
               <span className="text-base shrink-0 mt-0.5">✉️</span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{g.count} new private {g.count === 1 ? "message" : "messages"} from {g.senderName}</p>
-                <p className="text-xs text-foreground-dim truncate">{g.teamName} · "{g.preview.length > 60 ? g.preview.slice(0, 60) + "…" : g.preview}"</p>
+                <p className="text-sm font-medium">{g.count} new private {g.count===1?"message":"messages"} from {g.senderName}</p>
+                <p className="text-xs text-foreground-dim truncate">{g.teamName} · "{g.preview.length>60?g.preview.slice(0,60)+"…":g.preview}"</p>
               </div>
               <span className="text-foreground-dim text-xs shrink-0 self-center">→</span>
             </Link>
@@ -325,8 +294,8 @@ export default async function TodayPage() {
             <Link key={g.teamId} href={`/dashboard/teams/${g.teamId}`} className="flex items-start gap-3 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3 hover:bg-signal/10 transition-colors">
               <span className="text-base shrink-0 mt-0.5">💬</span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{g.count} new {g.count === 1 ? "message" : "messages"} in {g.teamName}</p>
-                <p className="text-xs text-foreground-dim truncate">{g.senderName}: "{g.preview.length > 60 ? g.preview.slice(0, 60) + "…" : g.preview}"</p>
+                <p className="text-sm font-medium">{g.count} new {g.count===1?"message":"messages"} in {g.teamName}</p>
+                <p className="text-xs text-foreground-dim truncate">{g.senderName}: "{g.preview.length>60?g.preview.slice(0,60)+"…":g.preview}"</p>
               </div>
               <span className="text-foreground-dim text-xs shrink-0 self-center">→</span>
             </Link>
@@ -334,24 +303,21 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {/* Quote of the day */}
-      {!isNewUser && (
-        <div className="mb-6 px-1">
-          <p className="text-sm italic text-foreground-dim">"{quote.text}"</p>
-          <p className="text-xs text-foreground-dim mt-1">— {quote.author}</p>
-        </div>
-      )}
+      {/* ── Quote ── */}
+      <div className="mb-8 border-l-2 border-signal/30 pl-4">
+        <p className="text-sm italic text-foreground-dim leading-relaxed">"{quote.text}"</p>
+        <p className="text-xs text-foreground-dim/60 mt-1.5">— {quote.author}</p>
+      </div>
 
-      {/* Getting started — new users */}
+      {/* ── New user onboarding ── */}
       {isNewUser && (
-        <section className="mb-6">
+        <section className="mb-8">
           <div className="rounded-2xl border border-border bg-surface p-6">
             <h2 className="font-semibold mb-1">Welcome to Train2Race</h2>
-            <p className="text-sm text-foreground-dim mb-1">Every great race starts with a single workout. Let's build yours.</p>
-            <p className="text-xs italic text-foreground-dim mb-4">"{quote.text}" — {quote.author}</p>
+            <p className="text-sm text-foreground-dim mb-4">Every great race starts with a single workout. Let's build yours.</p>
             <div className="space-y-2">
               {[
-                { href:"/dashboard/races", label:"Add a target race", desc:"Set your goal race and generate a personalized training plan" },
+                { href:"/dashboard/plan", label:"Add a target race", desc:"Set your goal race and generate a personalized training plan" },
                 { href:"/dashboard/log-workout", label:"Log your first workout", desc:"Manually record a run, ride, or swim" },
                 { href:"/dashboard/teams", label:"Join a team", desc:"Train alongside your crew and compete on the leaderboard" },
               ].map(item=>(
@@ -368,101 +334,194 @@ export default async function TodayPage() {
         </section>
       )}
 
-      {/* Weather + team leaderboard */}
-      <Accordion label="Leaderboard" defaultOpen>
-        <LocalSection
-          defaultCity={timezoneCity ?? raceCity}
-          leaderboard={leaderboard}
-          teamId={primaryTeam?.id ?? null}
-          teamName={primaryTeam?.name ?? null}
-        />
-      </Accordion>
-
-      {/* Race training card */}
-      {activeRace && (
+      {/* ── Race countdown ── */}
+      {activeRace ? (
         <section className="mb-6">
           <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <div>
-                <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Training for</p>
-                <h2 className="font-semibold">{activeRace.raceName}</h2>
-                <p className="text-xs text-signal mt-0.5">{raceMessage(daysToRace)}</p>
+            {/* Hero row */}
+            <div className="px-5 py-5 flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-foreground-dim uppercase tracking-[0.12em] mb-1.5">Your next race</p>
+                <h2 className="font-semibold text-lg leading-tight truncate">{activeRace.raceName}</h2>
+                <p className="text-xs text-signal mt-2 leading-relaxed">{raceMessage(daysToRace)}</p>
               </div>
-              <div className="text-right shrink-0 ml-4">
-                <p className="text-2xl font-data font-bold text-signal">{daysToRace}</p>
-                <p className="text-xs text-foreground-dim">{daysToRace===1?"day":"days"} to go</p>
-                <Link href={"/dashboard/races/"+activeRace.id} className="text-xs text-signal hover:underline block mt-1">Full plan →</Link>
+              <div className="text-right shrink-0">
+                <p className="text-5xl font-data font-bold text-signal leading-none">{daysToRace}</p>
+                <p className="text-xs text-foreground-dim mt-1.5">{daysToRace===1?"day":"days"} to go</p>
               </div>
             </div>
+            {/* Plan progress */}
             {totalWorkouts > 0 && (
-              <div className="px-5 py-3 border-b border-border">
+              <div className="px-5 py-3 border-t border-border/50">
                 <div className="flex justify-between text-xs text-foreground-dim mb-1.5">
-                  <span>{doneWorkouts}/{totalWorkouts} workouts complete</span>
+                  <span>{doneWorkouts} of {totalWorkouts} workouts complete</span>
                   <span className={pct>=75?"text-signal":pct>=50?"text-yellow-400":""}>{pct}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-border rounded-full">
-                  <div className={"h-1.5 rounded-full transition-all "+(pct>=75?"bg-signal":pct>=50?"bg-yellow-400":"bg-foreground-dim")} style={{width:pct+"%"}}/>
+                  <div className={"h-1.5 rounded-full transition-all "+(pct>=75?"bg-signal":pct>=50?"bg-yellow-400":"bg-foreground-dim/40")} style={{width:pct+"%"}}/>
                 </div>
               </div>
             )}
-            <div className="px-5 py-4">
+            {/* Today's workout */}
+            <div className="px-5 py-4 border-t border-border/50">
               {(!plan||totalWorkouts===0)?(
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-foreground-dim">No training plan yet. Build one to start your countdown.</p>
+                  <p className="text-sm text-foreground-dim">No training plan yet.</p>
                   <Link href={"/dashboard/races/"+activeRace.id} className="text-xs text-signal hover:underline ml-4 shrink-0">Build plan →</Link>
                 </div>
               ):todaysWorkout?(
                 <div>
                   <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">On the plan today</p>
-                  <div className={"rounded-xl border p-3 "+(TYPE_COLORS[todaysWorkout.type]||"bg-surface border-border")+" "+(todaysWorkout.completed?"opacity-50":"")}>
+                  <div className={"rounded-xl border p-3 "+(TYPE_COLORS[todaysWorkout.type]||"bg-surface border-border")+(todaysWorkout.completed?" opacity-50":"")}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-sm">{todaysWorkout.title}</p>
-                        <p className="text-xs mt-0.5 opacity-75">{todaysWorkout.distanceKm?(todaysWorkout.distanceKm/1.60934).toFixed(1)+" mi":""}{todaysWorkout.durationMin?" · "+todaysWorkout.durationMin+" min":""}</p>
+                        <p className="text-xs mt-0.5 opacity-75">
+                          {todaysWorkout.distanceKm?(todaysWorkout.distanceKm/1.60934).toFixed(1)+" mi":""}
+                          {todaysWorkout.durationMin?" · "+todaysWorkout.durationMin+" min":""}
+                        </p>
                       </div>
                       {todaysWorkout.completed
-                        ? <span className="text-xs bg-signal/20 text-signal px-2 py-1 rounded-full">Done ✓</span>
-                        : <Link href={"/dashboard/races/"+activeRace.id} className="text-xs bg-background/30 px-3 py-1.5 rounded-full border border-current">Log it</Link>}
+                        ?<span className="text-xs bg-signal/20 text-signal px-2 py-1 rounded-full">Done ✓</span>
+                        :<Link href={"/dashboard/races/"+activeRace.id} className="text-xs bg-background/30 px-3 py-1.5 rounded-full border border-current">Log it</Link>}
                     </div>
                   </div>
                 </div>
-              ):<p className="text-sm text-foreground-dim">Rest day — recovery is part of the plan.</p>}
+              ):(
+                <p className="text-sm text-foreground-dim">Rest day — recovery is part of the plan.</p>
+              )}
               {upcomingWorkouts.length>0&&(
-                <div className="mt-3">
-                  <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">Coming up</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {upcomingWorkouts.map(w=>(
-                      <div key={w.id} className="flex items-center gap-1.5 text-xs bg-surface-raised border border-border rounded-lg px-2.5 py-1.5">
-                        <span className="text-foreground-dim">{w.day.slice(0,3)}</span>
-                        <span className="font-medium">{w.title}</span>
-                        {w.distanceKm&&<span className="text-foreground-dim">{(w.distanceKm/1.60934).toFixed(1)}mi</span>}
-                      </div>
-                    ))}
-                  </div>
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  {upcomingWorkouts.map(w=>(
+                    <div key={w.id} className="flex items-center gap-1.5 text-xs bg-surface-raised border border-border rounded-lg px-2.5 py-1.5">
+                      <span className="text-foreground-dim">{w.day.slice(0,3)}</span>
+                      <span className="font-medium">{w.title}</span>
+                      {w.distanceKm&&<span className="text-foreground-dim">{(w.distanceKm/1.60934).toFixed(1)}mi</span>}
+                    </div>
+                  ))}
                 </div>
               )}
+              <Link href={"/dashboard/races/"+activeRace.id} className="block mt-3 text-xs text-foreground-dim hover:text-signal transition-colors">Full plan →</Link>
             </div>
           </div>
         </section>
-      )}
-
-      {!activeRace&&!isNewUser&&(
+      ) : !isNewUser && (
         <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-5 mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">No race on the calendar</p>
             <p className="text-xs text-foreground-dim mt-0.5">Add a target race to unlock your training plan and countdown.</p>
           </div>
-          <Link href="/dashboard/races" className="text-sm text-signal hover:underline ml-4 shrink-0">Add a race →</Link>
+          <Link href="/dashboard/plan" className="text-sm text-signal hover:underline ml-4 shrink-0">Add a race →</Link>
         </div>
       )}
 
-      {/* Active challenges */}
+      {/* ── Race community leaderboard ── */}
+      {raceLeaderboard.length > 0 && (raceReg as any)?.majorRace && (
+        <section className="mb-6">
+          <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Race community</p>
+              <h2 className="font-semibold">{(raceReg as any).majorRace.name}</h2>
+              <p className="text-xs text-foreground-dim mt-0.5">
+                {raceLeaderboard.length} athletes registered ·{" "}
+                {new Date((raceReg as any).majorRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+              </p>
+            </div>
+            <div className="divide-y divide-border/40">
+              {raceLeaderboard.map((athlete: any, i: number) => (
+                <div key={athlete.userId} className={"flex items-center gap-3 px-5 py-3 "+(athlete.isMe?"bg-signal/5":"")}>
+                  <span className={"text-xs font-data w-5 shrink-0 tabular-nums "+(i===0?"text-yellow-400":i===1?"text-slate-300":i===2?"text-amber-600/80":"text-foreground-dim")}>
+                    {i+1}
+                  </span>
+                  <span className={"text-sm flex-1 min-w-0 truncate "+(athlete.isMe?"font-semibold text-signal":"")}>
+                    {athlete.isMe?"You":athlete.name}
+                  </span>
+                  {athlete.hasPlan?(
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-20 h-1.5 bg-border rounded-full hidden sm:block">
+                        <div className="h-1.5 rounded-full bg-signal" style={{width:athlete.pct+"%"}}/>
+                      </div>
+                      <span className="text-xs text-foreground-dim w-8 text-right tabular-nums">{athlete.pct}%</span>
+                    </div>
+                  ):(
+                    <span className="text-xs text-foreground-dim/50 shrink-0">No plan</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-border">
+              <Link href={`/dashboard/community?race=${(raceReg as any).majorRace.id}`} className="text-xs text-signal hover:underline">
+                View full community →
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Your teams ── */}
+      {teamsWithActivity.length > 0 ? (
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-medium text-foreground-dim uppercase tracking-wide">Your crew</h2>
+            <Link href="/dashboard/teams" className="text-xs text-signal hover:underline">All teams →</Link>
+          </div>
+          <div className="space-y-2">
+            {teamsWithActivity.map((t: any) => (
+              <Link key={t.id} href={`/dashboard/teams/${t.id}`}
+                className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 hover:border-signal/30 transition-colors group">
+                <div className="w-9 h-9 rounded-full bg-signal/10 border border-signal/20 flex items-center justify-center shrink-0">
+                  <span className="text-signal font-bold text-sm">{t.name.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{t.name}</p>
+                  <p className="text-xs text-foreground-dim mt-0.5">
+                    {t.memberCount} {t.memberCount===1?"member":"members"}
+                    {t.weeklyActiveCount > 0 && <> · <span className="text-signal">{t.weeklyActiveCount} active this week</span></>}
+                  </p>
+                </div>
+                <span className="text-foreground-dim text-xs group-hover:text-signal transition-colors shrink-0">→</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : !isNewUser && (
+        <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-5 mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">You're not on a team yet</p>
+            <p className="text-xs text-foreground-dim mt-0.5">Train with others — join or create a team to compete together.</p>
+          </div>
+          <Link href="/dashboard/teams" className="text-sm text-signal hover:underline ml-4 shrink-0">Find a team →</Link>
+        </div>
+      )}
+
+      {/* ── Weekly stats ── */}
+      {(weeklyMiles > 0 || weeklyTime > 0 || weeklyActivities.length > 0) && (
+        <section className="mb-6">
+          <h2 className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-3">This week</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border bg-surface px-4 py-3">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Miles</p>
+              <p className="font-data text-xl">{weeklyMiles>0?weeklyMiles.toFixed(1):"--"}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface px-4 py-3">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Time</p>
+              <p className="font-data text-xl">{weeklyTime>0?formatDuration(weeklyTime):"--"}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface px-4 py-3">
+              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Activities</p>
+              <p className="font-data text-xl">{weeklyActivities.length||"--"}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Active challenges ── */}
       {activeChallenges.length > 0 && (
         <Accordion label={`Active challenges (${activeChallenges.length})`}>
           <div className="space-y-3">
-            {activeChallenges.map(c => {
+            {activeChallenges.map((c: any) => {
               const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
-              const pct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
+              const cpct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
               const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
               return (
                 <Link key={c.id} href={`/dashboard/teams/${c.team.id}?tab=challenges&challenge=${c.id}`} className="block rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-surface-raised transition-colors">
@@ -473,14 +532,14 @@ export default async function TodayPage() {
                     </div>
                     <span className="text-xs text-foreground-dim shrink-0 ml-3">{daysLeft}d left</span>
                   </div>
-                  {pct !== null ? (
+                  {cpct !== null ? (
                     <div>
                       <div className="flex justify-between text-xs text-foreground-dim mb-1">
                         <span>{myTotal} / {c.goal} {c.unit}</span>
-                        <span>{pct}%</span>
+                        <span>{cpct}%</span>
                       </div>
                       <div className="w-full h-1.5 bg-border rounded-full">
-                        <div className="h-1.5 rounded-full bg-signal transition-all" style={{width:`${pct}%`}} />
+                        <div className="h-1.5 rounded-full bg-signal transition-all" style={{width:`${cpct}%`}}/>
                       </div>
                     </div>
                   ) : (
@@ -493,7 +552,7 @@ export default async function TodayPage() {
         </Accordion>
       )}
 
-      {/* Upcoming races nearby */}
+      {/* ── Upcoming races nearby ── */}
       <Accordion label={displayCity ? `Upcoming races in ${displayCity}` : "Upcoming races"}>
         <UpcomingRacesSection
           defaultCity={timezoneCity ?? raceCity}
@@ -502,32 +561,7 @@ export default async function TodayPage() {
         />
       </Accordion>
 
-
-      {/* Health metrics + weekly stats */}
-      {hasData&&(
-        <Accordion label="Health & stats">
-          {flags.length>0&&(
-            <div className={"rounded-2xl border px-4 py-3 mb-4 flex items-center gap-2 flex-wrap "+(flags.some(f=>f.type==="warning")?"border-yellow-600/40 bg-yellow-900/10":"border-border bg-surface")}>
-              <span className={flags.some(f=>f.type==="warning")?"text-yellow-400 text-sm":"text-foreground-dim text-sm"}>{flags.some(f=>f.type==="warning")?"⚠":"ℹ"}</span>
-              <p className="text-sm text-foreground-dim">{flags[0].message}{flags.length>1?` · +${flags.length-1} more`:""}</p>
-            </div>
-          )}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <MetricTile label="HRV" value={latest?.hrvMs} unit="ms" comparison={hrvComparison}/>
-            <MetricTile label="Sleep" value={latest?.sleepScore} unit="" comparison={sleepComparison}/>
-            <MetricTile label="Recovery" value={latest?.bodyBatteryOrRecoveryPct} unit="%" comparison={recoveryComparison}/>
-            <MetricTile label="Resting HR" value={latest?.restingHeartRate} unit="bpm" comparison={rhrComparison} invertGood={true}/>
-          </div>
-          <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">This week</p>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Miles</p><p className="font-data text-xl">{weeklyMiles.toFixed(1)}</p></div>
-            <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Time</p><p className="font-data text-xl">{weeklyTime>0?formatDuration(weeklyTime):"--"}</p></div>
-            <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Activities</p><p className="font-data text-xl">{weeklyActivities.length}</p></div>
-          </div>
-        </Accordion>
-      )}
-
-      {/* Recent activity */}
+      {/* ── Recent activity ── */}
       <details className="mb-6 group">
         <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
           <h2 className="text-sm font-medium text-foreground-dim select-none">Recent activity</h2>
@@ -543,33 +577,19 @@ export default async function TodayPage() {
           }
         </div>
       </details>
+
     </div>
   );
 }
 
 function Accordion({ label, defaultOpen = false, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
   return (
-    <details open={defaultOpen || undefined} className="mb-6 group">
+    <details open={defaultOpen||undefined} className="mb-6 group">
       <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
         <h2 className="text-sm font-medium text-foreground-dim select-none">{label}</h2>
         <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
       </summary>
       <div className="pt-1">{children}</div>
     </details>
-  );
-}
-
-function MetricTile({label,value,unit,comparison,invertGood=false}:{label:string;value?:number|null;unit:string;comparison?:{direction:"up"|"down"|"flat"|"unknown";deltaPct?:number};invertGood?:boolean}) {
-  const direction=comparison?.direction??"unknown";
-  const isGood=invertGood?direction==="down":direction==="up";
-  const isBad=invertGood?direction==="up":direction==="down";
-  const color=isGood?"text-signal":isBad?"text-alert":"text-foreground-dim";
-  const arrow=direction==="up"?"↑":direction==="down"?"↓":direction==="flat"?"→":"";
-  return(
-    <div className="rounded-xl border border-border bg-surface px-3 md:px-4 py-3">
-      <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">{label}</p>
-      <p className="font-data text-lg md:text-xl">{value!=null?Math.round(value*10)/10:"--"}<span className="text-xs text-foreground-dim ml-1">{unit}</span></p>
-      {comparison?.deltaPct!=null&&<p className={"text-xs "+color+" mt-0.5"}>{arrow} {Math.abs(comparison.deltaPct)}% vs 30d</p>}
-    </div>
   );
 }
