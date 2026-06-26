@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ActivityList } from "@/components/ActivityList";
 import { UpcomingRacesSection } from "@/components/UpcomingRacesSection";
 import { TeamInvitations } from "@/components/TeamInvitations";
+import { DashboardNotifications } from "@/components/DashboardNotifications";
 import Link from "next/link";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -278,30 +279,7 @@ export default async function TodayPage() {
       <TeamInvitations />
 
       {/* ── DM / chat notifications ── */}
-      {(teamMessageGroups.length > 0 || dmGroups.length > 0) && (
-        <div className="mb-6 space-y-2">
-          {dmGroups.map(g => (
-            <Link key={"dm-"+g.teamId} href={`/dashboard/teams/${g.teamId}?tab=chat`} className="flex items-start gap-3 rounded-2xl border border-signal/50 bg-signal/10 px-4 py-3 hover:bg-signal/15 transition-colors">
-              <span className="text-base shrink-0 mt-0.5">✉️</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{g.count} new private {g.count===1?"message":"messages"} from {g.senderName}</p>
-                <p className="text-xs text-foreground-dim truncate">{g.teamName} · "{g.preview.length>60?g.preview.slice(0,60)+"…":g.preview}"</p>
-              </div>
-              <span className="text-foreground-dim text-xs shrink-0 self-center">→</span>
-            </Link>
-          ))}
-          {teamMessageGroups.map(g => (
-            <Link key={g.teamId} href={`/dashboard/teams/${g.teamId}?tab=chat`} className="flex items-start gap-3 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3 hover:bg-signal/10 transition-colors">
-              <span className="text-base shrink-0 mt-0.5">💬</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{g.count} new {g.count===1?"message":"messages"} in {g.teamName}</p>
-                <p className="text-xs text-foreground-dim truncate">{g.senderName}: "{g.preview.length>60?g.preview.slice(0,60)+"…":g.preview}"</p>
-              </div>
-              <span className="text-foreground-dim text-xs shrink-0 self-center">→</span>
-            </Link>
-          ))}
-        </div>
-      )}
+      <DashboardNotifications teamMessageGroups={teamMessageGroups} dmGroups={dmGroups} />
 
       {/* ── Quote ── */}
       <div className="mb-8 border-l-2 border-signal/30 pl-4">
