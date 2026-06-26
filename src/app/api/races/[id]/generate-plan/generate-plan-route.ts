@@ -29,6 +29,31 @@ function getTriathlonDistances(category: string) {
   }
 }
 
+// Returns per-week target distances (in miles) for a single discipline.
+// Follows: linear build → peak (week N-2) → taper (week N-1) → race week.
+// Cutback week every 4 weeks drops volume by 20%.
+function buildDisciplineTargets(weeksToRace: number, peakMi: number, startFraction = 0.2): Record<number, number> {
+  const startMi = Math.max(2, Math.round(peakMi * startFraction * 10) / 10);
+  const peakWeek = Math.max(1, weeksToRace - 2);
+  const taperWeek = weeksToRace - 1;
+  const targets: Record<number, number> = {};
+  for (let w = 1; w <= weeksToRace; w++) {
+    if (w === weeksToRace) {
+      targets[w] = Math.max(2, Math.round(peakMi * 0.1 * 10) / 10); // short race-week opener
+    } else if (w === taperWeek) {
+      targets[w] = Math.round(peakMi * 0.55 * 10) / 10;
+    } else if (w >= peakWeek) {
+      targets[w] = peakMi;
+    } else {
+      const span = Math.max(1, peakWeek - 1);
+      let mi = startMi + (peakMi - startMi) * ((w - 1) / span);
+      if (w % 4 === 0) mi *= 0.8; // cutback week
+      targets[w] = Math.max(startMi, Math.round(mi * 10) / 10);
+    }
+  }
+  return targets;
+}
+
 function getCategory(distanceM: number, isTriathlon: boolean): string {
   if (isTriathlon) {
     if (distanceM <= 30000) return "Sprint Triathlon";
@@ -89,16 +114,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   ].filter(Boolean).join(". ");
 
   const triDist = isTriathlon ? getTriathlonDistances(category) : null;
+
+  // Pre-compute per-week targets so both the prompt and post-processing use the same numbers
+  const bikeTargets = triDist ? buildDisciplineTargets(weeksToRace, Math.round(triDist.bikeMi * 0.9), 0.2) : {};
+  const swimTargets = triDist ? buildDisciplineTargets(weeksToRace, parseFloat((triDist.swimMi * 1.05).toFixed(2)), 0.3) : {};
+
+  // Sample anchor weeks for the prompt (every 4th week + peak + taper + race)
+  const bikeAnchors = triDist
+    ? Array.from({ length: weeksToRace }, (_, i) => i + 1)
+        .filter(w => w === 1 || w % 4 === 0 || w >= weeksToRace - 2)
+        .map(w => `wk${w}:${bikeTargets[w]}mi`)
+        .join(", ")
+    : "";
+  const swimAnchors = triDist
+    ? Array.from({ length: weeksToRace }, (_, i) => i + 1)
+        .filter(w => w === 1 || w % 4 === 0 || w >= weeksToRace - 2)
+        .map(w => `wk${w}:${swimTargets[w]}mi`)
+        .join(", ")
+    : "";
+
   const triathlonInstructions = isTriathlon && triDist ? `
 TRIATHLON RACE DISTANCES:
 - Swim: ${triDist.swimMi} mi  |  Bike: ${triDist.bikeMi} mi  |  Run: ${triDist.runMi} mi
 
 TRIATHLON BUILD-UP RULES (CRITICAL):
-- Swim: start ~${(triDist.swimMi * 0.3).toFixed(2)} mi, build each week to ${(triDist.swimMi * 1.1).toFixed(2)} mi at peak
-- Bike: start ~${Math.round(triDist.bikeMi * 0.25)} mi, build each week to ${Math.round(triDist.bikeMi * 0.9)} mi at peak — NEVER cap bike at run distances
-- Run: start ~${(triDist.runMi * 0.3).toFixed(1)} mi, build each week to ${triDist.runMi} mi at peak
+- Bike distances MUST increase each week and then taper — use these exact targets per week: ${bikeAnchors}
+- Swim distances MUST increase each week and then taper — use these exact targets per week: ${swimAnchors}
+- Run: start ~${(triDist.runMi * 0.3).toFixed(1)} mi, build each week to ${triDist.runMi} mi at peak, taper final 2 weeks
 - Every week MUST include at least 1 swim, 1 bike, and 1 run session
-- Include 1 brick (bike-then-run) every 2 weeks — title: "Brick: Xmi bike + Ymi run"
+- Include 1 brick (bike-then-run) every 2 weeks — title: "Brick: Xmi bike + Ymi run" where X follows the bike targets above
 - Types allowed: swim, bike, easy_run, intervals, long_run, brick
 - Final race day workout: type "race" with the full total distance in distanceMiles
 - NO running-only plans — all three disciplines every week, always` : "";
@@ -145,10 +189,17 @@ No markdown. No explanation. Just the array.`;
         if (w.type === "race") {
           d = parseFloat(distanceMiles);
         } else if (triDist) {
-          if (w.type === "bike")  d = Math.min(d, triDist.bikeMi * 1.05);
-          else if (w.type === "swim") d = Math.min(d, triDist.swimMi * 1.3);
-          else if (w.type === "brick") d = d; // brick has combined distance, don't cap
-          else d = Math.min(d, g.maxMi); // run types
+          if (w.type === "bike") {
+            // Always use the deterministic progressive target — ignore AI value
+            d = bikeTargets[w.week] ?? Math.min(d ?? triDist.bikeMi * 0.5, triDist.bikeMi * 1.05);
+          } else if (w.type === "swim") {
+            // Same for swim
+            d = swimTargets[w.week] ?? Math.min(d ?? triDist.swimMi * 0.5, triDist.swimMi * 1.3);
+          } else if (w.type === "brick") {
+            d = d; // brick has combined distance — AI handles these, leave as-is
+          } else {
+            d = Math.min(d ?? g.maxMi, g.maxMi); // run types
+          }
         } else {
           d = d > g.maxMi ? g.maxMi : d;
         }
