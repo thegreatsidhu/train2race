@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 
 function milesLabel(distanceM: number) {
   const mi = distanceM / 1609.34;
-  return mi >= 26 ? "Marathon" : mi >= 13 ? "Half marathon" : mi >= 6 ? `${mi.toFixed(0)}mi` : `${mi.toFixed(1)}mi`;
+  if (distanceM >= 200000) return "140.6 Ironman";
+  if (distanceM >= 100000) return "70.3 Half Ironman";
+  return mi >= 26 ? "Marathon" : mi >= 13 ? "Half Marathon" : mi >= 6 ? `${mi.toFixed(0)} mi` : `${mi.toFixed(1)} mi`;
 }
 
 export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { city: string | null; registeredRaceIds: string[]; hasRacePlan: boolean }) {
   const router = useRouter();
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addErrorId, setAddErrorId] = useState<string | null>(null);
 
@@ -56,7 +59,7 @@ export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { 
 
   if (loading) return (
     <div className="space-y-2">
-      {[1, 2, 3].map(i => <div key={i} className="rounded-xl border border-border bg-surface h-16 animate-pulse" />)}
+      {[1, 2, 3].map(i => <div key={i} className="rounded-xl border border-border bg-surface h-14 animate-pulse" />)}
     </div>
   );
 
@@ -68,31 +71,93 @@ export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { 
     <div className="space-y-2">
       {races.map(race => {
         const isRegistered = registeredRaceIds.includes(race.id);
+        const isExpanded = expandedId === race.id;
         const daysAway = Math.ceil((new Date(race.raceDate).getTime() - today.getTime()) / 86400000);
+
         return (
-          <div key={race.id} className={"rounded-xl border bg-surface px-4 py-3 flex items-center justify-between " + (isRegistered ? "border-signal/40" : "border-border")}>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-sm font-medium">{race.name}</p>
-                {isRegistered && <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">Registered</span>}
+          <div key={race.id} className={"rounded-xl border bg-surface overflow-hidden transition-colors " + (isRegistered ? "border-signal/40" : "border-border")}>
+            {/* Main row */}
+            <div className="px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium truncate">{race.name}</p>
+                  {isRegistered && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20 shrink-0">Registered</span>
+                  )}
+                  {race.isTriathlon && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-cyan-900/40 text-cyan-300 border border-cyan-700/40 shrink-0">Triathlon</span>
+                  )}
+                </div>
+                <p className="text-xs text-foreground-dim mt-0.5">
+                  {new Date(race.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {" · "}{milesLabel(race.distanceM)}
+                  {" · "}{daysAway} days away
+                </p>
               </div>
-              <p className="text-xs text-foreground-dim mt-0.5">
-                {new Date(race.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {milesLabel(race.distanceM)} · {daysAway} days away
-              </p>
-              <p className="text-xs text-foreground-dim">{race._count.registrations} registered</p>
-            </div>
-            {isRegistered ? (
-              <Link href={`/dashboard/community?race=${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">Community →</Link>
-            ) : hasRacePlan ? (
-              <Link href="/dashboard/plan" className="text-xs text-foreground-dim hover:text-signal shrink-0 ml-4">View plan →</Link>
-            ) : (
               <button
-                onClick={() => addToPlan(race)}
-                disabled={addingId === race.id}
-                className="text-xs text-signal hover:underline shrink-0 ml-4 disabled:opacity-50"
+                onClick={() => setExpandedId(isExpanded ? null : race.id)}
+                className={"text-xs px-3 py-1.5 rounded-full border transition-colors shrink-0 " + (isExpanded ? "bg-surface-raised border-signal/40 text-signal" : "border-border text-foreground-dim hover:border-signal/30 hover:text-foreground")}
               >
-                {addingId === race.id ? "Adding..." : addErrorId === race.id ? "Failed — retry" : "Add to plan →"}
+                {isExpanded ? "Close" : "Details"}
               </button>
+            </div>
+
+            {/* Details panel */}
+            {isExpanded && (
+              <div className="border-t border-border/60 px-4 py-4 bg-surface-raised/40 space-y-3">
+                {/* Info grid */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div>
+                    <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Location</p>
+                    <p className="text-sm">{[race.city, race.country].filter(Boolean).join(", ") || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Distance</p>
+                    <p className="text-sm">{milesLabel(race.distanceM)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Date</p>
+                    <p className="text-sm">{new Date(race.raceDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Athletes registered</p>
+                    <p className="text-sm">{race._count.registrations}</p>
+                  </div>
+                </div>
+
+                {race.website && (
+                  <a href={race.website} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-signal hover:underline">
+                    Official website ↗
+                  </a>
+                )}
+
+                {/* Action */}
+                <div className="pt-1">
+                  {isRegistered ? (
+                    <Link href={`/dashboard/community?race=${race.id}`}
+                      className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-signal text-background text-sm font-medium hover:opacity-90 transition-opacity">
+                      Go to community →
+                    </Link>
+                  ) : hasRacePlan ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-foreground-dim text-center">You already have a race in your plan.</p>
+                      <Link href="/dashboard/plan"
+                        className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-surface transition-colors">
+                        View my plan →
+                      </Link>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => addToPlan(race)}
+                      disabled={addingId === race.id}
+                      className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-signal text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {addingId === race.id ? "Adding to plan…" : addErrorId === race.id ? "Failed — tap to retry" : "Add to my races →"}
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         );
