@@ -194,7 +194,6 @@ export default function PlanPage() {
     </div>
   );
 
-  const hasActivePlan = races.some((r: any) => r.trainingPlan && r.trainingPlan._count?.workouts > 0);
   const selRace = races.find((r: any) => r.id === selRaceId);
   const selPlan = plans.find((p: any) => p.raceId === selRaceId);
 
@@ -205,7 +204,7 @@ export default function PlanPage() {
           <h1 className="text-3xl font-semibold tracking-tight mb-1">My Plan</h1>
           <p className="text-foreground-dim text-sm">Your races and training schedule.</p>
         </div>
-        {!showAddForm && (
+        {!showAddForm && races.length === 0 && (
           <button onClick={() => setShowAddForm(true)}
             className="px-4 py-2 rounded-full border border-signal text-signal text-sm font-medium hover:bg-signal hover:text-background transition-colors shrink-0">
             + Add race
@@ -214,14 +213,8 @@ export default function PlanPage() {
       </header>
 
       {/* Add race form */}
-      {showAddForm && (
+      {showAddForm && races.length === 0 && (
         <div className="mb-6">
-          {hasActivePlan && (
-            <div className="rounded-2xl border border-border bg-surface p-4 mb-4">
-              <p className="text-sm font-medium mb-0.5">You have an active training plan</p>
-              <p className="text-xs text-foreground-dim">Complete your current plan before adding a new one for best results.</p>
-            </div>
-          )}
           <NewRaceForm />
           <button onClick={() => setShowAddForm(false)} className="mt-3 text-sm text-foreground-dim hover:text-foreground">Cancel</button>
         </div>

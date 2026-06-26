@@ -8,7 +8,7 @@ function milesLabel(distanceM: number) {
   return mi >= 26 ? "Marathon" : mi >= 13 ? "Half marathon" : mi >= 6 ? `${mi.toFixed(0)}mi` : `${mi.toFixed(1)}mi`;
 }
 
-export function UpcomingRacesNearby({ city, registeredRaceIds }: { city: string | null; registeredRaceIds: string[] }) {
+export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { city: string | null; registeredRaceIds: string[]; hasRacePlan: boolean }) {
   const router = useRouter();
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +83,8 @@ export function UpcomingRacesNearby({ city, registeredRaceIds }: { city: string 
             </div>
             {isRegistered ? (
               <Link href={`/dashboard/community?race=${race.id}`} className="text-xs text-signal hover:underline shrink-0 ml-4">Community →</Link>
+            ) : hasRacePlan ? (
+              <Link href="/dashboard/plan" className="text-xs text-foreground-dim hover:text-signal shrink-0 ml-4">View plan →</Link>
             ) : (
               <button
                 onClick={() => addToPlan(race)}

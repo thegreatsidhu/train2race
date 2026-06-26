@@ -15,11 +15,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const existing = await prisma.raceTarget.findFirst({
-    where: { userId, raceName, raceDate: new Date(raceDate) },
-  });
+  const existing = await prisma.raceTarget.findFirst({ where: { userId } });
   if (existing) {
-    return NextResponse.json({ error: "You already have a race with this name and date." }, { status: 409 });
+    return NextResponse.json({ error: "You can only have one race plan at a time. Delete your current race first." }, { status: 409 });
   }
 
   const race = await prisma.raceTarget.create({

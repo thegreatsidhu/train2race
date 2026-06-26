@@ -498,6 +498,7 @@ export default async function TodayPage() {
         <UpcomingRacesSection
           defaultCity={timezoneCity ?? raceCity}
           registeredRaceIds={(allRaceRegs as any[]).map((r: any) => r.majorRaceId)}
+          hasRacePlan={!!activeRace}
         />
       </Accordion>
 
