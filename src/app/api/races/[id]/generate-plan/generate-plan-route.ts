@@ -13,11 +13,21 @@ const RACE_GUIDELINES = {
   "Half Marathon":     { model: HAIKU_MODEL, maxTokens: 1500, maxWeeks: 12, minWeeks: 8,  maxMi: 13, wMi: "25-45", pMi: "35-45", workouts: "long 8-12mi, tempo 4-6mi, easy 4-7mi" },
   "Marathon":          { model: HAIKU_MODEL, maxTokens: 2500, maxWeeks: 16, minWeeks: 16, maxMi: 22, wMi: "35-55", pMi: "45-55", workouts: "long 14-22mi, marathon pace, easy 5-10mi" },
   "Ultra":             { model: HAIKU_MODEL, maxTokens: 3000, maxWeeks: 18, minWeeks: 20, maxMi: 30, wMi: "40-70", pMi: "55-70", workouts: "back-to-back longs, trail runs" },
-  "Sprint Triathlon":  { model: HAIKU_MODEL, maxTokens: 1200, maxWeeks: 8,  minWeeks: 6,  maxMi: 6,  wMi: "8-12 swim/bike/run combined", pMi: "multi", workouts: "swim 400-800m, bike 10-15mi, run 2-4mi, brick" },
-  "Olympic Triathlon": { model: HAIKU_MODEL, maxTokens: 1500, maxWeeks: 12, minWeeks: 10, maxMi: 10, wMi: "10-16 combined", pMi: "multi", workouts: "swim 1000-1500m, bike 20-28mi, run 4-7mi, brick" },
-  "70.3 Triathlon":    { model: HAIKU_MODEL, maxTokens: 2000, maxWeeks: 16, minWeeks: 16, maxMi: 13, wMi: "14-20 combined", pMi: "multi", workouts: "swim 1-2mi, bike 30-56mi, run 6-13mi, brick" },
-  "140.6 Triathlon":   { model: HAIKU_MODEL, maxTokens: 2500, maxWeeks: 20, minWeeks: 20, maxMi: 26, wMi: "20-30 combined", pMi: "multi", workouts: "swim 2-4mi, bike 60-112mi, run 10-26mi, brick" },
+  "Sprint Triathlon":  { model: HAIKU_MODEL, maxTokens: 2000, maxWeeks: 8,  minWeeks: 6,  maxMi: 4,  wMi: "8-12 swim/bike/run combined", pMi: "multi", workouts: "swim 0.3-0.5mi, bike 8-15mi, run 2-4mi, brick" },
+  "Olympic Triathlon": { model: HAIKU_MODEL, maxTokens: 2500, maxWeeks: 12, minWeeks: 10, maxMi: 8,  wMi: "10-16 combined", pMi: "multi", workouts: "swim 0.6-1mi, bike 15-28mi, run 4-7mi, brick" },
+  "70.3 Triathlon":    { model: HAIKU_MODEL, maxTokens: 3500, maxWeeks: 16, minWeeks: 16, maxMi: 13, wMi: "14-20 combined", pMi: "multi", workouts: "swim 0.8-1.5mi, bike 30-56mi, run 6-13mi, brick" },
+  "140.6 Triathlon":   { model: HAIKU_MODEL, maxTokens: 4000, maxWeeks: 20, minWeeks: 20, maxMi: 26, wMi: "20-30 combined", pMi: "multi", workouts: "swim 1.5-2.5mi, bike 60-112mi, run 10-26mi, brick" },
 };
+
+function getTriathlonDistances(category: string) {
+  switch (category) {
+    case "Sprint Triathlon":  return { swimMi: 0.47, bikeMi: 12.4, runMi: 3.1 };
+    case "Olympic Triathlon": return { swimMi: 0.93, bikeMi: 24.9, runMi: 6.2 };
+    case "70.3 Triathlon":   return { swimMi: 1.2,  bikeMi: 56,   runMi: 13.1 };
+    case "140.6 Triathlon":  return { swimMi: 2.4,  bikeMi: 112,  runMi: 26.2 };
+    default:                  return { swimMi: 1.2,  bikeMi: 56,   runMi: 13.1 };
+  }
+}
 
 function getCategory(distanceM: number, isTriathlon: boolean): string {
   if (isTriathlon) {
@@ -78,8 +88,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     prioritize ? `Focus: ${prioritize}` : "",
   ].filter(Boolean).join(". ");
 
-  const triathlonInstructions = isTriathlon ? `
-TRIATHLON RULES: Every week MUST have swim + bike + run. Min 1 swim/week, 1-2 bikes/week, 1-2 runs/week. Brick workout every 2 weeks. Types: swim/bike/easy_run/intervals/long_run/brick. Swim=yards+stroke, Bike=miles+effort, Brick=bike miles then run miles. NO running-only plan.` : "";
+  const triDist = isTriathlon ? getTriathlonDistances(category) : null;
+  const triathlonInstructions = isTriathlon && triDist ? `
+TRIATHLON RACE DISTANCES:
+- Swim: ${triDist.swimMi} mi  |  Bike: ${triDist.bikeMi} mi  |  Run: ${triDist.runMi} mi
+
+TRIATHLON BUILD-UP RULES (CRITICAL):
+- Swim: start ~${(triDist.swimMi * 0.3).toFixed(2)} mi, build each week to ${(triDist.swimMi * 1.1).toFixed(2)} mi at peak
+- Bike: start ~${Math.round(triDist.bikeMi * 0.25)} mi, build each week to ${Math.round(triDist.bikeMi * 0.9)} mi at peak — NEVER cap bike at run distances
+- Run: start ~${(triDist.runMi * 0.3).toFixed(1)} mi, build each week to ${triDist.runMi} mi at peak
+- Every week MUST include at least 1 swim, 1 bike, and 1 run session
+- Include 1 brick (bike-then-run) every 2 weeks — title: "Brick: Xmi bike + Ymi run"
+- Types allowed: swim, bike, easy_run, intervals, long_run, brick
+- Final race day workout: type "race" with the full total distance in distanceMiles
+- NO running-only plans — all three disciplines every week, always` : "";
 
   const prompt = `Expert endurance coach. Create a ${weeksToRace}-week ${category} training plan.
 
@@ -118,12 +140,20 @@ No markdown. No explanation. Just the array.`;
 
     const validated = workouts
       .filter((w: any) => w.type !== "rest")
-      .map((w: any) => ({
-        ...w,
-        distanceMiles: w.type === "race"
-          ? parseFloat(distanceMiles)
-          : (w.distanceMiles > g.maxMi ? g.maxMi : w.distanceMiles),
-      }));
+      .map((w: any) => {
+        let d = w.distanceMiles;
+        if (w.type === "race") {
+          d = parseFloat(distanceMiles);
+        } else if (triDist) {
+          if (w.type === "bike")  d = Math.min(d, triDist.bikeMi * 1.05);
+          else if (w.type === "swim") d = Math.min(d, triDist.swimMi * 1.3);
+          else if (w.type === "brick") d = d; // brick has combined distance, don't cap
+          else d = Math.min(d, g.maxMi); // run types
+        } else {
+          d = d > g.maxMi ? g.maxMi : d;
+        }
+        return { ...w, distanceMiles: d };
+      });
 
     await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
 
