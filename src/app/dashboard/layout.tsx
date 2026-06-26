@@ -17,11 +17,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <nav className="flex flex-col gap-1 text-sm flex-1">
           <NavLink href="/dashboard" label="Today" />
           <NavLink href="/dashboard/plan" label="My Plan" />
-          <NavLink href="/dashboard/nutrition" label="Nutrition" />
+          <NavLink href="/dashboard/teams" label="Teams" />
           <NavLink href="/dashboard/races" label="Races" />
           <NavLink href="/dashboard/community" label="Community" />
-          <NavLink href="/dashboard/teams" label="Teams" />
           <NavLink href="/dashboard/leaderboard" label="Leaderboard" />
+          <NavLink href="/dashboard/nutrition" label="Nutrition" />
           <NavLink href="/dashboard/profile" label="Profile" />
           <NavLink href="/dashboard/support" label="Help & Support" />
         </nav>

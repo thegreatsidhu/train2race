@@ -32,11 +32,11 @@ export function MobileNav({ email }: { email: string }) {
             {[
               { href: "/dashboard", label: "Today" },
               { href: "/dashboard/plan", label: "My Plan" },
-              { href: "/dashboard/nutrition", label: "Nutrition" },
+              { href: "/dashboard/teams", label: "Teams" },
               { href: "/dashboard/races", label: "Races" },
               { href: "/dashboard/community", label: "Community" },
-              { href: "/dashboard/teams", label: "Teams" },
               { href: "/dashboard/leaderboard", label: "Leaderboard" },
+              { href: "/dashboard/nutrition", label: "Nutrition" },
               { href: "/dashboard/profile", label: "Profile" },
               { href: "/dashboard/support", label: "Help & Support" },
             ].map((link) => (
