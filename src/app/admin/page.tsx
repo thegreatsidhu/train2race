@@ -104,13 +104,19 @@ export default function AdminPage() {
   const [createChMsg, setCreateChMsg] = useState("");
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("adminPw");
-    if (!saved) return;
-    setPassword(saved);
     setLoading(true);
-    fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: saved, action: "getData" }) })
-      .then(res => { if (!res.ok) { sessionStorage.removeItem("adminPw"); throw new Error(); } return res.json(); })
-      .then(json => { setData(json); setAuthed(true); setLoading(false); })
+    // Try super admin session first (no password needed)
+    fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "getData" }) })
+      .then(res => {
+        if (res.ok) return res.json().then(json => { setData(json); setAuthed(true); setLoading(false); });
+        // Fall back to stored password
+        const saved = sessionStorage.getItem("adminPw");
+        if (!saved) { setLoading(false); return; }
+        setPassword(saved);
+        return fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: saved, action: "getData" }) })
+          .then(r => { if (!r.ok) { sessionStorage.removeItem("adminPw"); throw new Error(); } return r.json(); })
+          .then(json => { setData(json); setAuthed(true); setLoading(false); });
+      })
       .catch(() => setLoading(false));
   }, []);
 
