@@ -82,6 +82,7 @@ export default function RacesPage() {
   const [reportingRaceId, setReportingRaceId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reporting, setReporting] = useState(false);
+  const [racePage, setRacePage] = useState(1);
   const [reportDone, setReportDone] = useState(false);
 
   useEffect(() => {
@@ -206,6 +207,8 @@ export default function RacesPage() {
     setReportReason("");
   }
 
+  useEffect(() => { setRacePage(1); }, [search, df, yearF, countryF]);
+
   const isReg = (id: string) => myRegs.some((r: any) => r.majorRaceId === id);
   const f = DFILTERS[df] as any;
   const filtered = events.filter((r: any) => {
@@ -277,7 +280,7 @@ export default function RacesPage() {
               <>
                 <p className="text-xs text-foreground-dim mb-2">{filtered.length} events</p>
                 <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-                  {filtered.map((race: any) => {
+                  {filtered.slice(0, racePage * 30).map((race: any) => {
                     const d = Math.ceil((new Date(race.raceDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                     const count = race._count?.registrations || 0;
                     return (
@@ -304,6 +307,11 @@ export default function RacesPage() {
                     </div>
                   )}
                 </div>
+                {filtered.length > racePage * 30 && (
+                  <button onClick={() => setRacePage(p => p + 1)} className="w-full mt-2 py-2 text-xs text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">
+                    Show more ({filtered.length - racePage * 30} remaining)
+                  </button>
+                )}
               </>
             )}
           </div>

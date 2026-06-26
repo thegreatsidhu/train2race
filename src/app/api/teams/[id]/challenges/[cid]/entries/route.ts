@@ -25,12 +25,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { value, date, note } = await req.json();
   if (!value || !date) return NextResponse.json({ error: "value and date are required" }, { status: 400 });
+  const numVal = Number(value);
+  if (isNaN(numVal) || numVal <= 0) return NextResponse.json({ error: "Value must be a positive number" }, { status: 400 });
+
+  const challenge = await prisma.teamChallenge.findUnique({ where: { id: challengeId } });
+  if (!challenge || challenge.teamId !== teamId) return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
+  if (challenge.status !== "approved") return NextResponse.json({ error: "Challenge is not active" }, { status: 400 });
+  const now = new Date();
+  if (now < challenge.startDate || now > challenge.endDate) return NextResponse.json({ error: "Challenge is not currently running" }, { status: 400 });
 
   const entry = await prisma.teamChallengeEntry.create({
     data: {
       challengeId,
       userId,
-      value: Number(value),
+      value: numVal,
       date: new Date(date),
       note: note?.trim() || null,
     },

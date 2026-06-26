@@ -16,10 +16,27 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone } = body;
   const data: any = {};
-  if ("name" in body)        data.name = name || null;
-  if ("weightKg" in body)    data.weightKg = weightKg != null ? Number(weightKg) : null;
-  if ("heightCm" in body)    data.heightCm = heightCm != null ? Number(heightCm) : null;
-  if ("dateOfBirth" in body) data.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+  if ("name" in body)        data.name = name ? String(name).trim().slice(0, 100) || null : null;
+  if ("weightKg" in body) {
+    const w = weightKg != null ? Number(weightKg) : null;
+    if (w != null && (isNaN(w) || w < 10 || w > 500)) return NextResponse.json({ error: "Weight must be between 10 and 500 kg" }, { status: 400 });
+    data.weightKg = w;
+  }
+  if ("heightCm" in body) {
+    const h = heightCm != null ? Number(heightCm) : null;
+    if (h != null && (isNaN(h) || h < 50 || h > 300)) return NextResponse.json({ error: "Height must be between 50 and 300 cm" }, { status: 400 });
+    data.heightCm = h;
+  }
+  if ("dateOfBirth" in body) {
+    if (dateOfBirth) {
+      const dob = new Date(dateOfBirth);
+      const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 3600 * 1000);
+      if (isNaN(age) || age < 10 || age > 120) return NextResponse.json({ error: "Invalid date of birth" }, { status: 400 });
+      data.dateOfBirth = dob;
+    } else {
+      data.dateOfBirth = null;
+    }
+  }
   if ("sex" in body)         data.sex = sex || null;
   if ("city" in body)        data.city = city || null;
   if ("isPrivate" in body)   data.isPrivate = isPrivate ?? false;

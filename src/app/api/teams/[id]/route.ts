@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         // Completed workouts scheduled up to today (numerator)
         prisma.trainingWorkout.groupBy({ by: ["planId"], where: { planId: { in: planIds }, date: { lte: now }, completed: true }, _count: { planId: true } }),
         // Weekly miles from completed workouts in last 7 days
-        prisma.trainingWorkout.findMany({ where: { planId: { in: planIds }, completed: true, date: { gte: weekAgo } }, select: { planId: true, distanceKm: true } }),
+        prisma.trainingWorkout.findMany({ where: { planId: { in: planIds }, completed: true, date: { gte: weekAgo, lte: now } }, select: { planId: true, distanceKm: true } }),
       ])
     : [[], [], []];
 

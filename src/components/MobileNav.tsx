@@ -1,9 +1,12 @@
 ﻿"use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export function MobileNav({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  useEffect(() => { setOpen(false); }, [pathname]);
 
   return (
     <>

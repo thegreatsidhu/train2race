@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const FALLBACK_PASSWORD = "train2race2024";
 
@@ -17,6 +18,8 @@ async function verifyAdminPassword(password: string): Promise<boolean> {
 export async function POST(req: Request) {
   const body = await req.json();
   const { password, action } = body;
+  const ip = (req as any).headers?.get?.("x-forwarded-for") || "unknown";
+  if (!checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const valid = await verifyAdminPassword(password);
   if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (action === "getData") {
