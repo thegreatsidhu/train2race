@@ -31,8 +31,10 @@ export default function TeamsPage() {
   const [joining, setJoining] = useState<string|null>(null);
 
   useEffect(() => {
-    fetch("/api/teams").then(r => r.json()).then(d => { setTeams(d.teams || []); setLoading(false); });
-    fetch("/api/major-races?upcoming=1").then(r => r.json()).then(d => setRaces(d.races || []));
+    const ac = new AbortController();
+    fetch("/api/teams", { signal: ac.signal }).then(r => r.json()).then(d => { setTeams(d.teams || []); setLoading(false); }).catch(() => {});
+    fetch("/api/major-races?upcoming=1", { signal: ac.signal }).then(r => r.json()).then(d => setRaces(d.races || [])).catch(() => {});
+    return () => ac.abort();
   }, []);
 
   const runSearch = useCallback(async (q: string) => {

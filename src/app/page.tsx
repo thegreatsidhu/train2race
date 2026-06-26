@@ -1,11 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
     <div className="flex flex-col flex-1">
       <nav className="flex items-center justify-between px-6 md:px-10 py-6 max-w-6xl w-full mx-auto">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Train2Race" className="w-8 h-8 rounded-lg" />
+          <Image src="/logo.png" alt="Train2Race" width={32} height={32} className="rounded-lg" />
           <span className="font-semibold tracking-tight text-lg">Train2Race</span>
         </div>
         <div className="flex items-center gap-6 text-sm text-foreground-dim">
@@ -171,7 +172,7 @@ export default function Home() {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div className="md:col-span-2">
               <div className="flex items-center gap-2 mb-3">
-                <img src="/logo.png" alt="Train2Race" className="w-7 h-7 rounded-md" />
+                <Image src="/logo.png" alt="Train2Race" width={28} height={28} className="rounded-md" />
                 <span className="font-semibold">Train2Race</span>
               </div>
               <p className="text-xs text-foreground-dim leading-relaxed max-w-xs">Team training platform for endurance athletes. Built for runners, triathletes, and everyone chasing a finish line together.</p>

@@ -75,9 +75,10 @@ export default function PlanPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const ac = new AbortController();
     Promise.all([
-      fetch("/api/races").then(r => r.json()),
-      fetch("/api/plan").then(r => r.json()),
+      fetch("/api/races", { signal: ac.signal }).then(r => r.json()),
+      fetch("/api/plan", { signal: ac.signal }).then(r => r.json()),
     ]).then(([rd, pd]) => {
       const r = rd.races || [];
       const p = pd.plans || [];
@@ -90,7 +91,8 @@ export default function PlanPage() {
         const firstPlan = p.find((pl: any) => pl.raceId === firstId);
         if (firstPlan) setExpandedWeeks(new Set([currentWeekNum(firstPlan)]));
       }
-    });
+    }).catch(() => {});
+    return () => ac.abort();
   }, []);
 
   function selectRace(raceId: string) {

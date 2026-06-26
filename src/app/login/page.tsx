@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
@@ -30,7 +31,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex flex-col items-center gap-3">
-            <img src="/logo.png" alt="Train2Race" className="w-16 h-16 rounded-2xl" />
+            <Image src="/logo.png" alt="Train2Race" width={64} height={64} className="rounded-2xl" />
             <span className="font-semibold tracking-tight text-lg">Train2Race</span>
           </Link>
         </div>

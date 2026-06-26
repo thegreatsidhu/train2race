@@ -8,6 +8,7 @@ export default function EditWorkoutPage() {
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [unit, setUnit] = useState("mi");
   const [swimUnit, setSwimUnit] = useState("m");
   const [form, setForm] = useState({
@@ -21,7 +22,8 @@ export default function EditWorkoutPage() {
   });
 
   useEffect(() => {
-    fetch(`/api/activities/${id}`)
+    const ac = new AbortController();
+    fetch(`/api/activities/${id}`, { signal: ac.signal })
       .then(r => r.json())
       .then(data => {
         const a = data.activity;
@@ -47,7 +49,8 @@ export default function EditWorkoutPage() {
           notes: a.raw?.notes || "",
         });
         setLoading(false);
-      });
+      }).catch(() => {});
+    return () => ac.abort();
   }, [id]);
 
   const isSwim = form.type === "swim";
@@ -64,7 +67,7 @@ export default function EditWorkoutPage() {
     });
     setSaving(false);
     if (res.ok) router.push("/dashboard");
-    else alert("Something went wrong.");
+    else setError("Something went wrong.");
   }
 
   if (loading) return <div className="px-8 py-10 text-sm text-foreground-dim">Loading...</div>;
@@ -137,6 +140,7 @@ export default function EditWorkoutPage() {
           <textarea className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
             rows={3} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
         </div>
+        {error && <p className="text-sm text-red-400">{error}</p>}
         <button onClick={handleSave} disabled={saving}
           className="w-full py-3 rounded-full bg-signal text-background font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
           {saving ? "Saving..." : "Update workout"}

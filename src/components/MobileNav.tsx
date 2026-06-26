@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 export function MobileNav({ email }: { email: string }) {
@@ -20,7 +21,7 @@ export function MobileNav({ email }: { email: string }) {
         <div className="fixed inset-0 z-50 bg-background">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2">
-              <img src="/logo.png" alt="Train2Race" className="w-7 h-7 rounded-md" />
+              <Image src="/logo.png" alt="Train2Race" width={28} height={28} className="rounded-md" />
               <span className="font-semibold text-lg">Train2Race</span>
             </Link>
             <button onClick={() => setOpen(false)} className="p-2 text-foreground-dim hover:text-foreground text-xl leading-none">

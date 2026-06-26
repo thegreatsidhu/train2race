@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 export default function LogWorkoutPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [unit, setUnit] = useState("mi");
   const [swimUnit, setSwimUnit] = useState("m");
 
@@ -38,7 +39,7 @@ export default function LogWorkoutPage() {
     });
     setLoading(false);
     if (res.ok) router.push("/dashboard");
-    else alert("Something went wrong. Please try again.");
+    else setError("Something went wrong. Please try again.");
   }
 
   return (
@@ -117,6 +118,7 @@ export default function LogWorkoutPage() {
             rows={3} placeholder="How did it feel?"
             value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
         </div>
+        {error && <p className="text-sm text-red-400">{error}</p>}
         <button onClick={handleSubmit} disabled={loading}
           className="w-full py-3 rounded-full bg-signal text-background font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
           {loading ? "Saving..." : "Save workout"}
