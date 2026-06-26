@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 interface NotifGroup {
@@ -27,13 +27,35 @@ export function DashboardNotifications({
 }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
+  // Load persisted dismissals on mount so notifications stay gone after refresh
+  useEffect(() => {
+    try {
+      const saved: Record<string, number> = JSON.parse(localStorage.getItem("t2r-dismissed-notifs") || "{}");
+      const cutoff = Date.now() - 7 * 86400000;
+      const valid = Object.keys(saved).filter(k => saved[k] > cutoff);
+      if (valid.length) setDismissed(new Set(valid));
+    } catch {}
+  }, []);
+
+  function persistDismiss(key: string) {
+    setDismissed(prev => {
+      const next = new Set(prev).add(key);
+      try {
+        const saved: Record<string, number> = JSON.parse(localStorage.getItem("t2r-dismissed-notifs") || "{}");
+        saved[key] = Date.now();
+        localStorage.setItem("t2r-dismissed-notifs", JSON.stringify(saved));
+      } catch {}
+      return next;
+    });
+  }
+
   function dismissTeam(teamId: string, key: string) {
-    setDismissed(prev => new Set(prev).add(key));
+    persistDismiss(key);
     fetch(`/api/teams/${teamId}/mark-read`, { method: "POST" }).catch(() => {});
   }
 
   function dismissAdminDm(id: string) {
-    setDismissed(prev => new Set(prev).add("adm-" + id));
+    persistDismiss("adm-" + id);
     fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }).catch(() => {});
   }
 

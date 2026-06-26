@@ -136,7 +136,7 @@ export default async function TodayPage() {
     prisma.teamMessage.findMany({where:{team:{members:{some:{userId}}},userId:{not:userId},isDeleted:false,createdAt:{gte:thirtyDaysAgo}},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},user:{select:{name:true}}},orderBy:{createdAt:"desc"},take:100}),
     prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
     (prisma as any).adminMessage.findMany({where:{toUserId:userId,isRead:false},orderBy:{createdAt:"desc"},take:10,select:{id:true,content:true,createdAt:true}}),
-    (prisma as any).announcement.findMany({where:{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
+    (prisma as any).announcement.findMany({where:{AND:[{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},{OR:[{scheduledFor:null},{scheduledFor:{lte:now}}]}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
   ]);
 
   // Teams with member counts + weekly activity

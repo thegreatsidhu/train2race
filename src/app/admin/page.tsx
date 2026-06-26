@@ -34,10 +34,12 @@ export default function AdminPage() {
   const [dmMsg, setDmMsg] = useState({ text: "", ok: false });
   const [annTitle, setAnnTitle] = useState("");
   const [annContent, setAnnContent] = useState("");
+  const [annScheduledFor, setAnnScheduledFor] = useState("");
   const [annExpiry, setAnnExpiry] = useState("");
   const [postingAnn, setPostingAnn] = useState(false);
   const [annMsg, setAnnMsg] = useState({ text: "", ok: false });
   const [adminMsgs, setAdminMsgs] = useState([]);
+  const [adminAnns, setAdminAnns] = useState([]);
   const [adminMsgsLoaded, setAdminMsgsLoaded] = useState(false);
 
   const [allChallenges, setAllChallenges] = useState([]);
@@ -294,12 +296,17 @@ export default function AdminPage() {
     setRemovingParticipantKey(null);
   }
 
-  async function loadAdminMsgs() {
-    if (adminMsgsLoaded) return;
+  async function loadAdminMsgsData() {
     const res = await fetch(`/api/admin/messages?password=${encodeURIComponent(password)}`);
     const d = await res.json();
     setAdminMsgs(d.messages || []);
+    setAdminAnns(d.announcements || []);
     setAdminMsgsLoaded(true);
+  }
+
+  async function loadAdminMsgs() {
+    if (adminMsgsLoaded) return;
+    await loadAdminMsgsData();
   }
 
   async function sendDm() {
@@ -307,29 +314,23 @@ export default function AdminPage() {
     setSendingDm(true); setDmMsg({ text: "", ok: false });
     const res = await fetch("/api/admin/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "dm", toUserId: dmUserId, content: dmContent }) });
     setSendingDm(false);
-    if (res.ok) { setDmMsg({ text: "Message sent!", ok: true }); setDmContent(""); setDmUserId(""); await loadAdminMsgsForce(); }
+    if (res.ok) { setDmMsg({ text: "Message sent!", ok: true }); setDmContent(""); setDmUserId(""); await loadAdminMsgsData(); }
     else { const d = await res.json(); setDmMsg({ text: d.error || "Failed", ok: false }); }
   }
 
   async function postAnnouncement() {
     if (!annContent.trim()) return;
     setPostingAnn(true); setAnnMsg({ text: "", ok: false });
-    const res = await fetch("/api/admin/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "announce", title: annTitle, content: annContent, expiresAt: annExpiry || null }) });
+    const res = await fetch("/api/admin/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "announce", title: annTitle, content: annContent, scheduledFor: annScheduledFor || null, expiresAt: annExpiry || null }) });
     setPostingAnn(false);
-    if (res.ok) { setAnnMsg({ text: "Announcement posted!", ok: true }); setAnnTitle(""); setAnnContent(""); setAnnExpiry(""); await loadAdminMsgsForce(); }
-    else { const d = await res.json(); setAnnMsg({ text: d.error || "Failed", ok: false }); }
-  }
-
-  async function loadAdminMsgsForce() {
-    const res = await fetch(`/api/admin/messages?password=${encodeURIComponent(password)}`);
-    const d = await res.json();
-    setAdminMsgs(d.messages || []);
-    setAdminMsgsLoaded(true);
+    if (res.ok) { setAnnMsg({ text: "Announcement posted!", ok: true }); setAnnTitle(""); setAnnContent(""); setAnnScheduledFor(""); setAnnExpiry(""); await loadAdminMsgsData(); }
+    else { const d = await res.json(); setAnnMsg({ text: d.error || "Failed — " + (d.error || "check console"), ok: false }); }
   }
 
   async function deleteAdminMsg(id, type) {
     await fetch("/api/admin/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, type }) });
-    setAdminMsgs(prev => prev.filter(m => m.id !== id));
+    if (type === "dm") setAdminMsgs(prev => prev.filter(m => m.id !== id));
+    else setAdminAnns(prev => prev.filter(a => a.id !== id));
   }
 
   async function loadTickets() {
@@ -1350,18 +1351,26 @@ export default function AdminPage() {
             {msgTab === "announce" && (
               <div className="space-y-4 max-w-lg">
                 <h2 className="font-medium">Post an announcement to all users</h2>
-                <p className="text-xs text-foreground-dim">Shown as a banner on the today page for all users until they dismiss it. Add an optional expiry date to auto-remove it.</p>
+                <p className="text-xs text-foreground-dim">Shown as a banner on the today page for all users until they dismiss it.</p>
                 <div>
                   <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Title (optional)</label>
-                  <input className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. Scheduled maintenance" value={annTitle} onChange={e => setAnnTitle(e.target.value)} />
+                  <input className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. New feature live" value={annTitle} onChange={e => setAnnTitle(e.target.value)} />
                 </div>
                 <div>
                   <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Message</label>
                   <textarea rows={4} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="Write your announcement…" value={annContent} onChange={e => setAnnContent(e.target.value)} />
                 </div>
-                <div>
-                  <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Expires (optional)</label>
-                  <input type="datetime-local" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={annExpiry} onChange={e => setAnnExpiry(e.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Post at (optional)</label>
+                    <input type="datetime-local" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={annScheduledFor} onChange={e => setAnnScheduledFor(e.target.value)} />
+                    <p className="text-xs text-foreground-dim mt-1">Leave blank to post immediately</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Expires (optional)</label>
+                    <input type="datetime-local" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={annExpiry} onChange={e => setAnnExpiry(e.target.value)} />
+                    <p className="text-xs text-foreground-dim mt-1">Auto-remove after this time</p>
+                  </div>
                 </div>
                 {annMsg.text && <p className={"text-sm " + (annMsg.ok ? "text-signal" : "text-red-400")}>{annMsg.text}</p>}
                 <button onClick={postAnnouncement} disabled={postingAnn || !annContent.trim()} className="px-5 py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">
@@ -1371,26 +1380,53 @@ export default function AdminPage() {
             )}
 
             {msgTab === "history" && (
-              <div className="space-y-3">
-                <h2 className="font-medium">Sent messages</h2>
-                {adminMsgs.length === 0 ? <p className="text-sm text-foreground-dim">No messages sent yet.</p> : (
-                  <div className="space-y-2">
-                    {adminMsgs.map((m) => (
-                      <div key={m.id} className="rounded-xl border border-border bg-surface p-3 flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-xs text-foreground-dim mb-1">
-                            {m.toUser ? `To: ${m.toUser.name || m.toUser.email}` : "Announcement"}
-                            {" · "}{new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            {m.isRead !== undefined && !m.isRead && <span className="ml-2 text-signal">Unread</span>}
-                          </p>
-                          {m.title && <p className="text-sm font-medium mb-0.5">{m.title}</p>}
-                          <p className="text-sm">{m.content}</p>
+              <div className="space-y-6">
+                {/* Announcements */}
+                <div>
+                  <h2 className="font-medium mb-3">Announcements ({adminAnns.length})</h2>
+                  {adminAnns.length === 0 ? <p className="text-sm text-foreground-dim">No announcements yet.</p> : (
+                    <div className="space-y-2">
+                      {adminAnns.map((a) => (
+                        <div key={a.id} className="rounded-xl border border-yellow-700/30 bg-yellow-900/10 p-3 flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-foreground-dim mb-1">
+                              Posted {new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              {" · "}{new Date(a.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                              {a.scheduledFor && <span className="ml-2 text-yellow-400">Scheduled: {new Date(a.scheduledFor).toLocaleDateString("en-US", { month: "short", day: "numeric" })} {new Date(a.scheduledFor).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>}
+                              {a.expiresAt && <span className="ml-2 text-foreground-dim">Expires: {new Date(a.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                            </p>
+                            {a.title && <p className="text-sm font-medium mb-0.5">{a.title}</p>}
+                            <p className="text-sm text-foreground-dim">{a.content}</p>
+                          </div>
+                          <button onClick={() => deleteAdminMsg(a.id, "announce")} className="text-xs text-red-400 shrink-0">Delete</button>
                         </div>
-                        <button onClick={() => deleteAdminMsg(m.id, m.toUser ? "dm" : "announce")} className="text-xs text-red-400 shrink-0">Delete</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* DMs */}
+                <div>
+                  <h2 className="font-medium mb-3">Direct messages ({adminMsgs.length})</h2>
+                  {adminMsgs.length === 0 ? <p className="text-sm text-foreground-dim">No DMs sent yet.</p> : (
+                    <div className="space-y-2">
+                      {adminMsgs.map((m) => (
+                        <div key={m.id} className="rounded-xl border border-border bg-surface p-3 flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-foreground-dim mb-1">
+                              To: {m.toUser?.name || m.toUser?.email || "Unknown"}
+                              {" · "}{new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              {" · "}{new Date(m.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                              {!m.isRead && <span className="ml-2 text-signal">Unread</span>}
+                            </p>
+                            <p className="text-sm">{m.content}</p>
+                          </div>
+                          <button onClick={() => deleteAdminMsg(m.id, "dm")} className="text-xs text-red-400 shrink-0">Delete</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

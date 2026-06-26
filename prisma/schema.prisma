@@ -465,11 +465,12 @@ model AdminMessage {
 }
 
 model Announcement {
-  id        String    @id @default(cuid())
-  title     String?
-  content   String
-  createdAt DateTime  @default(now())
-  expiresAt DateTime?
+  id           String    @id @default(cuid())
+  title        String?
+  content      String
+  createdAt    DateTime  @default(now())
+  scheduledFor DateTime?
+  expiresAt    DateTime?
   @@map("announcements")
 }
 
