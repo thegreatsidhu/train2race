@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rateLimit";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "train2race2024";
+import { isAdminAuthorized } from "@/lib/adminAuth";
 
 function rateLimited(req: NextRequest): boolean {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -12,7 +12,7 @@ function rateLimited(req: NextRequest): boolean {
 export async function GET(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { searchParams } = new URL(req.url);
-  if (searchParams.get("password") !== ADMIN_PASSWORD) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(searchParams.get("password") || ""))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const [pending, active] = await Promise.all([
     prisma.majorRace.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" } }),
     prisma.majorRace.findMany({ where: { status: "active" }, orderBy: { raceDate: "asc" } }),
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const body = await req.json();
   const { password, raceId, action, name, city, country, raceDate, distanceM, website, isTriathlon } = body;
-  if (password !== ADMIN_PASSWORD) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (action === "create") {
     if (!name || !raceDate || !distanceM || !city || !country) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, raceId, name, city, country, raceDate, distanceM, website, isTriathlon } = await req.json();
-  if (password !== ADMIN_PASSWORD) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const data: any = {};
   if (name !== undefined) data.name = name;
   if (city !== undefined) data.city = city;
@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, raceId } = await req.json();
-  if (password !== ADMIN_PASSWORD) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await prisma.majorRace.delete({ where: { id: raceId } });
   return NextResponse.json({ ok: true });
 }

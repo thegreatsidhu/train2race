@@ -1,23 +1,12 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
-
-const FALLBACK_PASSWORD = "train2race2024";
-
-async function verifyAdminPassword(password: string): Promise<boolean> {
-  try {
-    const setting = await prisma.setting.findUnique({ where: { key: "adminPasswordHash" } });
-    if (setting?.value) return bcrypt.compare(password, setting.value);
-  } catch {}
-  return password === FALLBACK_PASSWORD;
-}
+import { isAdminAuthorized } from "@/lib/adminAuth";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const password = url.searchParams.get("password") || "";
-  const valid = await verifyAdminPassword(password);
-  if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const teams = await prisma.team.findMany({
     orderBy: { createdAt: "desc" },
@@ -58,8 +47,7 @@ function makeInviteCode() {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { password, action, teamId, userId, role, name, description, email } = body;
-  const valid = await verifyAdminPassword(password);
-  if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (action === "removeMember") {
     await prisma.teamMember.delete({ where: { teamId_userId: { teamId, userId } } });

@@ -1,14 +1,8 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
 import { checkRateLimit } from "@/lib/rateLimit";
-
-async function verifyAdmin(password: string): Promise<boolean> {
-  const setting = await prisma.setting.findUnique({ where: { key: "adminPasswordHash" } });
-  if (setting) return bcrypt.compare(password, setting.value);
-  return password === "train2race2024";
-}
+import { isAdminAuthorized } from "@/lib/adminAuth";
 
 function rateLimited(req: NextRequest): boolean {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -18,7 +12,7 @@ function rateLimited(req: NextRequest): boolean {
 export async function GET(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const password = req.nextUrl.searchParams.get("password") || "";
-  if (!(await verifyAdmin(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const challenges = await prisma.teamChallenge.findMany({
     orderBy: { createdAt: "desc" },
@@ -70,7 +64,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, challengeId, status } = await req.json();
-  if (!(await verifyAdmin(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["approved", "rejected"].includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   const updated = await prisma.teamChallenge.update({ where: { id: challengeId }, data: { status } });
   return NextResponse.json({ challenge: updated });
@@ -79,7 +73,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, challengeId } = await req.json();
-  if (!(await verifyAdmin(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!challengeId) return NextResponse.json({ error: "challengeId required" }, { status: 400 });
   await prisma.teamChallengeEntry.deleteMany({ where: { challengeId } });
   await prisma.teamChallenge.delete({ where: { id: challengeId } });
@@ -90,7 +84,7 @@ export async function POST(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const body = await req.json();
   const { password, action, challengeId, userId } = body;
-  if (!(await verifyAdmin(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (action === "removeParticipant") {
     if (!challengeId || !userId) return NextResponse.json({ error: "challengeId and userId required" }, { status: 400 });

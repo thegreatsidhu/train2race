@@ -1,12 +1,11 @@
 ﻿// @ts-nocheck
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-
-const ADMIN_PASSWORD = "train2race2024";
+import { isAdminAuthorized } from "@/lib/adminAuth";
 
 export async function POST(req: Request) {
   const { password, count = 1 } = await req.json();
-  if (password !== ADMIN_PASSWORD) {
+  if (!(await isAdminAuthorized(password))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const codes = [];
@@ -20,7 +19,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const { password, id } = await req.json();
-  if (password !== ADMIN_PASSWORD) {
+  if (!(await isAdminAuthorized(password))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   await prisma.inviteCode.delete({ where: { id } });
