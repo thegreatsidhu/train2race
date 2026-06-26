@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   // Pull recent chat history + fresh metrics context every turn so the
   // coach always reasons over current data, not stale context from when
   // the conversation started.
-  const [recentMessages, user, history, raceTargets] = await Promise.all([
+  const [recentMessages, user, history, raceTargets, recentActivities] = await Promise.all([
     prisma.chatMessage.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -38,6 +38,11 @@ export async function POST(req: Request) {
     prisma.user.findUnique({ where: { id: userId }, include: { goals: { where: { status: "active" } } } }),
     getMergedDailyMetrics(userId, 7),
     prisma.raceTarget.findMany({ where: { userId } }),
+    prisma.activity.findMany({
+      where: { userId },
+      orderBy: { startTime: "desc" },
+      take: 7,
+    }),
   ]);
 
   const comparisons = computeBaselineComparisons(history);
@@ -60,11 +65,22 @@ export async function POST(req: Request) {
     .map((c) => `${c.field} ${c.direction} ${Math.abs(c.deltaPct!)}% vs baseline`)
     .join("; ") || "all metrics near baseline";
 
+  const activitySummary = recentActivities.length > 0
+    ? recentActivities.map((a: any) => {
+        const dist = a.distanceM ? ` ${(a.distanceM / 1609.34).toFixed(1)}mi` : "";
+        const dur = `${Math.round(a.durationSec / 60)}min`;
+        const hr = a.avgHeartRate ? ` avg ${Math.round(a.avgHeartRate)}bpm` : "";
+        const date = new Date(a.startTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        return `${date}: ${a.type}${dist} ${dur}${hr}`;
+      }).join("; ")
+    : "no recent workouts logged";
+
   const contextPrimer = `[Athlete context]
 User: ${user?.name ?? "unknown"}
-Goals: ${user?.goals.map((g) => g.description).join("; ") || "none"}
-Races: ${raceTargets.map((r) => `${r.raceName} ${r.raceDate.toISOString().slice(0, 10)}`).join("; ") || "none"}
-Today: ${metricsSummary}
+Goals: ${user?.goals.map((g: any) => g.description).join("; ") || "none"}
+Races: ${raceTargets.map((r: any) => `${r.raceName} ${r.raceDate.toISOString().slice(0, 10)}`).join("; ") || "none"}
+Recent workouts: ${activitySummary}
+Today metrics: ${metricsSummary}
 Trends (30d): ${trendSummary}
 ${flags.length ? `Flags: ${flags.join(" | ")}` : ""}`;
 

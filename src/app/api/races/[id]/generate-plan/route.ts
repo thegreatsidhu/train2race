@@ -6,15 +6,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { HAIKU_MODEL, SONNET_MODEL } from "@/lib/ai/client";
 const anthropic = new Anthropic();
 const RACE_GUIDELINES = {
-  "5K":                { model: HAIKU_MODEL, maxTokens: 2500, maxWeeks: 6,  minWeeks: 4,  maxMi: 5,  wMi: "15-25", pMi: "20-25", workouts: "400m intervals, tempo 2-3mi, easy 2-4mi" },
-  "10K":               { model: HAIKU_MODEL, maxTokens: 1800, maxWeeks: 8,  minWeeks: 6,  maxMi: 7,  wMi: "20-35", pMi: "25-35", workouts: "tempo 3-4mi, 1K intervals, easy 3-5mi" },
-  "Half Marathon":     { model: HAIKU_MODEL, maxTokens: 2500, maxWeeks: 12, minWeeks: 8,  maxMi: 13, wMi: "25-45", pMi: "35-45", workouts: "long 8-12mi, tempo 4-6mi, easy 4-7mi" },
-  "Marathon":          { model: HAIKU_MODEL, maxTokens: 3500, maxWeeks: 16, minWeeks: 16, maxMi: 22, wMi: "35-55", pMi: "45-55", workouts: "long 14-22mi, marathon pace, easy 5-10mi" },
-  "Ultra":             { model: HAIKU_MODEL, maxTokens: 4000, maxWeeks: 18, minWeeks: 20, maxMi: 30, wMi: "40-70", pMi: "55-70", workouts: "back-to-back longs, trail runs" },
-  "Sprint Triathlon":  { model: HAIKU_MODEL, maxTokens: 2500, maxWeeks: 8,  minWeeks: 6,  maxMi: 6,  wMi: "combined 8-12", pMi: "multi", workouts: "swim 400-800m, bike 10-15mi, run 2-4mi, brick" },
-  "Olympic Triathlon": { model: HAIKU_MODEL, maxTokens: 2000, maxWeeks: 12, minWeeks: 10, maxMi: 10, wMi: "combined 10-16", pMi: "multi", workouts: "swim 1000-1500m, bike 20-28mi, run 4-7mi, brick" },
-  "70.3 Triathlon":    { model: HAIKU_MODEL, maxTokens: 2500, maxWeeks: 16, minWeeks: 16, maxMi: 13, wMi: "combined 14-20", pMi: "multi", workouts: "swim 1-2mi, bike 30-56mi, run 6-13mi, brick" },
-  "140.6 Triathlon":   { model: HAIKU_MODEL, maxTokens: 3000, maxWeeks: 20, minWeeks: 20, maxMi: 26, wMi: "combined 20-30", pMi: "multi", workouts: "swim 2-4mi, bike 60-112mi, run 10-26mi, brick" },
+  "5K":                { model: HAIKU_MODEL,  maxTokens: 2500, maxWeeks: 6,  minWeeks: 4,  maxMi: 5,  wMi: "15-25", pMi: "20-25", workouts: "400m intervals, tempo 2-3mi, easy 2-4mi" },
+  "10K":               { model: HAIKU_MODEL,  maxTokens: 1800, maxWeeks: 8,  minWeeks: 6,  maxMi: 7,  wMi: "20-35", pMi: "25-35", workouts: "tempo 3-4mi, 1K intervals, easy 3-5mi" },
+  "Half Marathon":     { model: HAIKU_MODEL,  maxTokens: 2500, maxWeeks: 12, minWeeks: 8,  maxMi: 13, wMi: "25-45", pMi: "35-45", workouts: "long 8-12mi, tempo 4-6mi, easy 4-7mi" },
+  "Marathon":          { model: SONNET_MODEL, maxTokens: 4000, maxWeeks: 16, minWeeks: 16, maxMi: 22, wMi: "35-55", pMi: "45-55", workouts: "long 14-22mi, marathon pace, easy 5-10mi" },
+  "Ultra":             { model: SONNET_MODEL, maxTokens: 4500, maxWeeks: 18, minWeeks: 20, maxMi: 30, wMi: "40-70", pMi: "55-70", workouts: "back-to-back longs, trail runs" },
+  "Sprint Triathlon":  { model: HAIKU_MODEL,  maxTokens: 2500, maxWeeks: 8,  minWeeks: 6,  maxMi: 6,  wMi: "combined 8-12", pMi: "multi", workouts: "swim 400-800m, bike 10-15mi, run 2-4mi, brick" },
+  "Olympic Triathlon": { model: HAIKU_MODEL,  maxTokens: 2000, maxWeeks: 12, minWeeks: 10, maxMi: 10, wMi: "combined 10-16", pMi: "multi", workouts: "swim 1000-1500m, bike 20-28mi, run 4-7mi, brick" },
+  "70.3 Triathlon":    { model: SONNET_MODEL, maxTokens: 3000, maxWeeks: 16, minWeeks: 16, maxMi: 13, wMi: "combined 14-20", pMi: "multi", workouts: "swim 1-2mi, bike 30-56mi, run 6-13mi, brick" },
+  "140.6 Triathlon":   { model: SONNET_MODEL, maxTokens: 3500, maxWeeks: 20, minWeeks: 20, maxMi: 26, wMi: "combined 20-30", pMi: "multi", workouts: "swim 2-4mi, bike 60-112mi, run 10-26mi, brick" },
 };
 function getCategory(distanceM, isTriathlon) {
   if (isTriathlon) {
