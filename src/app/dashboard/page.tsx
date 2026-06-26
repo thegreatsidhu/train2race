@@ -5,6 +5,7 @@ import { ActivityList } from "@/components/ActivityList";
 import { UpcomingRacesSection } from "@/components/UpcomingRacesSection";
 import { TeamInvitations } from "@/components/TeamInvitations";
 import { DashboardNotifications } from "@/components/DashboardNotifications";
+import { DashboardAnnouncement } from "@/components/DashboardAnnouncement";
 import Link from "next/link";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -121,7 +122,8 @@ export default async function TodayPage() {
   const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(),0,0).getTime()) / 86400000);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, myMemberships, rawTeamMessages, allRaceRegs] = await Promise.all([
+  const now = new Date();
+  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, myMemberships, rawTeamMessages, allRaceRegs, adminDms, announcements] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
@@ -133,6 +135,8 @@ export default async function TodayPage() {
     prisma.teamMember.findMany({where:{userId},select:{teamId:true,lastViewedChatAt:true}}),
     prisma.teamMessage.findMany({where:{team:{members:{some:{userId}}},userId:{not:userId},isDeleted:false,createdAt:{gte:thirtyDaysAgo}},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},user:{select:{name:true}}},orderBy:{createdAt:"desc"},take:100}),
     prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
+    (prisma as any).adminMessage.findMany({where:{toUserId:userId,isRead:false},orderBy:{createdAt:"desc"},take:10,select:{id:true,content:true,createdAt:true}}),
+    (prisma as any).announcement.findMany({where:{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
   ]);
 
   // Teams with member counts + weekly activity
@@ -278,8 +282,15 @@ export default async function TodayPage() {
       {/* ── Invitations ── */}
       <TeamInvitations />
 
+      {/* ── Announcements ── */}
+      <DashboardAnnouncement announcements={(announcements as any[]).map((a: any) => ({ id: a.id, title: a.title, content: a.content }))} />
+
       {/* ── DM / chat notifications ── */}
-      <DashboardNotifications teamMessageGroups={teamMessageGroups} dmGroups={dmGroups} />
+      <DashboardNotifications
+        teamMessageGroups={teamMessageGroups}
+        dmGroups={dmGroups}
+        adminDms={(adminDms as any[]).map((m: any) => ({ id: m.id, content: m.content, createdAt: m.createdAt.toISOString() }))}
+      />
 
       {/* ── Quote ── */}
       <div className="mb-8 border-l-2 border-signal/30 pl-4">

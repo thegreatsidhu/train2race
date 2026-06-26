@@ -49,6 +49,7 @@ model User {
   supportTickets           SupportTicket[]
   directMessagesSent       DirectMessage[]  @relation("DMsSent")
   directMessagesReceived   DirectMessage[]  @relation("DMsReceived")
+  adminMessages            AdminMessage[]   @relation("AdminMsgsReceived")
   @@map("users")
 }
 
@@ -450,6 +451,26 @@ model SupportTicket {
   updatedAt   DateTime @updatedAt
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@map("support_tickets")
+}
+
+model AdminMessage {
+  id        String   @id @default(cuid())
+  toUserId  String
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  toUser    User     @relation("AdminMsgsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  @@index([toUserId, isRead])
+  @@map("admin_messages")
+}
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String?
+  content   String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+  @@map("announcements")
 }
 
 model EventMessage {

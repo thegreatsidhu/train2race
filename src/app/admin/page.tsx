@@ -26,6 +26,20 @@ export default function AdminPage() {
   const [ticketsLoaded, setTicketsLoaded] = useState(false);
   const [ticketNote, setTicketNote] = useState({});
   const [updatingTicket, setUpdatingTicket] = useState(null);
+  // Messaging
+  const [msgTab, setMsgTab] = useState("dm");
+  const [dmUserId, setDmUserId] = useState("");
+  const [dmContent, setDmContent] = useState("");
+  const [sendingDm, setSendingDm] = useState(false);
+  const [dmMsg, setDmMsg] = useState({ text: "", ok: false });
+  const [annTitle, setAnnTitle] = useState("");
+  const [annContent, setAnnContent] = useState("");
+  const [annExpiry, setAnnExpiry] = useState("");
+  const [postingAnn, setPostingAnn] = useState(false);
+  const [annMsg, setAnnMsg] = useState({ text: "", ok: false });
+  const [adminMsgs, setAdminMsgs] = useState([]);
+  const [adminMsgsLoaded, setAdminMsgsLoaded] = useState(false);
+
   const [allChallenges, setAllChallenges] = useState([]);
   const [challengesLoaded, setChallengesLoaded] = useState(false);
   const [challengeStatusFilter, setChallengeStatusFilter] = useState("all");
@@ -280,6 +294,44 @@ export default function AdminPage() {
     setRemovingParticipantKey(null);
   }
 
+  async function loadAdminMsgs() {
+    if (adminMsgsLoaded) return;
+    const res = await fetch(`/api/admin/messages?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setAdminMsgs(d.messages || []);
+    setAdminMsgsLoaded(true);
+  }
+
+  async function sendDm() {
+    if (!dmUserId || !dmContent.trim()) return;
+    setSendingDm(true); setDmMsg({ text: "", ok: false });
+    const res = await fetch("/api/admin/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "dm", toUserId: dmUserId, content: dmContent }) });
+    setSendingDm(false);
+    if (res.ok) { setDmMsg({ text: "Message sent!", ok: true }); setDmContent(""); setDmUserId(""); await loadAdminMsgsForce(); }
+    else { const d = await res.json(); setDmMsg({ text: d.error || "Failed", ok: false }); }
+  }
+
+  async function postAnnouncement() {
+    if (!annContent.trim()) return;
+    setPostingAnn(true); setAnnMsg({ text: "", ok: false });
+    const res = await fetch("/api/admin/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "announce", title: annTitle, content: annContent, expiresAt: annExpiry || null }) });
+    setPostingAnn(false);
+    if (res.ok) { setAnnMsg({ text: "Announcement posted!", ok: true }); setAnnTitle(""); setAnnContent(""); setAnnExpiry(""); await loadAdminMsgsForce(); }
+    else { const d = await res.json(); setAnnMsg({ text: d.error || "Failed", ok: false }); }
+  }
+
+  async function loadAdminMsgsForce() {
+    const res = await fetch(`/api/admin/messages?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setAdminMsgs(d.messages || []);
+    setAdminMsgsLoaded(true);
+  }
+
+  async function deleteAdminMsg(id, type) {
+    await fetch("/api/admin/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, type }) });
+    setAdminMsgs(prev => prev.filter(m => m.id !== id));
+  }
+
   async function loadTickets() {
     if (ticketsLoaded) return;
     const res = await fetch(`/api/admin/tickets?password=${encodeURIComponent(password)}`);
@@ -374,6 +426,7 @@ export default function AdminPage() {
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
     if (id === "races") loadAllRaces();
+    if (id === "messages") loadAdminMsgs();
   }
 
   if (!authed && loading) {
@@ -496,6 +549,7 @@ export default function AdminPage() {
             { id: "invites", label: "Invites (" + unusedCodes.length + " unused)" },
             { id: "races", label: "Races (" + (data?.pendingRaces?.length || 0) + " pending)" },
             { id: "chat", label: "Chat" },
+            { id: "messages", label: "Messages" },
             { id: "challenges", label: "Challenges" + (challengesLoaded && pendingChallengeCount > 0 ? " (" + pendingChallengeCount + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "teams", label: "Teams (" + teams.length + ")" },
@@ -1255,6 +1309,88 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "messages" && (
+          <div className="space-y-8">
+            {/* Sub-tabs */}
+            <div className="flex gap-2">
+              {[{ id: "dm", label: "DM a user" }, { id: "announce", label: "Post announcement" }, { id: "history", label: "History" }].map(t => (
+                <button key={t.id} onClick={() => setMsgTab(t.id)} className={"px-3 py-1.5 rounded-full text-sm transition-colors " + (msgTab === t.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {msgTab === "dm" && (
+              <div className="space-y-4 max-w-lg">
+                <h2 className="font-medium">Send a direct message to a user</h2>
+                <p className="text-xs text-foreground-dim">The message will appear on the user's today page as a notification from Train2Race. They can dismiss it once read.</p>
+                <div>
+                  <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Select user</label>
+                  <select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={dmUserId} onChange={e => setDmUserId(e.target.value)}>
+                    <option value="">— choose a user —</option>
+                    {(data?.users || []).map(u => <option key={u.id} value={u.id}>{u.name || u.email} {u.email ? `(${u.email})` : ""}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Message</label>
+                  <textarea rows={4} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="Write your message…" value={dmContent} onChange={e => setDmContent(e.target.value)} />
+                </div>
+                {dmMsg.text && <p className={"text-sm " + (dmMsg.ok ? "text-signal" : "text-red-400")}>{dmMsg.text}</p>}
+                <button onClick={sendDm} disabled={sendingDm || !dmUserId || !dmContent.trim()} className="px-5 py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">
+                  {sendingDm ? "Sending…" : "Send message"}
+                </button>
+              </div>
+            )}
+
+            {msgTab === "announce" && (
+              <div className="space-y-4 max-w-lg">
+                <h2 className="font-medium">Post an announcement to all users</h2>
+                <p className="text-xs text-foreground-dim">Shown as a banner on the today page for all users until they dismiss it. Add an optional expiry date to auto-remove it.</p>
+                <div>
+                  <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Title (optional)</label>
+                  <input className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="e.g. Scheduled maintenance" value={annTitle} onChange={e => setAnnTitle(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Message</label>
+                  <textarea rows={4} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="Write your announcement…" value={annContent} onChange={e => setAnnContent(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-foreground-dim uppercase tracking-wide block mb-1">Expires (optional)</label>
+                  <input type="datetime-local" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={annExpiry} onChange={e => setAnnExpiry(e.target.value)} />
+                </div>
+                {annMsg.text && <p className={"text-sm " + (annMsg.ok ? "text-signal" : "text-red-400")}>{annMsg.text}</p>}
+                <button onClick={postAnnouncement} disabled={postingAnn || !annContent.trim()} className="px-5 py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">
+                  {postingAnn ? "Posting…" : "Post announcement"}
+                </button>
+              </div>
+            )}
+
+            {msgTab === "history" && (
+              <div className="space-y-3">
+                <h2 className="font-medium">Sent messages</h2>
+                {adminMsgs.length === 0 ? <p className="text-sm text-foreground-dim">No messages sent yet.</p> : (
+                  <div className="space-y-2">
+                    {adminMsgs.map((m) => (
+                      <div key={m.id} className="rounded-xl border border-border bg-surface p-3 flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs text-foreground-dim mb-1">
+                            {m.toUser ? `To: ${m.toUser.name || m.toUser.email}` : "Announcement"}
+                            {" · "}{new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {m.isRead !== undefined && !m.isRead && <span className="ml-2 text-signal">Unread</span>}
+                          </p>
+                          {m.title && <p className="text-sm font-medium mb-0.5">{m.title}</p>}
+                          <p className="text-sm">{m.content}</p>
+                        </div>
+                        <button onClick={() => deleteAdminMsg(m.id, m.toUser ? "dm" : "announce")} className="text-xs text-red-400 shrink-0">Delete</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
