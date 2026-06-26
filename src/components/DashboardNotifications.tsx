@@ -29,7 +29,7 @@ export function DashboardNotifications({
 
   function dismissTeam(teamId: string, key: string) {
     setDismissed(prev => new Set(prev).add(key));
-    fetch(`/api/teams/${teamId}/messages`, { method: "GET" }).catch(() => {});
+    fetch(`/api/teams/${teamId}/mark-read`, { method: "POST" }).catch(() => {});
   }
 
   function dismissAdminDm(id: string) {

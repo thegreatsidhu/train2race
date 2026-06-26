@@ -18,12 +18,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isMember = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } } });
   if (!isMember && !isSuperUser(session.user.email)) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
-  // Stamp last-viewed so Today page chat notifications clear after visiting chat
+  // Stamp last-viewed and mark DMs read so Today page notifications clear after visiting chat
   if (isMember) {
-    await prisma.teamMember.update({
-      where: { teamId_userId: { teamId: id, userId } },
-      data: { lastViewedChatAt: new Date() },
-    });
+    await Promise.all([
+      prisma.teamMember.update({
+        where: { teamId_userId: { teamId: id, userId } },
+        data: { lastViewedChatAt: new Date() },
+      }),
+      prisma.directMessage.updateMany({
+        where: { teamId: id, toUserId: userId, isRead: false },
+        data: { isRead: true },
+      }),
+    ]);
   }
 
   const messages = await prisma.teamMessage.findMany({
