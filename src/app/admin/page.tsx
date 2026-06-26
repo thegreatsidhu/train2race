@@ -426,6 +426,15 @@ export default function AdminPage() {
       return 0;
     });
 
+  const filteredChallenges = allChallenges.filter(c => {
+    if (challengeStatusFilter === "all") return true;
+    if (challengeStatusFilter === "pending") return c.status === "pending";
+    if (challengeStatusFilter === "active") return c.status === "approved" && new Date() < new Date(c.endDate);
+    if (challengeStatusFilter === "ended") return c.status === "approved" && new Date() >= new Date(c.endDate);
+    if (challengeStatusFilter === "rejected") return c.status === "rejected";
+    return true;
+  });
+
   const filteredChallengesSearched = filteredChallenges.filter(c => {
     if (!challengeSearch) return true;
     const q = challengeSearch.toLowerCase();
@@ -435,15 +444,6 @@ export default function AdminPage() {
   const filteredTickets = tickets.filter(t =>
     ticketStatusFilter === "all" ? true : t.status === ticketStatusFilter
   );
-
-  const filteredChallenges = allChallenges.filter(c => {
-    if (challengeStatusFilter === "all") return true;
-    if (challengeStatusFilter === "pending") return c.status === "pending";
-    if (challengeStatusFilter === "active") return c.status === "approved" && new Date() < new Date(c.endDate);
-    if (challengeStatusFilter === "ended") return c.status === "approved" && new Date() >= new Date(c.endDate);
-    if (challengeStatusFilter === "rejected") return c.status === "rejected";
-    return true;
-  });
 
   return (
     <div className="min-h-screen bg-background">
