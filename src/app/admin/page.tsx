@@ -51,6 +51,9 @@ export default function AdminPage() {
   const [addMemberMsg, setAddMemberMsg] = useState("");
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [userSort, setUserSort] = useState("newest");
+  const [teamSearch, setTeamSearch] = useState("");
   const [editingTeamId, setEditingTeamId] = useState(null);
   const [editTeamName, setEditTeamName] = useState("");
   const [editTeamDesc, setEditTeamDesc] = useState("");
@@ -390,6 +393,26 @@ export default function AdminPage() {
   const usedCodes = data?.inviteCodes?.filter((c) => c.usedBy) || [];
   const pendingChallengeCount = allChallenges.filter(c => c.status === "pending").length;
 
+  const filteredUsers = (data?.users || [])
+    .filter(u => {
+      if (!userSearch) return true;
+      const q = userSearch.toLowerCase();
+      return (u.name || "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (userSort === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (userSort === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (userSort === "name") return (a.name || "").localeCompare(b.name || "");
+      if (userSort === "races") return (b.raceTargets?.length || 0) - (a.raceTargets?.length || 0);
+      return 0;
+    });
+
+  const filteredTeams = teams.filter(t => {
+    if (!teamSearch) return true;
+    const q = teamSearch.toLowerCase();
+    return t.name.toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q);
+  });
+
   const filteredChallenges = allChallenges.filter(c => {
     if (challengeStatusFilter === "all") return true;
     if (challengeStatusFilter === "pending") return c.status === "pending";
@@ -439,14 +462,33 @@ export default function AdminPage() {
         </div>
 
         {activeTab === "users" && (
-          <div className="space-y-3">
-            {data?.users?.map((user) => (
+          <div>
+            <div className="flex gap-2 mb-4">
+              <input
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+                placeholder="Search by name or email..."
+                className="flex-1 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none"
+                autoFocus
+              />
+              <select value={userSort} onChange={e => setUserSort(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="name">Name A–Z</option>
+                <option value="races">Most races</option>
+              </select>
+            </div>
+            {userSearch && (
+              <p className="text-xs text-foreground-dim mb-3">{filteredUsers.length} of {data?.users?.length || 0} users</p>
+            )}
+            <div className="space-y-3">
+            {filteredUsers.map((user) => (
               <div key={user.id} className="rounded-2xl border border-border bg-surface p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-medium">{user.name || "No name"}</p>
-                    <p className="text-sm text-foreground-dim">{user.email}</p>
-                    <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(user.createdAt).toLocaleDateString()} · {user.raceTargets?.length || 0} races</p>
+                    <a href={`mailto:${user.email}`} className="text-sm text-foreground-dim hover:text-signal transition-colors">{user.email}</a>
+                    <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(user.createdAt).toLocaleDateString()} · {user.raceTargets?.length || 0} race{user.raceTargets?.length !== 1 ? "s" : ""}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {user.connections?.map((c) => (
                         <span key={c.source} className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border">{c.source}</span>
@@ -505,6 +547,10 @@ export default function AdminPage() {
                 )}
               </div>
             ))}
+            {filteredUsers.length === 0 && userSearch && (
+              <p className="text-sm text-foreground-dim py-4 text-center">No users match "{userSearch}"</p>
+            )}
+            </div>
           </div>
         )}
 
@@ -947,6 +993,14 @@ export default function AdminPage() {
               <h2 className="font-medium">All Teams ({teams.length})</h2>
               <button onClick={() => setShowCreateTeam(v => !v)} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create team</button>
             </div>
+            {teams.length > 0 && (
+              <input
+                value={teamSearch}
+                onChange={e => setTeamSearch(e.target.value)}
+                placeholder="Search teams by name..."
+                className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none mb-4"
+              />
+            )}
             {showCreateTeam && (
               <div className="rounded-2xl border border-signal/30 bg-surface p-4 mb-4 space-y-3">
                 <p className="text-sm font-medium">New team</p>
@@ -962,9 +1016,11 @@ export default function AdminPage() {
               <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
             ) : teams.length === 0 ? (
               <p className="text-sm text-foreground-dim">No teams yet.</p>
+            ) : filteredTeams.length === 0 ? (
+              <p className="text-sm text-foreground-dim">No teams match "{teamSearch}"</p>
             ) : (
               <div className="space-y-4">
-                {teams.map(t => {
+                {filteredTeams.map(t => {
                   const captain = t.members.find(m => m.userId === t.createdBy);
                   return (
                     <div key={t.id} className="rounded-2xl border border-border bg-surface p-4">
