@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const PERIODS    = [{ v: "week", l: "This week" }, { v: "month", l: "This month" }, { v: "year", l: "This year" }, { v: "all", l: "All time" }];
 const METRICS    = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Duration" }, { v: "count", l: "Activities" }];
@@ -21,16 +22,18 @@ function Chips({ items, value, onChange }: { items: { v: string; l: string }[]; 
   );
 }
 
-export default function LeaderboardPage() {
-  const [period,    setPeriod]    = useState("week");
-  const [metric,    setMetric]    = useState("distance");
-  const [type,      setType]      = useState("run");
-  const [sex,       setSex]       = useState("all");
-  const [ageGroup,  setAgeGroup]  = useState("all");
-  const [city,      setCity]      = useState("");
-  const [cityInput, setCityInput] = useState("");
-  const [teamId,    setTeamId]    = useState("");
-  const [raceId,    setRaceId]    = useState("");
+function LeaderboardContent() {
+  const sp = useSearchParams();
+  const router = useRouter();
+  const [period,    setPeriod]    = useState(sp.get("period")   || "week");
+  const [metric,    setMetric]    = useState(sp.get("metric")   || "distance");
+  const [type,      setType]      = useState(sp.get("type")     || "run");
+  const [sex,       setSex]       = useState(sp.get("sex")      || "all");
+  const [ageGroup,  setAgeGroup]  = useState(sp.get("ageGroup") || "all");
+  const [city,      setCity]      = useState(sp.get("city")     || "");
+  const [cityInput, setCityInput] = useState(sp.get("city")     || "");
+  const [teamId,    setTeamId]    = useState(sp.get("teamId")   || "");
+  const [raceId,    setRaceId]    = useState(sp.get("raceId")   || "");
 
   const [teams,          setTeams]          = useState<any[]>([]);
   const [races,          setRaces]          = useState<any[]>([]);
@@ -79,6 +82,20 @@ export default function LeaderboardPage() {
   }, [period, metric, type, sex, ageGroup, city, teamId, raceId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (period   !== "week")     params.set("period",   period);
+    if (metric   !== "distance") params.set("metric",   metric);
+    if (type     !== "run")      params.set("type",     type);
+    if (sex      !== "all")      params.set("sex",      sex);
+    if (ageGroup !== "all")      params.set("ageGroup", ageGroup);
+    if (city)                    params.set("city",     city);
+    if (teamId)                  params.set("teamId",   teamId);
+    if (raceId)                  params.set("raceId",   raceId);
+    const qs = params.toString();
+    router.replace(`/dashboard/leaderboard${qs ? "?" + qs : ""}`, { scroll: false });
+  }, [period, metric, type, sex, ageGroup, city, teamId, raceId, router]);
 
   async function inviteToTeam(targetUserId: string, tId: string) {
     setAddingTo(tId);
@@ -291,4 +308,8 @@ export default function LeaderboardPage() {
       )}
     </div>
   );
+}
+
+export default function LeaderboardPage() {
+  return <Suspense><LeaderboardContent /></Suspense>;
 }

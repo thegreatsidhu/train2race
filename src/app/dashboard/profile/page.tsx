@@ -36,9 +36,13 @@ export default function ProfilePage() {
     setSaving(false); if(res.ok) showSaved("Saved"); else setError("Failed to save");
   }
   async function saveBody() {
-    setSaving(true); setError("");
-    const weightKg=weightLbs?parseFloat(weightLbs)/2.20462:null;
+    setError("");
+    const weightLbsNum = weightLbs ? parseFloat(weightLbs) : null;
+    if (weightLbsNum != null && (isNaN(weightLbsNum) || weightLbsNum < 22 || weightLbsNum > 1100)) { setError("Weight must be between 22 and 1,100 lbs"); return; }
     const totalIn=(heightFt||heightIn)?parseInt(heightFt||"0")*12+parseInt(heightIn||"0"):null;
+    if (totalIn != null && (totalIn < 20 || totalIn > 108)) { setError("Height must be between 1'8\" and 9'0\""); return; }
+    setSaving(true);
+    const weightKg=weightLbsNum!=null?weightLbsNum/2.20462:null;
     const heightCm=totalIn?totalIn*2.54:null;
     const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({weightKg,heightCm})});
     setSaving(false);

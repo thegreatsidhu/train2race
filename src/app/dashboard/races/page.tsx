@@ -153,6 +153,9 @@ export default function RacesPage() {
   }
 
   async function handleSub() {
+    if (!rName.trim() || !rDate || !rCity.trim() || !rCountry) { setSubResult({ error: "Please fill in all required fields." }); return; }
+    const rd = new Date(rDate);
+    if (isNaN(rd.getTime())) { setSubResult({ error: "Invalid race date." }); return; }
     setSubbing(true); setSubResult(null);
     const res = await fetch("/api/major-races/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: rName, raceDate: rDate, distanceM: DISTS[rDist], city: rCity, country: rCountry, website: rWeb || null, isTriathlon: rTri }) });
     const result = await res.json();
