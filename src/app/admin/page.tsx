@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 export default function AdminPage() {
   const [password, setPassword] = useState("");
@@ -103,6 +103,17 @@ export default function AdminPage() {
   const [creatingCh, setCreatingCh] = useState(false);
   const [createChMsg, setCreateChMsg] = useState("");
 
+  useEffect(() => {
+    const saved = sessionStorage.getItem("adminPw");
+    if (!saved) return;
+    setPassword(saved);
+    setLoading(true);
+    fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: saved, action: "getData" }) })
+      .then(res => { if (!res.ok) { sessionStorage.removeItem("adminPw"); throw new Error(); } return res.json(); })
+      .then(json => { setData(json); setAuthed(true); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
   async function handleLogin() {
     setLoading(true); setError("");
     const res = await fetch("/api/admin", {
@@ -112,6 +123,7 @@ export default function AdminPage() {
     });
     if (!res.ok) { setError("Wrong password"); setLoading(false); return; }
     const json = await res.json();
+    sessionStorage.setItem("adminPw", password);
     setData(json); setAuthed(true); setLoading(false);
   }
 
@@ -358,6 +370,10 @@ export default function AdminPage() {
     if (id === "races") loadAllRaces();
   }
 
+  if (!authed && loading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-sm text-foreground-dim">Loading...</p></div>;
+  }
+
   if (!authed) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -450,7 +466,7 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <button onClick={() => { setAuthed(false); setData(null); setPassword(""); }} className="px-4 py-2 rounded-full border border-border text-sm">Sign out</button>
+          <button onClick={() => { sessionStorage.removeItem("adminPw"); setAuthed(false); setData(null); setPassword(""); }} className="px-4 py-2 rounded-full border border-border text-sm">Sign out</button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
