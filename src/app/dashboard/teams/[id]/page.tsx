@@ -3,6 +3,19 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
 
+function fmtMsgDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (msgDay.getTime() === today.getTime()) return time;
+  if (msgDay.getTime() === yesterday.getTime()) return `Yesterday · ${time}`;
+  if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ` · ${time}`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + ` · ${time}`;
+}
+
 const LB_TYPES   = [{ v: "all", l: "All" }, { v: "run", l: "Run + Walk" }, { v: "bike", l: "Bike" }, { v: "swim", l: "Swim" }, { v: "triathlon", l: "Triathlon" }];
 const LB_PERIODS = [{ v: "week", l: "Week" }, { v: "month", l: "Month" }, { v: "year", l: "Year" }, { v: "all", l: "All time" }];
 const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Duration" }, { v: "count", l: "Count" }];
@@ -340,7 +353,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                             <div key={m.id} className={"flex "+(m.fromUser.id===myUserId?"justify-end":"justify-start")}>
                               <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface border border-border")}>
                                 <p>{m.content}</p>
-                                <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{m.fromUser.name} · {new Date(m.createdAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</p>
+                                <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{m.fromUser.id!==myUserId&&`${m.fromUser.name} · `}{fmtMsgDate(m.createdAt)}</p>
                               </div>
                             </div>
                           ))}
@@ -394,7 +407,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                       <div key={m.id} className={"flex "+(m.fromUser.id===myUserId?"justify-end":"justify-start")}>
                         <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface-raised border border-border")}>
                           <p>{m.content}</p>
-                          <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{new Date(m.createdAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</p>
+                          <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{fmtMsgDate(m.createdAt)}</p>
                         </div>
                       </div>
                     ))}
