@@ -36,6 +36,8 @@ function CommunityPageInner() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [confirmExit, setConfirmExit] = useState(false);
+  const [exiting, setExiting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadMyRegs(autoOpenId?: string) {
@@ -96,6 +98,22 @@ function CommunityPageInner() {
     setSearchQ("");
     setSearchResults([]);
     await loadMyRegs(race.id);
+  }
+
+  async function exitCommunity() {
+    if (!sel) return;
+    setExiting(true);
+    await fetch("/api/major-races/register", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ majorRaceId: sel.id }),
+    });
+    setExiting(false);
+    setConfirmExit(false);
+    setSel(null);
+    setComm([]);
+    setMessages([]);
+    await loadMyRegs();
   }
 
   async function sendMessage(content: string, replyToId?: string) {
@@ -250,7 +268,7 @@ function CommunityPageInner() {
                 </p>
               </div>
 
-              <div className="flex gap-2 mb-5">
+              <div className="flex items-center gap-2 mb-5 flex-wrap">
                 <button onClick={() => setEventTab("athletes")}
                   className={"px-4 py-1.5 rounded-full text-sm font-medium transition-colors " + (eventTab === "athletes" ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
                   Athletes {!dataLoading && `(${comm.length})`}
@@ -259,6 +277,26 @@ function CommunityPageInner() {
                   className={"px-4 py-1.5 rounded-full text-sm font-medium transition-colors " + (eventTab === "chat" ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
                   Chat {!dataLoading && `(${messages.length})`}
                 </button>
+                <div className="ml-auto">
+                  {confirmExit ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-foreground-dim">Leave this community?</span>
+                      <button onClick={exitCommunity} disabled={exiting}
+                        className="text-xs px-3 py-1.5 rounded-full bg-red-600/80 text-white disabled:opacity-50">
+                        {exiting ? "Leaving…" : "Yes, leave"}
+                      </button>
+                      <button onClick={() => setConfirmExit(false)}
+                        className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-surface">
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmExit(true)}
+                      className="text-xs px-3 py-1.5 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">
+                      Exit community
+                    </button>
+                  )}
+                </div>
               </div>
 
               {eventTab === "athletes" && (
