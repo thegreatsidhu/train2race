@@ -8,7 +8,7 @@ function fmtMsgDate(iso: string): string {
   const yesterday = new Date(today.getTime() - 86400000);
   const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  if (msgDay.getTime() === today.getTime()) return time;
+  if (msgDay.getTime() === today.getTime()) return `Today · ${time}`;
   if (msgDay.getTime() === yesterday.getTime()) return `Yesterday · ${time}`;
   if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ` · ${time}`;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + ` · ${time}`;
