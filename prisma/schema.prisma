@@ -337,6 +337,7 @@ model Team {
   majorRaceId String?
   isPrivate   Boolean  @default(true)
   createdAt   DateTime @default(now())
+  isCommunity Boolean  @default(false)
   members     TeamMember[]
   messages    TeamMessage[]
   challenges  TeamChallenge[]

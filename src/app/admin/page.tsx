@@ -72,6 +72,19 @@ export default function AdminPage() {
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamDesc, setNewTeamDesc] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
+  const [communities, setCommunities] = useState([]);
+  const [communitiesLoaded, setCommunitiesLoaded] = useState(false);
+  const [commSearch, setCommSearch] = useState("");
+  const [showCreateComm, setShowCreateComm] = useState(false);
+  const [newCommName, setNewCommName] = useState("");
+  const [newCommDesc, setNewCommDesc] = useState("");
+  const [creatingComm, setCreatingComm] = useState(false);
+  const [confirmDeleteCommId, setConfirmDeleteCommId] = useState(null);
+  const [deletingCommId, setDeletingCommId] = useState(null);
+  const [editingCommId, setEditingCommId] = useState(null);
+  const [editCommName, setEditCommName] = useState("");
+  const [editCommDesc, setEditCommDesc] = useState("");
+  const [savingCommEdit, setSavingCommEdit] = useState(false);
   const [addMemberTeamId, setAddMemberTeamId] = useState(null);
   const [addMemberEmail, setAddMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
@@ -404,6 +417,42 @@ export default function AdminPage() {
     if (res.ok && d.team) { setTeams(prev => [{ ...d.team, members: [] }, ...prev]); setNewTeamName(""); setNewTeamDesc(""); setShowCreateTeam(false); }
   }
 
+  async function loadCommunities() {
+    if (communitiesLoaded) return;
+    const res = await fetch(`/api/admin/teams?password=${encodeURIComponent(password)}&community=true`);
+    const d = await res.json();
+    setCommunities(d.teams || []);
+    setCommunitiesLoaded(true);
+  }
+
+  async function createCommunity() {
+    if (!newCommName.trim()) return;
+    setCreatingComm(true);
+    const res = await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createTeam", name: newCommName.trim(), description: newCommDesc.trim() || null, isCommunity: true }) });
+    const d = await res.json().catch(() => ({}));
+    setCreatingComm(false);
+    if (res.ok && d.team) { setCommunities(prev => [{ ...d.team, members: [] }, ...prev]); setNewCommName(""); setNewCommDesc(""); setShowCreateComm(false); }
+  }
+
+  async function deleteCommunity(teamId) {
+    setDeletingCommId(teamId);
+    const res = await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "deleteTeam", teamId }) });
+    setDeletingCommId(null);
+    setConfirmDeleteCommId(null);
+    if (res.ok) setCommunities(prev => prev.filter(c => c.id !== teamId));
+  }
+
+  async function saveCommEdit(teamId) {
+    if (!editCommName.trim()) return;
+    setSavingCommEdit(true);
+    const res = await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "editTeam", teamId, name: editCommName.trim(), description: editCommDesc.trim() || null }) });
+    setSavingCommEdit(false);
+    if (res.ok) {
+      setCommunities(prev => prev.map(c => c.id === teamId ? { ...c, name: editCommName.trim(), description: editCommDesc.trim() || null } : c));
+      setEditingCommId(null);
+    }
+  }
+
   async function addMemberToTeam(teamId) {
     if (!addMemberEmail.trim()) return;
     setAddingMember(true); setAddMemberMsg("");
@@ -513,6 +562,7 @@ export default function AdminPage() {
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
     if (id === "invites") loadTeams();
+    if (id === "communities") loadCommunities();
     if (id === "races") loadAllRaces();
     if (id === "messages") loadAdminMsgs();
     if (id === "requests") loadInviteRequests();
@@ -643,6 +693,7 @@ export default function AdminPage() {
             { id: "challenges", label: "Challenges" + (challengesLoaded && pendingChallengeCount > 0 ? " (" + pendingChallengeCount + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "teams", label: "Teams (" + teams.length + ")" },
+            { id: "communities", label: "Communities" + (communitiesLoaded ? " (" + communities.length + ")" : "") },
             { id: "settings", label: "Settings" },
           ].map(tab => (
             <button key={tab.id} onClick={() => switchTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
@@ -1424,6 +1475,87 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "communities" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-medium">Community Events ({communities.length})</h2>
+              <button onClick={() => setShowCreateComm(v => !v)} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create community</button>
+            </div>
+            {communities.length > 0 && (
+              <input value={commSearch} onChange={e => setCommSearch(e.target.value)} placeholder="Search communities..." className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none mb-4" />
+            )}
+            {showCreateComm && (
+              <div className="rounded-2xl border border-signal/30 bg-surface p-4 mb-4 space-y-3">
+                <p className="text-sm font-medium">New community event</p>
+                <p className="text-xs text-foreground-dim">Community events are public groups that any member can join and browse. They have the same tabs as teams: Bulletin, Chat, Challenges, Events, Activity, Members, Contact.</p>
+                <input value={newCommName} onChange={e => setNewCommName(e.target.value)} placeholder="Community name" className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                <textarea value={newCommDesc} onChange={e => setNewCommDesc(e.target.value)} placeholder="Description (optional)" rows={2} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none resize-none" />
+                <div className="flex gap-2">
+                  <button onClick={createCommunity} disabled={creatingComm || !newCommName.trim()} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingComm ? "Creating..." : "Create"}</button>
+                  <button onClick={() => { setShowCreateComm(false); setNewCommName(""); setNewCommDesc(""); }} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                </div>
+              </div>
+            )}
+            {!communitiesLoaded ? (
+              <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
+            ) : communities.length === 0 ? (
+              <p className="text-sm text-foreground-dim">No community events yet. Create the first one above.</p>
+            ) : (
+              <div className="space-y-4">
+                {communities.filter(c => !commSearch || c.name.toLowerCase().includes(commSearch.toLowerCase()) || (c.description||"").toLowerCase().includes(commSearch.toLowerCase())).map(c => (
+                  <div key={c.id} className="rounded-2xl border border-border bg-surface p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        {editingCommId === c.id ? (
+                          <div className="space-y-2 mb-2">
+                            <input value={editCommName} onChange={e => setEditCommName(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" autoFocus />
+                            <textarea value={editCommDesc} onChange={e => setEditCommDesc(e.target.value)} rows={2} placeholder="Description (optional)" className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none resize-none" />
+                            <div className="flex gap-2">
+                              <button onClick={() => saveCommEdit(c.id)} disabled={savingCommEdit || !editCommName.trim()} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{savingCommEdit ? "Saving..." : "Save"}</button>
+                              <button onClick={() => setEditingCommId(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="font-medium">{c.name}</p>
+                            {c.description && <p className="text-xs text-foreground-dim mt-0.5">{c.description}</p>}
+                            <p className="text-xs text-foreground-dim mt-1">{c.members.length} member{c.members.length !== 1 ? "s" : ""} · Created {new Date(c.createdAt).toLocaleDateString()}</p>
+                          </>
+                        )}
+                      </div>
+                      {editingCommId !== c.id && (
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end ml-4">
+                          <a href={`/dashboard/teams/${c.id}`} target="_blank" rel="noopener noreferrer" className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors">View →</a>
+                          <button onClick={() => { setEditingCommId(c.id); setEditCommName(c.name); setEditCommDesc(c.description || ""); }} className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors">Edit</button>
+                          {confirmDeleteCommId === c.id ? (
+                            <>
+                              <button onClick={() => deleteCommunity(c.id)} disabled={deletingCommId === c.id} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">{deletingCommId === c.id ? "..." : "Confirm delete"}</button>
+                              <button onClick={() => setConfirmDeleteCommId(null)} className="text-xs px-2.5 py-1 rounded-full border border-border">Cancel</button>
+                            </>
+                          ) : (
+                            <button onClick={() => setConfirmDeleteCommId(c.id)} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">Delete</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {c.members.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-xs text-foreground-dim mb-2">Members ({c.members.length})</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {c.members.slice(0, 12).map(m => (
+                            <span key={m.userId} className="text-xs px-2 py-0.5 rounded-full bg-background border border-border">{m.name}</span>
+                          ))}
+                          {c.members.length > 12 && <span className="text-xs text-foreground-dim">+{c.members.length - 12} more</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
 
 function fmtGoal(sec: number) {
@@ -17,6 +17,7 @@ function milesLabel(distanceM: number) {
 
 function CommunityPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const preselectedRaceId = searchParams.get("race");
 
   const [myRegs, setMyRegs] = useState<any[]>([]);
@@ -30,7 +31,14 @@ function CommunityPageInner() {
   const [eventTab, setEventTab] = useState("athletes");
   const [sending, setSending] = useState(false);
 
-  // Search
+  // Community groups
+  const [commEvents, setCommEvents] = useState<any[]>([]);
+  const [commEventsLoading, setCommEventsLoading] = useState(true);
+  const [joiningCommId, setJoiningCommId] = useState<string | null>(null);
+  const [leavingCommId, setLeavingCommId] = useState<string | null>(null);
+  const [confirmLeaveCommId, setConfirmLeaveCommId] = useState<string | null>(null);
+
+  // Race search
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -39,6 +47,27 @@ function CommunityPageInner() {
   const [confirmExit, setConfirmExit] = useState(false);
   const [exiting, setExiting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function loadCommEvents() {
+    const d = await fetch("/api/community-events").then(r => r.json()).catch(() => ({}));
+    setCommEvents(d.events || []);
+    setCommEventsLoading(false);
+  }
+
+  async function joinCommEvent(teamId: string) {
+    setJoiningCommId(teamId);
+    await fetch("/api/community-events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ teamId }) });
+    setJoiningCommId(null);
+    setCommEvents(prev => prev.map(e => e.id === teamId ? { ...e, isMember: true, memberCount: e.memberCount + 1 } : e));
+  }
+
+  async function leaveCommEvent(teamId: string) {
+    setLeavingCommId(teamId);
+    await fetch("/api/community-events", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ teamId }) });
+    setLeavingCommId(null);
+    setConfirmLeaveCommId(null);
+    setCommEvents(prev => prev.map(e => e.id === teamId ? { ...e, isMember: false, memberCount: Math.max(0, e.memberCount - 1) } : e));
+  }
 
   async function loadMyRegs(autoOpenId?: string) {
     const d = await fetch("/api/major-races/register").then(r => r.json());
@@ -54,7 +83,7 @@ function CommunityPageInner() {
     if (regs.length === 0) setShowSearch(true);
   }
 
-  useEffect(() => { loadMyRegs(); }, []);
+  useEffect(() => { loadMyRegs(); loadCommEvents(); }, []);
 
   useEffect(() => {
     if (!searchQ.trim()) { setSearchResults([]); return; }
@@ -166,6 +195,50 @@ function CommunityPageInner() {
           </button>
         )}
       </header>
+
+      {/* Community Groups */}
+      {(commEventsLoading || commEvents.length > 0) && (
+        <div className="mb-8">
+          <h2 className="font-semibold text-lg mb-3">Groups</h2>
+          {commEventsLoading ? (
+            <div className="space-y-2">{[1,2].map(i=><div key={i} className="h-16 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
+          ) : (
+            <div className="space-y-2">
+              {commEvents.map(e => (
+                <div key={e.id} className={"rounded-2xl border p-4 flex items-center justify-between gap-4 " + (e.isMember ? "border-signal/30 bg-signal/5" : "border-border bg-surface")}>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm">{e.name}</p>
+                    <p className="text-xs text-foreground-dim mt-0.5">{e.memberCount} member{e.memberCount !== 1 ? "s" : ""}{e.description ? ` · ${e.description}` : ""}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {e.isMember ? (
+                      <>
+                        <button onClick={() => router.push(`/dashboard/teams/${e.id}`)} className="px-3 py-1.5 rounded-full text-xs font-medium border border-signal/40 text-signal hover:bg-signal/10 transition-colors">
+                          View →
+                        </button>
+                        {confirmLeaveCommId === e.id ? (
+                          <>
+                            <button onClick={() => leaveCommEvent(e.id)} disabled={leavingCommId === e.id} className="px-3 py-1.5 rounded-full text-xs bg-red-600/80 text-white disabled:opacity-50">
+                              {leavingCommId === e.id ? "Leaving…" : "Confirm leave"}
+                            </button>
+                            <button onClick={() => setConfirmLeaveCommId(null)} className="px-3 py-1.5 rounded-full text-xs border border-border">Cancel</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setConfirmLeaveCommId(e.id)} className="px-3 py-1.5 rounded-full text-xs border border-red-700/40 text-red-400 hover:border-red-500 transition-colors">Leave</button>
+                        )}
+                      </>
+                    ) : (
+                      <button onClick={() => joinCommEvent(e.id)} disabled={joiningCommId === e.id} className="px-3 py-1.5 rounded-full text-xs font-medium bg-signal text-background hover:opacity-90 disabled:opacity-50 transition-opacity">
+                        {joiningCommId === e.id ? "Joining…" : "Join"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Search panel */}
       {showSearch && (

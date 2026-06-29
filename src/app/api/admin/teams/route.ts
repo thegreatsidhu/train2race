@@ -8,7 +8,11 @@ export async function GET(req: NextRequest) {
   const password = url.searchParams.get("password") || "";
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const communityParam = url.searchParams.get("community");
+  const where = communityParam === "true" ? { isCommunity: true } : communityParam === "false" ? { isCommunity: false } : {};
+
   const teams = await prisma.team.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     include: {
       members: {
@@ -25,6 +29,7 @@ export async function GET(req: NextRequest) {
     name: t.name,
     description: t.description,
     isPrivate: t.isPrivate,
+    isCommunity: t.isCommunity,
     createdAt: t.createdAt,
     createdBy: t.createdBy,
     members: t.members.map(m => ({
@@ -76,10 +81,11 @@ export async function POST(req: NextRequest) {
   }
   if (action === "createTeam") {
     if (!name?.trim()) return NextResponse.json({ error: "Name required" }, { status: 400 });
+    const isCommunity = !!body.isCommunity;
     const team = await prisma.team.create({
-      data: { name: name.trim(), description: description || null, inviteCode: makeInviteCode(), createdBy: "admin", isPrivate: true },
+      data: { name: name.trim(), description: description || null, inviteCode: makeInviteCode(), createdBy: "admin", isPrivate: !isCommunity, isCommunity },
     });
-    return NextResponse.json({ team: { id: team.id, name: team.name, description: team.description, isPrivate: team.isPrivate, createdAt: team.createdAt, members: [] } });
+    return NextResponse.json({ team: { id: team.id, name: team.name, description: team.description, isPrivate: team.isPrivate, isCommunity: team.isCommunity, createdAt: team.createdAt, members: [] } });
   }
   if (action === "addMember") {
     if (!email?.trim()) return NextResponse.json({ error: "Email required" }, { status: 400 });
