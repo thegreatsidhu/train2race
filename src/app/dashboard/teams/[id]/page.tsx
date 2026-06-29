@@ -41,7 +41,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function deleteAllMessages(){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({deleteAll:true})});setMessages([]);}
   async function handleLeave(){setConfirmLeave(false);if(team?.isAdmin){await fetch(`/api/teams/${id}`,{method:"DELETE"});}else{await fetch(`/api/teams/${id}/leave`,{method:"POST"});}router.push("/dashboard/teams");}
   function copyInviteCode(){navigator.clipboard.writeText(team.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
-  function copyInviteLink(){navigator.clipboard.writeText(`${window.location.origin}/join/${team.inviteCode}`);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
+  function copyInviteLink(){const link=team.activeSignupCode?`${window.location.origin}/signup?invite=${team.activeSignupCode}`:`${window.location.origin}/join/${team.inviteCode}`;navigator.clipboard.writeText(link);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
   async function removeMember(memberId:string, name:string){
     setRemovingId(memberId);
     const res=await fetch(`/api/teams/${id}/members/${memberId}`,{method:"DELETE"});

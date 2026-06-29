@@ -35,6 +35,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isMember = team.members.some(m => m.userId === userId);
   if (!isMember) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
+  const activeInviteCode = await prisma.inviteCode.findFirst({
+    where: { teamId: id, reusable: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    orderBy: { createdAt: "desc" },
+    select: { code: true },
+  });
+
   const planIds = team.members.flatMap(m => m.user.trainingPlans.map(p => p.id));
   const [dueCounts, doneCounts, weeklyData] = planIds.length > 0
     ? await Promise.all([
@@ -59,7 +65,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const weeklyMiles = plan ? Math.round((weeklyMap[plan.id] || 0) / 1.60934 * 10) / 10 : 0;
     return { userId: m.user.id, name: m.user.name||"Anonymous", role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles };
   }).sort((a,b)=>b.pct-a.pct);
-  return NextResponse.json({ team: { ...team, members: membersWithStats, isAdmin: team.members.find(m=>m.userId===userId)?.role==="admin" } });
+  return NextResponse.json({ team: { ...team, members: membersWithStats, isAdmin: team.members.find(m=>m.userId===userId)?.role==="admin", activeSignupCode: activeInviteCode?.code || null } });
 }
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
