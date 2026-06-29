@@ -241,6 +241,9 @@ model InviteCode {
   createdAt DateTime @default(now())
   expiresAt DateTime?
   note      String?
+  teamId    String?
+  reusable  Boolean  @default(false)
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
   @@map("invite_codes")
 }
 
@@ -342,6 +345,7 @@ model Team {
   bulletins   TeamBulletin[]
   events      TeamEvent[]
   contacts    TeamContact[]
+  inviteCodes InviteCode[]
   majorRace   MajorRace?   @relation(fields: [majorRaceId], references: [id])
   @@map("teams")
 }

@@ -46,6 +46,12 @@ export default function AdminPage() {
   const [fulfillCodes, setFulfillCodes] = useState({});
   const [fulfillingId, setFulfillingId] = useState(null);
   const [decliningId, setDecliningId] = useState(null);
+  const [showTeamInviteForm, setShowTeamInviteForm] = useState(false);
+  const [teamInviteTeamId, setTeamInviteTeamId] = useState("");
+  const [teamInviteExpiry, setTeamInviteExpiry] = useState("");
+  const [generatingTeamInvite, setGeneratingTeamInvite] = useState(false);
+  const [recentTeamCodes, setRecentTeamCodes] = useState([]);
+  const [copiedTeamCode, setCopiedTeamCode] = useState(null);
 
   const [allChallenges, setAllChallenges] = useState([]);
   const [challengesLoaded, setChallengesLoaded] = useState(false);
@@ -457,11 +463,35 @@ export default function AdminPage() {
     setInviteRequests(prev => prev.filter(r => r.id !== id));
   }
 
+  async function generateTeamInvite() {
+    const team = teams.find(t => t.id === teamInviteTeamId);
+    if (!team) return;
+    setGeneratingTeamInvite(true);
+    const res = await fetch("/api/admin/invites", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, count: 1, teamId: team.id, teamName: team.name, expiresAt: teamInviteExpiry || null }),
+    });
+    const d = await res.json();
+    const newCode = d.codes?.[0];
+    if (newCode) {
+      setRecentTeamCodes(prev => [{ code: newCode.code, teamId: team.id, teamName: team.name }, ...prev]);
+    }
+    await refreshData();
+    setGeneratingTeamInvite(false);
+  }
+
+  function copyTeamCode(code) {
+    navigator.clipboard.writeText(`${window.location.origin}/signup?invite=${code}`);
+    setCopiedTeamCode(code);
+    setTimeout(() => setCopiedTeamCode(null), 2000);
+  }
+
   function switchTab(id) {
     setActiveTab(id);
     if (id === "challenges") { loadChallenges(); loadTeams(); }
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
+    if (id === "invites") loadTeams();
     if (id === "races") loadAllRaces();
     if (id === "messages") loadAdminMsgs();
     if (id === "requests") loadInviteRequests();
@@ -703,41 +733,110 @@ export default function AdminPage() {
 
         {activeTab === "invites" && (
           <div>
-            <div className="rounded-2xl border border-border bg-surface p-5 mb-6">
-              <h2 className="font-medium mb-4">Generate invite codes</h2>
-              <div className="flex gap-3 items-center">
-                <label className="text-sm text-foreground-dim">Count:</label>
-                <input type="number" min={1} max={20} value={genCount} onChange={e => setGenCount(Number(e.target.value))} className="w-16 px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none"/>
-                <button onClick={generateInvites} disabled={generating} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{generating ? "Generating..." : "Generate"}</button>
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              {/* Regular invite codes */}
+              <div className="rounded-2xl border border-border bg-surface p-5">
+                <h2 className="font-medium mb-1">Generate invite codes</h2>
+                <p className="text-xs text-foreground-dim mb-4">Single-use codes for app registration only.</p>
+                <div className="flex gap-3 items-center">
+                  <label className="text-sm text-foreground-dim">Count:</label>
+                  <input type="number" min={1} max={20} value={genCount} onChange={e => setGenCount(Number(e.target.value))} className="w-16 px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none"/>
+                  <button onClick={generateInvites} disabled={generating} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{generating ? "Generating..." : "Generate"}</button>
+                </div>
+                {newCodes.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs text-foreground-dim mb-2">New codes — click to copy signup link</p>
+                    <div className="flex flex-wrap gap-2">
+                      {newCodes.map(code => <button key={code} onClick={() => copyCode(code)} className="px-3 py-1.5 rounded-xl bg-background border border-signal text-sm font-mono">{copied===code?"Copied!":code}</button>)}
+                    </div>
+                  </div>
+                )}
               </div>
-              {newCodes.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs text-foreground-dim mb-2">New codes — click to copy</p>
-                  <div className="flex flex-wrap gap-2">
-                    {newCodes.map(code => <button key={code} onClick={() => copyCode(code)} className="px-3 py-1.5 rounded-xl bg-background border border-signal text-sm font-mono">{copied===code?"Copied!":code}</button>)}
+
+              {/* Team invite link */}
+              <div className="rounded-2xl border border-signal/30 bg-signal/5 p-5">
+                <h2 className="font-medium mb-1">Generate team invite link</h2>
+                <p className="text-xs text-foreground-dim mb-4">Reusable link — anyone who signs up with it is automatically added to the team.</p>
+                {!showTeamInviteForm ? (
+                  <button onClick={() => setShowTeamInviteForm(true)} className="px-4 py-2 rounded-full border border-signal/50 text-signal text-sm hover:bg-signal/10">+ Create team link</button>
+                ) : (
+                  <div className="space-y-3">
+                    <select value={teamInviteTeamId} onChange={e => setTeamInviteTeamId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                      <option value="">— Select a team —</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.members.length} member{t.members.length !== 1 ? "s" : ""})</option>)}
+                    </select>
+                    <div>
+                      <label className="text-xs text-foreground-dim block mb-1">Expires (optional)</label>
+                      <input type="datetime-local" value={teamInviteExpiry} onChange={e => setTeamInviteExpiry(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none"/>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={generateTeamInvite} disabled={generatingTeamInvite || !teamInviteTeamId} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{generatingTeamInvite ? "Generating…" : "Generate link"}</button>
+                      <button onClick={() => { setShowTeamInviteForm(false); setTeamInviteTeamId(""); setTeamInviteExpiry(""); }} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-            <div className="space-y-2 mb-6">
-              {unusedCodes.map((invite) => (
-                <div key={invite.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm">{invite.code}</span>
-                    <button onClick={() => copyCode(invite.code)} className="text-xs text-foreground-dim">{copied===invite.code?"Copied!":"Copy"}</button>
+                )}
+                {recentTeamCodes.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs text-foreground-dim">Generated links — click to copy</p>
+                    {recentTeamCodes.map((tc, i) => (
+                      <div key={i} className="rounded-xl bg-background border border-border px-3 py-2">
+                        <p className="text-xs text-foreground-dim mb-1">{tc.teamName}</p>
+                        <button onClick={() => copyTeamCode(tc.code)} className="text-sm font-mono text-signal hover:underline">
+                          {copiedTeamCode === tc.code ? "Link copied!" : `…/signup?invite=${tc.code}`}
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <button onClick={() => deleteInvite(invite.id)} disabled={deletingId===invite.id} className="text-xs text-red-400">Delete</button>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
+
+            {/* Team invite codes (reusable) */}
+            {unusedCodes.filter(c => c.reusable).length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium mb-2">Active team invite links ({unusedCodes.filter(c => c.reusable).length})</h3>
+                <div className="space-y-2">
+                  {unusedCodes.filter(c => c.reusable).map(invite => (
+                    <div key={invite.id} className="flex items-center justify-between rounded-xl border border-signal/20 bg-signal/5 px-4 py-3">
+                      <div className="flex items-center gap-3 flex-wrap min-w-0">
+                        <span className="font-mono text-sm">{invite.code}</span>
+                        {invite.note && <span className="text-xs text-signal">{invite.note}</span>}
+                        <button onClick={() => copyCode(invite.code)} className="text-xs text-foreground-dim">{copied===invite.code?"Copied!":"Copy link"}</button>
+                      </div>
+                      <button onClick={() => deleteInvite(invite.id)} disabled={deletingId===invite.id} className="text-xs text-red-400 shrink-0">Revoke</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Regular unused codes */}
+            {unusedCodes.filter(c => !c.reusable).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-foreground-dim mb-2">Unused invite codes ({unusedCodes.filter(c => !c.reusable).length})</h3>
+                <div className="space-y-2">
+                  {unusedCodes.filter(c => !c.reusable).map((invite) => (
+                    <div key={invite.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-sm">{invite.code}</span>
+                        <button onClick={() => copyCode(invite.code)} className="text-xs text-foreground-dim">{copied===invite.code?"Copied!":"Copy"}</button>
+                      </div>
+                      <button onClick={() => deleteInvite(invite.id)} disabled={deletingId===invite.id} className="text-xs text-red-400">Delete</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {usedCodes.length > 0 && (
               <div>
                 <h3 className="text-sm font-medium text-foreground-dim mb-2">Used ({usedCodes.length})</h3>
                 <div className="space-y-2">
                   {usedCodes.map((invite) => (
                     <div key={invite.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <span className="font-mono text-sm text-foreground-dim line-through">{invite.code}</span>
+                        {invite.note && <span className="text-xs text-foreground-dim">{invite.note}</span>}
                         <div className="text-xs text-foreground-dim">
                           {invite.usedByUser ? (
                             <span>{invite.usedByUser.name || "No name"} &middot; {invite.usedByUser.email}</span>
@@ -746,7 +845,7 @@ export default function AdminPage() {
                           )}
                         </div>
                       </div>
-                      {invite.usedAt && <span className="text-xs text-foreground-dim">{new Date(invite.usedAt).toLocaleDateString()}</span>}
+                      {invite.usedAt && <span className="text-xs text-foreground-dim shrink-0">{new Date(invite.usedAt).toLocaleDateString()}</span>}
                     </div>
                   ))}
                 </div>

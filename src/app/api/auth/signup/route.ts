@@ -23,12 +23,13 @@ export async function POST(req: Request) {
 
   const { name, email, password, inviteCode } = parsed.data;
 
+  let invite: { id: string; usedBy: string | null; expiresAt: Date | null; teamId: string | null; reusable: boolean } | null = null;
   if (inviteCode) {
-    const invite = await prisma.inviteCode.findUnique({ where: { code: inviteCode } });
+    invite = await prisma.inviteCode.findUnique({ where: { code: inviteCode } });
     if (!invite) {
       return NextResponse.json({ error: "Invalid invite code." }, { status: 400 });
     }
-    if (invite.usedBy) {
+    if (!invite.reusable && invite.usedBy) {
       return NextResponse.json({ error: "Invite code has already been used." }, { status: 400 });
     }
     if (invite.expiresAt && invite.expiresAt < new Date()) {
@@ -59,11 +60,20 @@ export async function POST(req: Request) {
     throw err;
   }
 
-  if (inviteCode) {
-    await prisma.inviteCode.update({
-      where: { code: inviteCode },
-      data: { usedBy: user.id, usedAt: new Date() },
-    });
+  if (invite) {
+    if (!invite.reusable) {
+      await prisma.inviteCode.update({
+        where: { code: inviteCode! },
+        data: { usedBy: user.id, usedAt: new Date() },
+      });
+    }
+    if (invite.teamId) {
+      await prisma.teamMember.upsert({
+        where: { teamId_userId: { teamId: invite.teamId, userId: user.id } },
+        create: { teamId: invite.teamId, userId: user.id, role: "member" },
+        update: {},
+      });
+    }
   }
 
   return NextResponse.json({ user }, { status: 201 });

@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   if (action === "getData") {
     try {
       const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, connections: { select: { source: true } }, raceTargets: { select: { id: true } }, _count: { select: { activities: true } } } });
-      const inviteCodes = await prisma.inviteCode.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, usedBy: true, usedAt: true } });
+      const inviteCodes = await prisma.inviteCode.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, usedBy: true, usedAt: true, note: true, teamId: true, reusable: true } });
       const usedByIds = inviteCodes.map((c) => c.usedBy).filter(Boolean) as string[];
       const inviteUsers = usedByIds.length > 0 ? await prisma.user.findMany({ where: { id: { in: usedByIds } }, select: { id: true, name: true, email: true } }) : [];
       const inviteUserMap = Object.fromEntries(inviteUsers.map((u) => [u.id, u]));
