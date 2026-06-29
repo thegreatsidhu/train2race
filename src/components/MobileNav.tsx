@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { SignOutButton } from "@/components/SignOutButton";
 
 export function MobileNav({ email, role }: { email: string; role?: string }) {
   const [open, setOpen] = useState(false);
@@ -58,8 +59,9 @@ export function MobileNav({ email, role }: { email: string; role?: string }) {
               </Link>
             ))}
           </nav>
-          <div className="px-7 pt-4 border-t border-border">
-            <p className="text-xs text-foreground-dim mb-3">{email}</p>
+          <div className="px-4 pt-4 border-t border-border">
+            <p className="text-xs text-foreground-dim mb-3 px-3">{email}</p>
+            <SignOutButton />
           </div>
         </div>
       )}
