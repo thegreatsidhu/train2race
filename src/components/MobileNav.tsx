@@ -4,9 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-export function MobileNav({ email }: { email: string }) {
+export function MobileNav({ email, role }: { email: string; role?: string }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const showConnections = role === "test" || role === "admin" || role === "superadmin";
   useEffect(() => { setOpen(false); }, [pathname]);
 
   return (
@@ -40,6 +41,7 @@ export function MobileNav({ email }: { email: string }) {
               { href: "/dashboard/profile", label: "Profile" },
               { href: "/dashboard/support", label: "Help & Support" },
               { href: "/dashboard/feature-request", label: "Request a Feature" },
+              ...(showConnections ? [{ href: "/dashboard/connections", label: "Connections" }] : []),
             ].map((link) => (
               <Link
                 key={link.href}
