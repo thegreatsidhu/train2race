@@ -159,6 +159,14 @@ export default function AdminPage() {
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // Email tab
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailTarget, setEmailTarget] = useState("all");
+  const [emailTeamId, setEmailTeamId] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState({ text: "", ok: false });
+
   useEffect(() => {
     setLoading(true);
     // Try super admin session first (no password needed)
@@ -609,6 +617,27 @@ export default function AdminPage() {
     setStatsLoading(false);
   }
 
+  async function sendEmailBroadcast() {
+    if (!emailSubject.trim() || !emailBody.trim()) return;
+    if (emailTarget === "team" && !emailTeamId) return;
+    setSendingEmail(true);
+    setEmailMsg({ text: "", ok: false });
+    const res = await fetch("/api/admin/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, subject: emailSubject, message: emailBody, target: emailTarget, teamId: emailTeamId || undefined }),
+    });
+    const d = await res.json();
+    setSendingEmail(false);
+    if (res.ok) {
+      setEmailMsg({ text: `Sent to ${d.sent} recipient${d.sent !== 1 ? "s" : ""}${d.failed > 0 ? ` (${d.failed} failed)` : ""}.`, ok: true });
+      setEmailSubject("");
+      setEmailBody("");
+    } else {
+      setEmailMsg({ text: d.error || "Failed to send.", ok: false });
+    }
+  }
+
   function switchTab(id) {
     setActiveTab(id);
     if (id === "challenges") { loadChallenges(); loadTeams(); }
@@ -620,6 +649,7 @@ export default function AdminPage() {
     if (id === "messages") loadAdminMsgs();
     if (id === "requests") loadInviteRequests();
     if (id === "stats") loadStats();
+    if (id === "email") loadTeams();
   }
 
   if (!authed && loading) {
@@ -750,6 +780,7 @@ export default function AdminPage() {
             { id: "communities", label: "Communities" + (communitiesLoaded ? " (" + communities.length + ")" : "") + (commRequests.filter(r => r.status === "pending").length > 0 ? " · " + commRequests.filter(r => r.status === "pending").length + " pending" : "") },
             { id: "settings", label: "Settings" },
             { id: "stats", label: "Stats" },
+            { id: "email", label: "Email" },
           ].map(tab => (
             <button key={tab.id} onClick={() => switchTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
               {tab.label}
@@ -2037,6 +2068,59 @@ export default function AdminPage() {
 
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "email" && (
+          <div className="max-w-xl space-y-5">
+            <h2 className="font-medium">Send Email</h2>
+
+            {/* Recipients */}
+            <div>
+              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Recipients</label>
+              <div className="flex gap-2">
+                {["all", "team"].map(t => (
+                  <button key={t} onClick={() => { setEmailTarget(t); setEmailTeamId(""); }} className={"px-4 py-1.5 rounded-full text-sm font-medium transition-colors " + (emailTarget === t ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
+                    {t === "all" ? "All users" : "Specific team"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {emailTarget === "team" && (
+              <div>
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Team</label>
+                {!teamsLoaded ? (
+                  <p className="text-sm text-foreground-dim">Loading teams…</p>
+                ) : (
+                  <select value={emailTeamId} onChange={e => setEmailTeamId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal">
+                    <option value="">Select a team</option>
+                    {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.members?.length ?? ""} members)</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Subject */}
+            <div>
+              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Subject</label>
+              <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="e.g. Important update from Train2Race" className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal" />
+            </div>
+
+            {/* Message */}
+            <div>
+              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Message</label>
+              <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={8} placeholder="Write your message here…" className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-y leading-relaxed" />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button onClick={sendEmailBroadcast} disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim() || (emailTarget === "team" && !emailTeamId)} className="px-5 py-2 rounded-full text-sm font-medium bg-signal text-background disabled:opacity-40 transition-opacity">
+                {sendingEmail ? "Sending…" : "Send email"}
+              </button>
+              {emailMsg.text && (
+                <p className={"text-sm " + (emailMsg.ok ? "text-signal" : "text-red-400")}>{emailMsg.text}</p>
+              )}
+            </div>
           </div>
         )}
 
