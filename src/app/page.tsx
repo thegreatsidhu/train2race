@@ -205,10 +205,10 @@ export default function Home() {
 
       {/* FAQ */}
       <div className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-16">
-          <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">FAQ</p>
-          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-10">Common questions</h2>
-          <div className="grid md:grid-cols-2 gap-x-16 gap-y-8 max-w-4xl">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20">
+          <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-5">FAQ</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-12">Common questions</h2>
+          <div className="grid md:grid-cols-2 gap-x-16 gap-y-10 max-w-4xl">
             {[
               { q: "Is it free?", a: "Yes, always free to join. No credit card required." },
               { q: "Do I need a wearable or fitness tracker?", a: "No. You can log workouts manually. Wearable integrations are optional." },
@@ -217,7 +217,7 @@ export default function Home() {
               { q: "Can I train without a team?", a: "Yes. You can register for a race, follow a training plan, and join the global race community on your own." },
             ].map(({ q, a }) => (
               <div key={q}>
-                <p className="font-medium mb-2">{q}</p>
+                <p className="font-medium mb-3">{q}</p>
                 <p className="text-sm text-foreground-dim leading-relaxed">{a}</p>
               </div>
             ))}
