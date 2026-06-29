@@ -232,12 +232,12 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
 
       <div className="flex gap-2 mb-6 flex-wrap">
         <button onClick={handleBulletinTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="bulletin"?"bg-signal text-background":"border border-border hover:bg-surface")}>Bulletin{bulletins.length>0?` (${bulletins.length})`:""}</button>
-        <button onClick={handleEventsTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="events"?"bg-signal text-background":"border border-border hover:bg-surface")}>Events{teamEvents.length>0?` (${teamEvents.length})`:""}</button>
-        <button onClick={handleContactTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="contact"?"bg-signal text-background":"border border-border hover:bg-surface")}>Contact</button>
-        <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
-        <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
         <button onClick={()=>setActiveTab("chat")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="chat"?"bg-signal text-background":"border border-border hover:bg-surface")}>Chat ({messages.length})</button>
+        <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
+        <button onClick={handleEventsTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="events"?"bg-signal text-background":"border border-border hover:bg-surface")}>Events{teamEvents.length>0?` (${teamEvents.length})`:""}</button>
+        <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
         <button onClick={()=>{setActiveTab("members");loadMyThreads();}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
+        <button onClick={handleContactTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="contact"?"bg-signal text-background":"border border-border hover:bg-surface")}>Contact</button>
       </div>
       {activeTab==="bulletin"&&<div>
         {isCaptain&&(
