@@ -30,12 +30,12 @@ export async function POST(req: Request) {
     if (!teamId) return NextResponse.json({ error: "Team ID required" }, { status: 400 });
     const members = await prisma.teamMember.findMany({
       where: { teamId },
-      select: { user: { select: { email: true, name: true } } },
+      select: { user: { select: { email: true, name: true, emailOptOut: true } } },
     });
-    recipients = members.map(m => ({ email: m.user.email, name: m.user.name })).filter(r => r.email);
+    recipients = members.filter(m => !m.user.emailOptOut).map(m => ({ email: m.user.email, name: m.user.name })).filter(r => r.email);
   } else {
     const users = await prisma.user.findMany({
-      where: { role: { not: "test" } },
+      where: { role: { not: "test" }, emailOptOut: { not: true } },
       select: { email: true, name: true },
     });
     recipients = users.filter(u => u.email);

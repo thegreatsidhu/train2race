@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         majorRace: { select: { name: true, raceDate: true } },
-        members: { select: { user: { select: { id: true, name: true, email: true } } } },
+        members: { select: { user: { select: { id: true, name: true, email: true, emailOptOut: true } } } },
       },
     });
 
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
       ].filter(Boolean).join("");
 
       for (const m of team.members) {
-        if (!m.user.email) continue;
+        if (!m.user.email || m.user.emailOptOut) continue;
         try {
           await resend.emails.send({
             from: FROM,
