@@ -88,6 +88,12 @@ export default function AdminPage() {
   const [editTeamName, setEditTeamName] = useState("");
   const [editTeamDesc, setEditTeamDesc] = useState("");
   const [savingTeamEdit, setSavingTeamEdit] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState("admin");
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createUserMsg, setCreateUserMsg] = useState({ text: "", ok: false });
 
   // Race management
   const [allRaces, setAllRaces] = useState([]);
@@ -432,6 +438,21 @@ export default function AdminPage() {
     }
   }
 
+  async function createUser() {
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword) return;
+    setCreatingUser(true); setCreateUserMsg({ text: "", ok: false });
+    const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createUser", name: newUserName.trim(), email: newUserEmail.trim(), password: newUserPassword, role: newUserRole }) });
+    const d = await res.json();
+    setCreatingUser(false);
+    if (res.ok && d.user) {
+      setCreateUserMsg({ text: `Account created: ${d.user.email}`, ok: true });
+      setData(prev => prev ? { ...prev, users: [{ ...d.user, raceTargets: [], _count: { activities: 0 }, connections: [] }, ...prev.users] } : prev);
+      setNewUserName(""); setNewUserEmail(""); setNewUserPassword("");
+    } else {
+      setCreateUserMsg({ text: d.error || "Failed to create account", ok: false });
+    }
+  }
+
   async function loadInviteRequests() {
     if (inviteRequestsLoaded) return;
     const res = await fetch(`/api/admin/invite-requests?password=${encodeURIComponent(password)}`);
@@ -661,6 +682,9 @@ export default function AdminPage() {
                       {new Date(user.createdAt).getTime() > sevenDaysAgo && (
                         <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">New</span>
                       )}
+                      {user.role === "admin" && <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-900/30 text-blue-300 border border-blue-700/40">Admin</span>}
+                      {user.role === "superadmin" && <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-900/30 text-purple-300 border border-purple-700/40">Superadmin</span>}
+                      {user.role === "test" && <span className="text-xs px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-300 border border-yellow-700/40">Test</span>}
                     </div>
                     <a href={`mailto:${user.email}`} className="text-sm text-foreground-dim hover:text-signal transition-colors">{user.email}</a>
                     <p className="text-xs text-foreground-dim mt-0.5">
@@ -1406,10 +1430,35 @@ export default function AdminPage() {
         )}
 
         {activeTab === "settings" && (
-          <div className="max-w-sm">
+          <div className="max-w-lg space-y-6">
+            {/* Create accounts */}
+            <div className="rounded-2xl border border-border bg-surface p-6">
+              <h2 className="font-medium mb-1">Create account</h2>
+              <p className="text-xs text-foreground-dim mb-5">Create admin or test accounts directly without an invite code.</p>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  {[{ v: "admin", l: "Admin account" }, { v: "test", l: "Test account" }].map(r => (
+                    <button key={r.v} onClick={() => setNewUserRole(r.v)} className={"flex-1 py-2 rounded-full text-sm font-medium transition-colors border " + (newUserRole === r.v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface-raised")}>
+                      {r.l}
+                    </button>
+                  ))}
+                </div>
+                {newUserRole === "admin" && <p className="text-xs text-foreground-dim">Admin accounts can access this admin panel by logging in with their account — no shared password needed.</p>}
+                {newUserRole === "test" && <p className="text-xs text-foreground-dim">Test accounts are regular app users marked with a Test badge. Use them to try out features without affecting real data.</p>}
+                <input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Full name" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                <input type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="Email address" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                <input type="text" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Password (min 8 characters)" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" />
+                {createUserMsg.text && <p className={"text-sm " + (createUserMsg.ok ? "text-signal" : "text-red-400")}>{createUserMsg.text}</p>}
+                <button onClick={createUser} disabled={creatingUser || !newUserName.trim() || !newUserEmail.trim() || newUserPassword.length < 8} className="w-full py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">
+                  {creatingUser ? "Creating…" : `Create ${newUserRole} account`}
+                </button>
+              </div>
+            </div>
+
+            {/* Change admin password */}
             <div className="rounded-2xl border border-border bg-surface p-6">
               <h2 className="font-medium mb-1">Change admin password</h2>
-              <p className="text-xs text-foreground-dim mb-5">This changes the password used to log into this admin panel.</p>
+              <p className="text-xs text-foreground-dim mb-5">This changes the shared password used to log into this admin panel.</p>
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-foreground-dim mb-1">New password</label>

@@ -22,7 +22,7 @@ async function isSuperAdmin(): Promise<boolean> {
     const userId = (session?.user as any)?.id;
     if (!userId) return false;
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    return user?.role === "superadmin";
+    return user?.role === "superadmin" || user?.role === "admin";
   } catch { return false; }
 }
 
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   }
   if (action === "getData") {
     try {
-      const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, connections: { select: { source: true } }, raceTargets: { select: { id: true } }, _count: { select: { activities: true } } } });
+      const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, createdAt: true, role: true, connections: { select: { source: true } }, raceTargets: { select: { id: true } }, _count: { select: { activities: true } } } });
       const inviteCodes = await prisma.inviteCode.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, code: true, createdAt: true, usedBy: true, usedAt: true, note: true, teamId: true, reusable: true } });
       const usedByIds = inviteCodes.map((c) => c.usedBy).filter(Boolean) as string[];
       const inviteUsers = usedByIds.length > 0 ? await prisma.user.findMany({ where: { id: { in: usedByIds } }, select: { id: true, name: true, email: true } }) : [];
@@ -102,6 +102,18 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     await prisma.user.delete({ where: { id: userId } });
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === "createUser") {
+    const { name, email, password, role } = body;
+    if (!name?.trim() || !email?.trim() || !password) return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 });
+    if (password.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    if (!["admin", "test", "user"].includes(role)) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (existing) return NextResponse.json({ error: "An account with that email already exists" }, { status: 409 });
+    const passwordHash = await bcrypt.hash(password, 12);
+    const user = await prisma.user.create({ data: { name: name.trim(), email: email.trim().toLowerCase(), passwordHash, role } });
+    return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt } });
   }
 
   return NextResponse.json({ ok: true });
