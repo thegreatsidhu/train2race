@@ -33,8 +33,8 @@ export function MobileNav({ email }: { email: string }) {
               { href: "/dashboard", label: "Today" },
               { href: "/dashboard/plan", label: "My Plan" },
               { href: "/dashboard/teams", label: "Teams" },
-              { href: "/dashboard/races", label: "Races" },
               { href: "/dashboard/community", label: "Community" },
+              { href: "/dashboard/races", label: "Races" },
               { href: "/dashboard/leaderboard", label: "Leaderboard" },
               { href: "/dashboard/nutrition", label: "Nutrition" },
               { href: "/dashboard/profile", label: "Profile" },
@@ -45,7 +45,12 @@ export function MobileNav({ email }: { email: string }) {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="px-3 py-3 rounded-xl text-foreground-dim hover:text-foreground hover:bg-surface transition-colors"
+                className={
+                  "px-3 py-3 rounded-xl transition-colors " +
+                  ((link.href === "/dashboard" ? pathname === link.href : pathname.startsWith(link.href))
+                    ? "bg-signal/10 text-signal font-medium"
+                    : "text-foreground-dim hover:text-foreground hover:bg-surface")
+                }
               >
                 {link.label}
               </Link>

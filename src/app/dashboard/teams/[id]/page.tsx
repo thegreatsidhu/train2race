@@ -574,6 +574,9 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           </div>
         )}
 
+        {team.members.length === 0 && (
+          <p className="text-sm text-foreground-dim py-2">No members yet.</p>
+        )}
         {team.members.map((member:any)=>(
           <div key={member.userId} className={"rounded-2xl border "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
             <div className="flex items-center justify-between px-4 py-3">

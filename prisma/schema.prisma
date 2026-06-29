@@ -52,6 +52,7 @@ model User {
   adminMessages            AdminMessage[]   @relation("AdminMsgsReceived")
   teamBulletins            TeamBulletin[]
   teamEvents               TeamEvent[]
+  communityRequests        CommunityRequest[]
   @@map("users")
 }
 
@@ -534,6 +535,20 @@ model InviteRequest {
   inviteCode String?
   createdAt  DateTime @default(now())
   @@map("invite_requests")
+}
+
+model CommunityRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  message     String?
+  status      String   @default("pending")
+  teamId      String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("community_requests")
 }
 
 model EventMessage {

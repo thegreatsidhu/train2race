@@ -6,7 +6,6 @@ import crypto from "crypto";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 function isAdmin(email: string | null | undefined) {
-  console.log("Admin check:", { email, ADMIN_EMAIL });
   return email && ADMIN_EMAIL && email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
 }
 

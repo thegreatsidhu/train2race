@@ -105,13 +105,13 @@ export async function POST(req: Request) {
   }
 
   if (action === "createUser") {
-    const { name, email, password, role } = body;
-    if (!name?.trim() || !email?.trim() || !password) return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 });
-    if (password.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    const { name, email, newPassword, role } = body;
+    if (!name?.trim() || !email?.trim() || !newPassword) return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 });
+    if (newPassword.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
     if (!["admin", "test", "user"].includes(role)) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (existing) return NextResponse.json({ error: "An account with that email already exists" }, { status: 409 });
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(newPassword, 12);
     const user = await prisma.user.create({ data: { name: name.trim(), email: email.trim().toLowerCase(), passwordHash, role } });
     return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt } });
   }

@@ -139,6 +139,24 @@ export default async function TodayPage() {
     (prisma as any).announcement.findMany({where:{AND:[{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},{OR:[{scheduledFor:null},{scheduledFor:{lte:now}}]}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
   ]);
 
+  // Recent group events & challenges for alert banners (last 7 days)
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const userTeamIds = (myMemberships as any[]).map((m: any) => m.teamId);
+  const [recentGroupEvents, recentGroupChallenges] = userTeamIds.length > 0
+    ? await Promise.all([
+        (prisma as any).teamEvent.findMany({
+          where: { teamId: { in: userTeamIds }, createdAt: { gte: sevenDaysAgo } },
+          select: { id: true, title: true, createdAt: true, teamId: true, team: { select: { name: true } } },
+          orderBy: { createdAt: "desc" }, take: 10,
+        }),
+        (prisma as any).teamChallenge.findMany({
+          where: { teamId: { in: userTeamIds }, createdAt: { gte: sevenDaysAgo }, status: "approved" },
+          select: { id: true, title: true, createdAt: true, teamId: true, team: { select: { name: true } } },
+          orderBy: { createdAt: "desc" }, take: 10,
+        }),
+      ])
+    : [[], []];
+
   // Teams with member counts + weekly activity
   const userTeams = await prisma.team.findMany({
     where: { members: { some: { userId } } },
@@ -285,11 +303,15 @@ export default async function TodayPage() {
       {/* ── Announcements ── */}
       <DashboardAnnouncement announcements={(announcements as any[]).map((a: any) => ({ id: a.id, title: a.title, content: a.content }))} />
 
-      {/* ── DM / chat notifications ── */}
+      {/* ── DM / chat / group notifications ── */}
       <DashboardNotifications
         teamMessageGroups={teamMessageGroups}
         dmGroups={dmGroups}
         adminDms={(adminDms as any[]).map((m: any) => ({ id: m.id, content: m.content, createdAt: m.createdAt.toISOString() }))}
+        groupAlerts={[
+          ...(recentGroupEvents as any[]).map((e: any) => ({ id: "ev-" + e.id, type: "event" as const, teamId: e.teamId, teamName: e.team.name, title: e.title, createdAt: e.createdAt.toISOString() })),
+          ...(recentGroupChallenges as any[]).map((c: any) => ({ id: "ch-" + c.id, type: "challenge" as const, teamId: c.teamId, teamName: c.team.name, title: c.title, createdAt: c.createdAt.toISOString() })),
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
       />
 
       {/* ── Quote ── */}
@@ -309,6 +331,7 @@ export default async function TodayPage() {
                 { href:"/dashboard/plan", label:"Add a target race", desc:"Set your goal race and generate a personalized training plan" },
                 { href:"/dashboard/log-workout", label:"Log your first workout", desc:"Manually record a run, ride, or swim" },
                 { href:"/dashboard/teams", label:"Join a team", desc:"Train alongside your crew and compete on the leaderboard" },
+                { href:"/dashboard/community", label:"Join a community", desc:"Find a local community to train with" },
               ].map(item=>(
                 <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 hover:bg-surface-raised transition-colors group">
                   <div>

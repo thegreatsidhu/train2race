@@ -16,14 +16,25 @@ interface AdminDm {
   createdAt: string;
 }
 
+interface GroupAlert {
+  id: string;
+  type: "event" | "challenge";
+  teamId: string;
+  teamName: string;
+  title: string;
+  createdAt: string;
+}
+
 export function DashboardNotifications({
   teamMessageGroups,
   dmGroups,
   adminDms = [],
+  groupAlerts = [],
 }: {
   teamMessageGroups: NotifGroup[];
   dmGroups: NotifGroup[];
   adminDms?: AdminDm[];
+  groupAlerts?: GroupAlert[];
 }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -62,11 +73,32 @@ export function DashboardNotifications({
   const visibleDms = dmGroups.filter(g => !dismissed.has("dm-" + g.teamId));
   const visibleTeam = teamMessageGroups.filter(g => !dismissed.has("team-" + g.teamId));
   const visibleAdmin = adminDms.filter(m => !dismissed.has("adm-" + m.id));
+  const visibleAlerts = groupAlerts.filter(a => !dismissed.has("ga-" + a.id));
 
-  if (visibleDms.length === 0 && visibleTeam.length === 0 && visibleAdmin.length === 0) return null;
+  if (visibleDms.length === 0 && visibleTeam.length === 0 && visibleAdmin.length === 0 && visibleAlerts.length === 0) return null;
 
   return (
     <div className="mb-6 space-y-2">
+      {visibleAlerts.map(a => (
+        <div key={"ga-" + a.id} className={"flex items-start gap-3 rounded-2xl border px-4 py-3 " + (a.type === "event" ? "border-purple-700/40 bg-purple-900/15" : "border-orange-700/40 bg-orange-900/15")}>
+          <span className="text-base shrink-0 mt-0.5">{a.type === "event" ? "📅" : "🏆"}</span>
+          <Link
+            href={`/dashboard/teams/${a.teamId}?tab=${a.type === "event" ? "events" : "challenges"}`}
+            onClick={() => persistDismiss("ga-" + a.id)}
+            className="min-w-0 flex-1 hover:opacity-80 transition-opacity"
+          >
+            <p className="text-sm font-medium">New {a.type} in {a.teamName}</p>
+            <p className="text-xs text-foreground-dim truncate">{a.title}</p>
+          </Link>
+          <button
+            onClick={() => persistDismiss("ga-" + a.id)}
+            className="shrink-0 self-start mt-0.5 text-foreground-dim hover:text-foreground transition-colors text-sm leading-none"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
       {visibleAdmin.map(m => (
         <div key={"adm-" + m.id} className="flex items-start gap-3 rounded-2xl border border-blue-700/40 bg-blue-900/20 px-4 py-3">
           <span className="text-base shrink-0 mt-0.5">🔔</span>

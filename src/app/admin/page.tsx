@@ -75,6 +75,12 @@ export default function AdminPage() {
   const [communities, setCommunities] = useState([]);
   const [communitiesLoaded, setCommunitiesLoaded] = useState(false);
   const [commSearch, setCommSearch] = useState("");
+  const [commRequests, setCommRequests] = useState([]);
+  const [commRequestsLoaded, setCommRequestsLoaded] = useState(false);
+  const [approvingReqId, setApprovingReqId] = useState(null);
+  const [rejectingReqId, setRejectingReqId] = useState(null);
+  const [deletingReqId, setDeletingReqId] = useState(null);
+  const [confirmDeleteReqId, setConfirmDeleteReqId] = useState(null);
   const [showCreateComm, setShowCreateComm] = useState(false);
   const [newCommName, setNewCommName] = useState("");
   const [newCommDesc, setNewCommDesc] = useState("");
@@ -425,6 +431,39 @@ export default function AdminPage() {
     setCommunitiesLoaded(true);
   }
 
+  async function loadCommRequests() {
+    const res = await fetch(`/api/admin/community-requests?password=${encodeURIComponent(password)}`);
+    const d = await res.json().catch(() => ({}));
+    setCommRequests(d.requests || []);
+    setCommRequestsLoaded(true);
+  }
+
+  async function approveRequest(id) {
+    setApprovingReqId(id);
+    const res = await fetch("/api/admin/community-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "approve" }) });
+    const d = await res.json().catch(() => ({}));
+    setApprovingReqId(null);
+    if (res.ok) {
+      setCommRequests(prev => prev.map(r => r.id === id ? { ...r, status: "approved", teamId: d.teamId } : r));
+      setCommunitiesLoaded(false);
+    }
+  }
+
+  async function rejectRequest(id) {
+    setRejectingReqId(id);
+    await fetch("/api/admin/community-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "reject" }) });
+    setRejectingReqId(null);
+    setCommRequests(prev => prev.map(r => r.id === id ? { ...r, status: "rejected" } : r));
+  }
+
+  async function deleteRequest(id) {
+    setDeletingReqId(id);
+    await fetch("/api/admin/community-requests", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id }) });
+    setDeletingReqId(null);
+    setConfirmDeleteReqId(null);
+    setCommRequests(prev => prev.filter(r => r.id !== id));
+  }
+
   async function createCommunity() {
     if (!newCommName.trim()) return;
     setCreatingComm(true);
@@ -490,7 +529,7 @@ export default function AdminPage() {
   async function createUser() {
     if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword) return;
     setCreatingUser(true); setCreateUserMsg({ text: "", ok: false });
-    const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createUser", name: newUserName.trim(), email: newUserEmail.trim(), password: newUserPassword, role: newUserRole }) });
+    const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createUser", name: newUserName.trim(), email: newUserEmail.trim(), newPassword: newUserPassword, role: newUserRole }) });
     const d = await res.json();
     setCreatingUser(false);
     if (res.ok && d.user) {
@@ -562,7 +601,7 @@ export default function AdminPage() {
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
     if (id === "invites") loadTeams();
-    if (id === "communities") loadCommunities();
+    if (id === "communities") { loadCommunities(); loadCommRequests(); }
     if (id === "races") loadAllRaces();
     if (id === "messages") loadAdminMsgs();
     if (id === "requests") loadInviteRequests();
@@ -693,7 +732,7 @@ export default function AdminPage() {
             { id: "challenges", label: "Challenges" + (challengesLoaded && pendingChallengeCount > 0 ? " (" + pendingChallengeCount + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "teams", label: "Teams (" + teams.length + ")" },
-            { id: "communities", label: "Communities" + (communitiesLoaded ? " (" + communities.length + ")" : "") },
+            { id: "communities", label: "Communities" + (communitiesLoaded ? " (" + communities.length + ")" : "") + (commRequests.filter(r => r.status === "pending").length > 0 ? " · " + commRequests.filter(r => r.status === "pending").length + " pending" : "") },
             { id: "settings", label: "Settings" },
           ].map(tab => (
             <button key={tab.id} onClick={() => switchTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
@@ -752,7 +791,7 @@ export default function AdminPage() {
                       onClick={() => { setSettingPwFor(settingPwFor === user.id ? null : user.id); setTempPassword(""); }}
                       className="px-3 py-1.5 rounded-full border border-border text-xs hover:border-signal hover:text-signal transition-colors"
                     >
-                      Set password
+                      Change password
                     </button>
                     <button
                       onClick={() => sendReset(user.id, user.email)}
@@ -778,18 +817,21 @@ export default function AdminPage() {
                   </div>
                 </div>
                 {settingPwFor === user.id && (
-                  <div className="mt-3 flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={tempPassword}
-                      onChange={e => setTempPassword(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && setTempPw(user.id)}
-                      placeholder="Temporary password (min 6 chars)"
-                      className="flex-1 px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"
-                      autoFocus
-                    />
-                    <button onClick={() => setTempPw(user.id)} className="px-4 py-2 rounded-full bg-signal text-background text-xs font-medium">Set</button>
-                    <button onClick={() => { setSettingPwFor(null); setTempPassword(""); }} className="px-3 py-2 rounded-full border border-border text-xs">Cancel</button>
+                  <div className="mt-3 rounded-xl border border-border bg-background p-3">
+                    <p className="text-xs text-foreground-dim mb-2">Set a new password for <strong>{user.name || user.email}</strong>. This permanently replaces their current password.</p>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        value={tempPassword}
+                        onChange={e => setTempPassword(e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && setTempPw(user.id)}
+                        placeholder="New password (min 6 chars)"
+                        className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm"
+                        autoFocus
+                      />
+                      <button onClick={() => setTempPw(user.id)} disabled={tempPassword.length < 6} className="px-4 py-2 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-50">Save</button>
+                      <button onClick={() => { setSettingPwFor(null); setTempPassword(""); }} className="px-3 py-2 rounded-full border border-border text-xs">Cancel</button>
+                    </div>
                   </div>
                 )}
                 {userMsgs[user.id] && (
@@ -1482,6 +1524,54 @@ export default function AdminPage() {
 
         {activeTab === "communities" && (
           <div>
+            {commRequestsLoaded && commRequests.length > 0 && (
+              <div className="mb-6">
+                <h2 className="font-medium mb-3">Community Requests ({commRequests.filter(r => r.status === "pending").length} pending)</h2>
+                <div className="space-y-3">
+                  {commRequests.map(r => (
+                    <div key={r.id} className={"rounded-2xl border p-4 " + (r.status === "approved" ? "border-signal/30 bg-signal/5" : r.status === "rejected" ? "border-red-700/20 bg-red-900/5" : "border-yellow-600/30 bg-yellow-900/5")}>
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="font-medium text-sm">{r.name}</p>
+                            <span className={"text-xs px-2 py-0.5 rounded-full " + (r.status === "approved" ? "bg-signal/20 text-signal" : r.status === "rejected" ? "bg-red-700/20 text-red-400" : "bg-yellow-700/20 text-yellow-400")}>
+                              {r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : "Pending"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-foreground-dim">From: {r.user?.name || "?"} ({r.user?.email})</p>
+                          {r.description && <p className="text-xs text-foreground-dim mt-1">{r.description}</p>}
+                          {r.message && <p className="text-xs text-foreground-dim mt-0.5 italic">&quot;{r.message}&quot;</p>}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                          {r.status === "pending" && (
+                            <>
+                              <button onClick={() => approveRequest(r.id)} disabled={approvingReqId === r.id} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">
+                                {approvingReqId === r.id ? "Approving…" : "Approve"}
+                              </button>
+                              <button onClick={() => rejectRequest(r.id)} disabled={rejectingReqId === r.id} className="text-xs px-3 py-1.5 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 disabled:opacity-50">
+                                {rejectingReqId === r.id ? "Rejecting…" : "Reject"}
+                              </button>
+                            </>
+                          )}
+                          {r.status === "approved" && r.teamId && (
+                            <a href={`/dashboard/teams/${r.teamId}`} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-signal hover:text-signal transition-colors">View →</a>
+                          )}
+                          {confirmDeleteReqId === r.id ? (
+                            <>
+                              <button onClick={() => deleteRequest(r.id)} disabled={deletingReqId === r.id} className="text-xs px-3 py-1.5 rounded-full bg-red-600 text-white disabled:opacity-50">{deletingReqId === r.id ? "…" : "Confirm delete"}</button>
+                              <button onClick={() => setConfirmDeleteReqId(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                            </>
+                          ) : (
+                            <button onClick={() => setConfirmDeleteReqId(r.id)} className="text-xs px-3 py-1.5 rounded-full border border-border text-foreground-dim hover:text-foreground transition-colors">Delete</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-medium">Community Events ({communities.length})</h2>
               <button onClick={() => setShowCreateComm(v => !v)} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create community</button>

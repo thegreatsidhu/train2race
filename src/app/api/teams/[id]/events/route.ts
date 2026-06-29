@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSuperUser } from "@/lib/superuser";
+import { sendEmail, groupEmailHtml } from "@/lib/email";
 
 async function isCaptain(teamId: string, userId: string) {
   const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
@@ -48,6 +49,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
     include: { user: { select: { id: true, name: true } } },
   });
+  // Email team members (fire-and-forget)
+  prisma.teamMember.findMany({
+    where: { teamId: id, userId: { not: userId } },
+    include: { user: { select: { name: true, email: true } }, team: { select: { name: true } } },
+  }).then(async members => {
+    if (!members.length) return;
+    const teamName = members[0].team.name;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://train2race.com";
+    await Promise.all(members.filter(m => m.user.email).map(m =>
+      sendEmail({
+        to: m.user.email,
+        subject: `New event in ${teamName}`,
+        html: groupEmailHtml({
+          preheader: `${event.title} — ${new Date(event.eventDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`,
+          heading: `New event: ${event.title}`,
+          body: `A new event has been added to <strong>${teamName}</strong>.${event.description ? `<br/><br/>${event.description}` : ""}${event.location ? `<br/><br/>📍 ${event.location}` : ""}<br/><br/>📅 ${new Date(event.eventDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}`,
+          cta: "View event",
+          ctaUrl: `${baseUrl}/dashboard/teams/${id}?tab=events`,
+        }),
+      })
+    ));
+  }).catch(() => {});
+
   return NextResponse.json({ event });
 }
 

@@ -32,7 +32,7 @@ export default function TeamsPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetch("/api/teams", { signal: ac.signal }).then(r => r.json()).then(d => { setTeams(d.teams || []); setLoading(false); }).catch(() => {});
+    fetch("/api/teams", { signal: ac.signal }).then(r => r.json()).then(d => { setTeams(d.teams || []); setLoading(false); }).catch((e: any) => { if (e?.name !== "AbortError") { setLoading(false); setError("Failed to load teams. Please refresh."); } });
     fetch("/api/major-races?upcoming=1", { signal: ac.signal }).then(r => r.json()).then(d => setRaces(d.races || [])).catch(() => {});
     return () => ac.abort();
   }, []);
@@ -194,7 +194,9 @@ export default function TeamsPage() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-foreground-dim">Loading...</p>
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse" />)}
+        </div>
       ) : teams.length === 0 ? (
         <div className="rounded-2xl border border-border bg-surface p-8 text-center">
           <p className="text-foreground-dim text-sm mb-2">No teams yet.</p>

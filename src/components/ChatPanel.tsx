@@ -40,9 +40,12 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) return;
+    endRef.current?.scrollIntoView({ behavior: isInitialLoad.current ? "auto" : "smooth" });
+    isInitialLoad.current = false;
   }, [messages.length]);
 
   async function handleSend() {

@@ -49,7 +49,7 @@ export default function EditWorkoutPage() {
           notes: a.raw?.notes || "",
         });
         setLoading(false);
-      }).catch(() => {});
+      }).catch((e: any) => { if (e?.name !== "AbortError") { setError("Failed to load activity."); setLoading(false); } });
     return () => ac.abort();
   }, [id]);
 

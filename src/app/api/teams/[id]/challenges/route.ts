@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { sendEmail, groupEmailHtml } from "@/lib/email";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: teamId } = await params;
@@ -61,5 +62,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: member.role === "admin" ? "approved" : "pending",
     },
   });
+  // Email team members when challenge is approved (captain-created)
+  if (challenge.status === "approved") {
+    prisma.teamMember.findMany({
+      where: { teamId, userId: { not: userId } },
+      include: { user: { select: { name: true, email: true } }, team: { select: { name: true } } },
+    }).then(async members => {
+      if (!members.length) return;
+      const teamName = members[0].team.name;
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://train2race.com";
+      const ends = new Date(endDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      await Promise.all(members.filter(m => m.user.email).map(m =>
+        sendEmail({
+          to: m.user.email,
+          subject: `New challenge in ${teamName}: ${title.trim()}`,
+          html: groupEmailHtml({
+            preheader: `Join the challenge — ends ${ends}`,
+            heading: `New challenge: ${title.trim()}`,
+            body: `<strong>${teamName}</strong> has a new group challenge!${description ? `<br/><br/>${description}` : ""}<br/><br/>Goal: <strong>${goal} ${unit}</strong>${goalPerDay ? " per day" : ""} · Ends ${ends}`,
+            cta: "View challenge",
+            ctaUrl: `${baseUrl}/dashboard/teams/${teamId}?tab=challenges`,
+          }),
+        })
+      ));
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ challenge }, { status: 201 });
 }
