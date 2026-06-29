@@ -90,7 +90,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-xl px-4 md:px-8 py-6 md:py-10">
-      <header className="mb-6"><h1 className="text-3xl font-semibold tracking-tight mb-1">Profile</h1><p className="text-foreground-dim text-sm">Your details help the AI coach give more accurate advice.</p></header>
+      <header className="mb-6"><h1 className="text-3xl font-semibold tracking-tight mb-1">Profile</h1><p className="text-foreground-dim text-sm">Manage your personal details and account settings.</p></header>
       <div className="flex gap-2 mb-8">
         {([{id:"personal",label:"Personal"},{id:"body",label:"Body metrics"},{id:"account",label:"Account"}] as const).map(tab=>(
           <button key={tab.id} onClick={()=>{setActiveTab(tab.id);setError("");setSaved("");}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab===tab.id?"bg-signal text-background":"border border-border hover:bg-surface")}>{tab.label}</button>
