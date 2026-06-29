@@ -27,7 +27,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Train2Race - Team training for endurance athletes",
   description:
-    "Train2Race connects your wearables and turns HRV, sleep, recovery, and training load into a clear picture of your fitness with race plans, team leaderboards, and a community of athletes chasing the same finish line.",
+    "Train2Race brings your crew together around a shared race goal — team leaderboards, group chat, training plans, and a global community of endurance athletes chasing the same finish line.",
   applicationName: "Train2Race",
   appleWebApp: {
     capable: true,

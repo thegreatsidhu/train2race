@@ -19,19 +19,20 @@ export default function Home() {
       <main className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-6 md:px-10">
 
         {/* Hero */}
-        <section className="pt-16 md:pt-24 pb-12 grid md:grid-cols-[1.1fr_0.9fr] gap-12 items-center">
+        <section className="pt-20 md:pt-32 pb-16 grid md:grid-cols-[1.1fr_0.9fr] gap-16 items-center">
           <div>
-            <p className="font-data text-xs uppercase tracking-[0.18em] text-signal mb-5">Train together · Race together</p>
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.08] mb-6">The team that trains together<br/>races better.</h1>
-            <p className="text-foreground-dim text-lg leading-relaxed max-w-md mb-8">Train2Race brings your crew together around a shared race goal — team leaderboards, group chat, training plans, and a global community all in one place.</p>
-            <div className="flex items-center gap-4 flex-wrap mb-4">
+            <p className="font-data text-xs uppercase tracking-[0.18em] text-signal mb-6">Train together · Race together</p>
+            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.12] mb-7">Nobody crosses the<br/>finish line alone.</h1>
+            <p className="text-xl text-foreground-dim mb-5">From beginners to experienced athletes — Train2Race helps you every step of the journey.</p>
+            <p className="text-foreground-dim leading-relaxed max-w-md mb-10">Bring your crew together around a shared race goal — team leaderboards, group chat, training plans, and a global community all in one place.</p>
+            <div className="flex items-center gap-4 flex-wrap mb-5">
               <Link href="/signup" className="px-6 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Join for free</Link>
               <Link href="/login" className="px-6 py-3 rounded-full border border-border hover:border-foreground-dim transition-colors">Log in</Link>
             </div>
-            <div className="mb-6">
+            <div className="mb-8">
               <InviteRequestForm label="Need an invite code? Request one →" />
             </div>
-            <div className="flex items-center gap-6 text-xs text-foreground-dim flex-wrap">
+            <div className="flex items-center gap-8 text-xs text-foreground-dim flex-wrap">
               <div><span className="text-signal font-semibold">100+</span> major races</div>
               <div><span className="text-signal font-semibold">Private</span> team leaderboards</div>
               <div><span className="text-signal font-semibold">Free</span> to join</div>
@@ -133,6 +134,37 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Join or create a community */}
+        <section className="py-20 border-t border-border grid md:grid-cols-2 gap-16 items-center">
+          <div>
+            <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-5">Community</p>
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-5">Join or create a community to help you reach your fitness goals</h2>
+            <p className="text-foreground-dim leading-relaxed mb-8">Whether you're just starting out or preparing for your tenth race, being part of a community keeps you motivated, accountable, and connected to people who understand the journey.</p>
+            <div className="space-y-4 text-sm text-foreground-dim">
+              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Search for local community groups training for your race</span></div>
+              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Join an existing community or submit a request to start your own</span></div>
+              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Get notified when new events and challenges are added</span></div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {[
+              { name: "Donuts, Beer & Run Repeat", members: 41, race: "Chicago Marathon" },
+              { name: "Moms Run Sundays", members: 28, race: "LA 5K Series" },
+              { name: "Miles Before Mimosas", members: 35, race: "NYC Half Marathon" },
+              { name: "Run Club — Tuesday Crew", members: 19, race: "Boston Marathon" },
+            ].map(c => (
+              <div key={c.name} className="flex items-center justify-between rounded-xl border border-border bg-surface px-5 py-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{c.name}</p>
+                  <p className="text-xs text-foreground-dim mt-1">🏁 {c.race} · {c.members} members</p>
+                </div>
+                <Link href="/signup" className="text-xs text-signal ml-4 shrink-0 hover:underline">Join →</Link>
+              </div>
+            ))}
+            <p className="text-xs text-foreground-dim px-1 pt-2">Don't see your area? Submit a request and we'll set it up.</p>
+          </div>
+        </section>
+
         {/* Community + Leaderboards */}
         <section className="py-16 border-t border-border">
           <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">Global community</p>
@@ -170,6 +202,28 @@ export default function Home() {
           <Link href="/signup" className="inline-block px-8 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Create your free team</Link>
         </section>
       </main>
+
+      {/* FAQ */}
+      <div className="border-t border-border">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-16">
+          <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-4">FAQ</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-10">Common questions</h2>
+          <div className="grid md:grid-cols-2 gap-x-16 gap-y-8 max-w-4xl">
+            {[
+              { q: "Is it free?", a: "Yes, always free to join. No credit card required." },
+              { q: "Do I need a wearable or fitness tracker?", a: "No. You can log workouts manually. Wearable integrations are optional." },
+              { q: "What races are supported?", a: "100+ major races including Boston, Chicago, New York, Ironman, and more. You can also request new races." },
+              { q: "How do I join a team?", a: "Get an invite code from your team captain and enter it when signing up or from your dashboard." },
+              { q: "Can I train without a team?", a: "Yes. You can register for a race, follow a training plan, and join the global race community on your own." },
+            ].map(({ q, a }) => (
+              <div key={q}>
+                <p className="font-medium mb-2">{q}</p>
+                <p className="text-sm text-foreground-dim leading-relaxed">{a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <footer className="border-t border-border py-12 px-6 md:px-10">
         <div className="max-w-6xl mx-auto">
