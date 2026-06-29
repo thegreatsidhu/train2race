@@ -24,6 +24,7 @@ model User {
   isPrivate       Boolean   @default(false)
   isBanned        Boolean   @default(false)
   role            String    @default("user")
+  bio             String?   @db.VarChar(160)
   heightCm        Float?
   weightKg        Float?
   timezone        String?  @default("America/Los_Angeles")

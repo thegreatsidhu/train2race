@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         include: {
           user: {
             select: {
-              id: true, name: true,
+              id: true, name: true, bio: true,
               trainingPlans: {
                 take: 1,
                 orderBy: { createdAt: "desc" },
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const total = plan ? (dueMap[plan.id] ?? 0) : 0;
     const done  = plan ? (doneMap[plan.id] ?? 0) : 0;
     const weeklyMiles = plan ? Math.round((weeklyMap[plan.id] || 0) / 1.60934 * 10) / 10 : 0;
-    return { userId: m.user.id, name: m.user.name||"Anonymous", role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles };
+    return { userId: m.user.id, name: m.user.name||"Anonymous", bio: m.user.bio||null, role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles };
   }).sort((a,b)=>b.pct-a.pct);
   return NextResponse.json({ team: { ...team, members: membersWithStats, isAdmin: team.members.find(m=>m.userId===userId)?.role==="admin", activeSignupCode: activeInviteCode?.code || null } });
 }

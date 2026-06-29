@@ -425,7 +425,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
               {lbData.map((e:any)=>(
                 <div key={e.userId} className={"flex items-center gap-3 rounded-2xl border px-4 py-3 "+(e.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
                   <span className={"w-7 text-center font-bold shrink-0 "+(e.rank===1?"text-yellow-400 text-base":e.rank===2?"text-gray-400 text-base":e.rank===3?"text-amber-600 text-base":"text-foreground-dim text-xs")}>{e.rank<=3?["🥇","🥈","🥉"][e.rank-1]:`#${e.rank}`}</span>
-                  <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{e.name}{e.isMe?" (you)":""}</p><p className="text-xs text-foreground-dim">{e.activityCount} {e.activityCount===1?"activity":"activities"}</p></div>
+                  <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{e.name}{e.isMe?" (you)":""}</p>{e.bio&&<p className="text-xs text-foreground-dim truncate">{e.bio}</p>}<p className="text-xs text-foreground-dim">{e.activityCount} {e.activityCount===1?"activity":"activities"}</p></div>
                   <p className="font-semibold text-sm shrink-0">{formatLbValue(e)}</p>
                 </div>
               ))}
@@ -586,6 +586,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                   {member.role==="admin"&&<span className="text-xs px-1.5 py-0.5 rounded bg-signal/20 text-signal">Captain</span>}
                   {member.userId===team.createdBy&&<span className="text-xs text-foreground-dim">Owner</span>}
                 </div>
+                {member.bio&&<p className="text-xs text-foreground-dim mt-0.5 max-w-sm">{member.bio}</p>}
                 <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(member.joinedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
               </div>
               <div className="flex gap-2 shrink-0 flex-wrap justify-end">

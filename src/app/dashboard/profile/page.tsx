@@ -6,7 +6,7 @@ const TIMEZONES = ["America/New_York","America/Chicago","America/Denver","Americ
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"personal"|"body"|"account">("personal");
-  const [name, setName] = useState(""); const [dob, setDob] = useState(""); const [sex, setSex] = useState(""); const [city, setCity] = useState(""); const [isPrivate, setIsPrivate] = useState(false); const [timezone, setTimezone] = useState("America/Los_Angeles");
+  const [name, setName] = useState(""); const [dob, setDob] = useState(""); const [sex, setSex] = useState(""); const [city, setCity] = useState(""); const [bio, setBio] = useState(""); const [isPrivate, setIsPrivate] = useState(false); const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [weightLbs, setWeightLbs] = useState(""); const [heightFt, setHeightFt] = useState(""); const [heightIn, setHeightIn] = useState("");
   const [email, setEmail] = useState(""); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState(""); const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(""); const [error, setError] = useState("");
@@ -27,6 +27,7 @@ export default function ProfilePage() {
       if (user.dateOfBirth) setDob(user.dateOfBirth.slice(0,10));
       if (user.sex) setSex(user.sex);
       if (user.city) setCity(user.city);
+      if (user.bio) setBio(user.bio);
       if (user.isPrivate != null) setIsPrivate(!!user.isPrivate);
       if (user.timezone) setTimezone(user.timezone);
       if (user.weightKg) setWeightLbs(Math.round(user.weightKg*2.20462).toString());
@@ -40,7 +41,7 @@ export default function ProfilePage() {
 
   async function savePersonal() {
     setSaving(true); setError("");
-    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,isPrivate,timezone})});
+    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,bio:bio.trim()||null,isPrivate,timezone})});
     setSaving(false); if(res.ok) showSaved("Saved"); else setError("Failed to save");
   }
   async function saveBody() {
@@ -102,6 +103,14 @@ export default function ProfilePage() {
         <div><label className="block text-sm font-medium mb-1">Date of birth{age?` — age ${age}`:""}</label><input type="date" value={dob} onChange={e=>setDob(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
         <div><label className="block text-sm font-medium mb-1">Biological sex</label><p className="text-xs text-foreground-dim mb-2">Used for HR and HRV baseline calculations only.</p><select value={sex} onChange={e=>setSex(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm"><option value="">Prefer not to say</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
         <div><label className="block text-sm font-medium mb-1">City</label><p className="text-xs text-foreground-dim mb-2">Used for leaderboard location filtering.</p><input value={city} onChange={e=>setCity(e.target.value)} placeholder="e.g. Los Angeles" className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" /></div>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium">Bio</label>
+            <span className={"text-xs " + (bio.length > 140 ? "text-yellow-400" : "text-foreground-dim")}>{bio.length}/160</span>
+          </div>
+          <p className="text-xs text-foreground-dim mb-2">Shown next to your name on team pages and leaderboards.</p>
+          <textarea value={bio} onChange={e=>setBio(e.target.value.slice(0,160))} placeholder="A short intro — e.g. Marathon runner from Chicago, chasing a sub-3:30." rows={2} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm resize-none leading-relaxed" />
+        </div>
         <div>
           <label className="block text-sm font-medium mb-1">Account privacy</label>
           <p className="text-xs text-foreground-dim mb-2">Private accounts are hidden from global leaderboards and member search.</p>

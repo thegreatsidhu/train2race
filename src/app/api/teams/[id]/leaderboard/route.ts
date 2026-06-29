@@ -40,7 +40,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const members = await prisma.teamMember.findMany({
     where: { teamId },
-    select: { userId: true, user: { select: { id: true, name: true } } },
+    select: { userId: true, user: { select: { id: true, name: true, bio: true } } },
   });
   const memberIds = members.map(m => m.userId);
   const userMap = Object.fromEntries(members.map(m => [m.userId, m.user]));
@@ -78,6 +78,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     rank:          i + 1,
     userId:        g.userId,
     name:          userMap[g.userId]?.name || "Athlete",
+    bio:           userMap[g.userId]?.bio || null,
     isMe:          g.userId === userId,
     distanceMi:    g._sum.distanceM ? +(g._sum.distanceM / 1609.34).toFixed(1) : 0,
     durationMin:   g._sum.durationSec ? Math.round(g._sum.durationSec / 60) : 0,

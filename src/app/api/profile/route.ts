@@ -6,7 +6,7 @@ export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const user = await (prisma as any).user.findUnique({ where: { id: userId }, select: { name: true, email: true, weightKg: true, heightCm: true, dateOfBirth: true, sex: true, city: true, isPrivate: true, timezone: true, passwordHash: true } });
+  const user = await (prisma as any).user.findUnique({ where: { id: userId }, select: { name: true, email: true, weightKg: true, heightCm: true, dateOfBirth: true, sex: true, city: true, isPrivate: true, timezone: true, bio: true, passwordHash: true } });
   return NextResponse.json({ user: { ...user, hasPassword: !!user?.passwordHash, passwordHash: undefined } });
 }
 export async function POST(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
   const body = await req.json();
-  const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone } = body;
+  const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone, bio } = body;
   const data: any = {};
   if ("name" in body)        data.name = name ? String(name).trim().slice(0, 100) || null : null;
   if ("weightKg" in body) {
@@ -41,6 +41,7 @@ export async function POST(req: Request) {
   if ("city" in body)        data.city = city || null;
   if ("isPrivate" in body)   data.isPrivate = isPrivate ?? false;
   if ("timezone" in body)    data.timezone = timezone || null;
+  if ("bio" in body)         data.bio = bio ? String(bio).trim().slice(0, 160) : null;
   if (Object.keys(data).length === 0) return NextResponse.json({ ok: true });
   try {
     await prisma.user.update({ where: { id: userId }, data });
