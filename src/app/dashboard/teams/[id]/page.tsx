@@ -22,7 +22,10 @@ const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Durat
 
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"activity"|"challenges"|"chat"|"members">("challenges");const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
+  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"bulletin"|"events"|"contact"|"activity"|"challenges"|"chat"|"members">("bulletin");
+  const [bulletins,setBulletins]=useState<any[]>([]);const [bulletinsLoaded,setBulletinsLoaded]=useState(false);const [newBulTitle,setNewBulTitle]=useState("");const [newBulContent,setNewBulContent]=useState("");const [newBulPinned,setNewBulPinned]=useState(false);const [savingBul,setSavingBul]=useState(false);const [showBulForm,setShowBulForm]=useState(false);const [deletingBulId,setDeletingBulId]=useState<string|null>(null);
+  const [teamEvents,setTeamEvents]=useState<any[]>([]);const [eventsLoaded,setEventsLoaded]=useState(false);const [newEvTitle,setNewEvTitle]=useState("");const [newEvDesc,setNewEvDesc]=useState("");const [newEvDate,setNewEvDate]=useState("");const [newEvLoc,setNewEvLoc]=useState("");const [newEvLink,setNewEvLink]=useState("");const [savingEv,setSavingEv]=useState(false);const [showEvForm,setShowEvForm]=useState(false);const [deletingEvId,setDeletingEvId]=useState<string|null>(null);
+  const [contacts,setContacts]=useState<any[]>([]);const [contactsLoaded,setContactsLoaded]=useState(false);const [newCtLabel,setNewCtLabel]=useState("");const [newCtValue,setNewCtValue]=useState("");const [newCtType,setNewCtType]=useState("text");const [savingCt,setSavingCt]=useState(false);const [showCtForm,setShowCtForm]=useState(false);const [deletingCtId,setDeletingCtId]=useState<string|null>(null);const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
   const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",goalPerDay:false,startDate:"",endDate:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [createMsg,setCreateMsg]=useState("");const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string;error?:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [todaySteps,setTodaySteps]=useState<number|null>(null);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);const [approvingChallenge,setApprovingChallenge]=useState<string|null>(null);const [leavingChallenge,setLeavingChallenge]=useState<string|null>(null);const [confirmLeaveChallenge,setConfirmLeaveChallenge]=useState<string|null>(null);const [confirmDeleteChId,setConfirmDeleteChId]=useState<string|null>(null);
   const [editingChallengeId,setEditingChallengeId]=useState<string|null>(null);const [editChallengeForm,setEditChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",goalPerDay:false,startDate:"",endDate:"",description:""});const [savingChallengeEdit,setSavingChallengeEdit]=useState(false);
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
@@ -30,7 +33,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
   const [dmTarget,setDmTarget]=useState<string|null>(null);const [dmThread,setDmThread]=useState<any[]>([]);const [dmContent,setDmContent]=useState("");const [sendingDm,setSendingDm]=useState(false);const [dmLoading,setDmLoading]=useState(false);const [myThreads,setMyThreads]=useState<any[]>([]);const [threadsLoaded,setThreadsLoaded]=useState(false);
-  useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);const sp=new URLSearchParams(window.location.search);if(sp.get("tab")==="challenges"){loadChallenges(p.id).then(()=>{setActiveTab("challenges");const cId=sp.get("challenge");if(cId){setTimeout(()=>{const el=document.getElementById(`challenge-${cId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},150);}});}else if(sp.get("tab")==="chat"){setActiveTab("chat");}});}, []);
+  useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);loadBulletins(p.id);loadEvents(p.id);const sp=new URLSearchParams(window.location.search);if(sp.get("tab")==="challenges"){loadChallenges(p.id).then(()=>{setActiveTab("challenges");const cId=sp.get("challenge");if(cId){setTimeout(()=>{const el=document.getElementById(`challenge-${cId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},150);}});}else if(sp.get("tab")==="chat"){setActiveTab("chat");}});}, []);
   async function loadTeam(tid:string){try{const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);setMyUserId(data.team?.members?.find((m:any)=>m.isMe)?.userId||"");if(data.team?.majorRace){setLbType(data.team.majorRace.isTriathlon?"triathlon":"run");}}catch{router.push("/dashboard/teams");}}
   async function loadMessages(tid:string){try{const res=await fetch(`/api/teams/${tid}/messages`);if(!res.ok)return;const data=await res.json();setMessages(data.messages||[]);setIsAdmin(data.isAdmin||false);}catch{}}
   async function sendMessage(content:string,replyToId?:string){if(!id)return;setSending(true);const res=await fetch(`/api/teams/${id}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content,replyToId})});const data=await res.json();if(res.ok){setMessages(prev=>[...prev,data.message]);}setSending(false);}
@@ -80,6 +83,19 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     setMyThreads(d.threads||[]);setThreadsLoaded(true);
   }
   async function submitEntry(){if(!logEntry||!logEntry.value)return;setSavingEntry(true);const todayStr=new Date().toISOString().split("T")[0];const res=await fetch(`/api/teams/${id}/challenges/${logEntry.challengeId}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:logEntry.value,date:todayStr,note:logEntry.note})});if(res.ok){const d=await res.json();setChallenges(prev=>prev.map(c=>c.id===logEntry.challengeId?{...c,entries:[...c.entries,d.entry]}:c));setLogEntry(null);}else{const d=await res.json().catch(()=>({}));setLogEntry(l=>l?{...l,error:d.error||"Failed to save entry."}:null);}setSavingEntry(false);}
+  async function loadBulletins(tid:string){if(bulletinsLoaded)return;const res=await fetch(`/api/teams/${tid}/bulletins`);const d=await res.json().catch(()=>({}));setBulletins(d.bulletins||[]);setBulletinsLoaded(true);}
+  async function postBulletin(tid:string){if(!newBulContent.trim())return;setSavingBul(true);const res=await fetch(`/api/teams/${tid}/bulletins`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:newBulTitle.trim()||null,content:newBulContent.trim(),isPinned:newBulPinned})});const d=await res.json().catch(()=>({}));if(res.ok){setBulletins(prev=>[d.bulletin,...prev].sort((a,b)=>Number(b.isPinned)-Number(a.isPinned)||(new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime())));setNewBulTitle("");setNewBulContent("");setNewBulPinned(false);setShowBulForm(false);}setSavingBul(false);}
+  async function deleteBulletin(bulletinId:string){setDeletingBulId(bulletinId);await fetch(`/api/teams/${id}/bulletins`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({bulletinId})});setBulletins(prev=>prev.filter(b=>b.id!==bulletinId));setDeletingBulId(null);}
+  async function togglePin(bulletinId:string,isPinned:boolean){await fetch(`/api/teams/${id}/bulletins`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({bulletinId,isPinned:!isPinned})});setBulletins(prev=>prev.map(b=>b.id===bulletinId?{...b,isPinned:!isPinned}:b).sort((a,b)=>Number(b.isPinned)-Number(a.isPinned)||(new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime())));}
+  async function loadEvents(tid:string){if(eventsLoaded)return;const res=await fetch(`/api/teams/${tid}/events`);const d=await res.json().catch(()=>({}));setTeamEvents(d.events||[]);setEventsLoaded(true);}
+  async function postEvent(tid:string){if(!newEvTitle.trim()||!newEvDate)return;setSavingEv(true);const res=await fetch(`/api/teams/${tid}/events`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:newEvTitle.trim(),description:newEvDesc.trim()||null,eventDate:newEvDate,location:newEvLoc.trim()||null,link:newEvLink.trim()||null})});const d=await res.json().catch(()=>({}));if(res.ok){setTeamEvents(prev=>[...prev,d.event].sort((a,b)=>new Date(a.eventDate).getTime()-new Date(b.eventDate).getTime()));setNewEvTitle("");setNewEvDesc("");setNewEvDate("");setNewEvLoc("");setNewEvLink("");setShowEvForm(false);}setSavingEv(false);}
+  async function deleteEvent(eventId:string){setDeletingEvId(eventId);await fetch(`/api/teams/${id}/events`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({eventId})});setTeamEvents(prev=>prev.filter(e=>e.id!==eventId));setDeletingEvId(null);}
+  async function loadContacts(tid:string){if(contactsLoaded)return;const res=await fetch(`/api/teams/${tid}/contacts`);const d=await res.json().catch(()=>({}));setContacts(d.contacts||[]);setContactsLoaded(true);}
+  async function postContact(tid:string){if(!newCtLabel.trim()||!newCtValue.trim())return;setSavingCt(true);const res=await fetch(`/api/teams/${tid}/contacts`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:newCtLabel.trim(),value:newCtValue.trim(),type:newCtType})});const d=await res.json().catch(()=>({}));if(res.ok){setContacts(prev=>[...prev,d.contact]);setNewCtLabel("");setNewCtValue("");setNewCtType("text");setShowCtForm(false);}setSavingCt(false);}
+  async function deleteContact(contactId:string){setDeletingCtId(contactId);await fetch(`/api/teams/${id}/contacts`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({contactId})});setContacts(prev=>prev.filter(c=>c.id!==contactId));setDeletingCtId(null);}
+  function handleBulletinTab(){if(!bulletinsLoaded&&id){loadBulletins(id);}setActiveTab("bulletin");}
+  function handleEventsTab(){if(!eventsLoaded&&id){loadEvents(id);}setActiveTab("events");}
+  function handleContactTab(){if(!contactsLoaded&&id){loadContacts(id);}setActiveTab("contact");}
   function handleChallengesTab(){if(!challengesLoaded&&id){loadChallenges(id);}setActiveTab("challenges");}
   async function openLogEntry(c:any){setTodaySteps(null);setLogEntry({challengeId:c.id,value:"",note:""});if(c.unit==="steps"){const res=await fetch("/api/metrics/steps/today");const d=await res.json().catch(()=>({}));setTodaySteps(d.steps??null);}}
   const METRIC_UNITS:{[k:string]:string[]}={distance:["mi","km"],duration:["min"],count:["sessions"]};
@@ -185,12 +201,198 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold">{Math.round(team.members.reduce((s:number,m:any)=>s+m.pct,0)/(team.members.length||1))}%</p><p className="text-xs text-foreground-dim mt-0.5">Avg progress</p></div>
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold text-signal truncate">{team.members[0]?.name?.split(" ")[0]||"—"}</p><p className="text-xs text-foreground-dim mt-0.5">Leading</p></div>
       </div>
+      {/* Pinned bulletin preview */}
+      {bulletins.filter(b=>b.isPinned).slice(0,1).map((b:any)=>(
+        <div key={b.id} className="mb-4 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <span className="text-xs font-bold text-signal mt-0.5 shrink-0">📌 Pinned</span>
+            <div className="min-w-0 flex-1">
+              {b.title&&<p className="text-sm font-semibold mb-0.5">{b.title}</p>}
+              <p className="text-sm text-foreground-dim leading-snug">{b.content}</p>
+            </div>
+            <button onClick={handleBulletinTab} className="shrink-0 text-xs text-signal hover:underline">See all →</button>
+          </div>
+        </div>
+      ))}
+
+      {/* Upcoming events preview */}
+      {teamEvents.filter((e:any)=>new Date(e.eventDate)>=new Date()).slice(0,2).map((e:any)=>(
+        <div key={e.id} className="mb-3 rounded-2xl border border-border bg-surface px-4 py-3 flex items-center gap-4">
+          <div className="shrink-0 text-center w-10">
+            <p className="text-xs text-foreground-dim uppercase tracking-wide leading-none">{new Date(e.eventDate).toLocaleDateString("en-US",{month:"short"})}</p>
+            <p className="text-xl font-bold leading-tight">{new Date(e.eventDate).getDate()}</p>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">{e.title}</p>
+            {e.location&&<p className="text-xs text-foreground-dim truncate">{e.location}</p>}
+          </div>
+          <button onClick={handleEventsTab} className="shrink-0 text-xs text-foreground-dim hover:text-foreground">Details →</button>
+        </div>
+      ))}
+
       <div className="flex gap-2 mb-6 flex-wrap">
+        <button onClick={handleBulletinTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="bulletin"?"bg-signal text-background":"border border-border hover:bg-surface")}>Bulletin{bulletins.length>0?` (${bulletins.length})`:""}</button>
+        <button onClick={handleEventsTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="events"?"bg-signal text-background":"border border-border hover:bg-surface")}>Events{teamEvents.length>0?` (${teamEvents.length})`:""}</button>
+        <button onClick={handleContactTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="contact"?"bg-signal text-background":"border border-border hover:bg-surface")}>Contact</button>
         <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
         <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
         <button onClick={()=>setActiveTab("chat")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="chat"?"bg-signal text-background":"border border-border hover:bg-surface")}>Chat ({messages.length})</button>
         <button onClick={()=>{setActiveTab("members");loadMyThreads();}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
       </div>
+      {activeTab==="bulletin"&&<div>
+        {isCaptain&&(
+          <div className="mb-5">
+            {!showBulForm?(
+              <button onClick={()=>setShowBulForm(true)} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium hover:opacity-90">+ Post update</button>
+            ):(
+              <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+                <p className="font-medium text-sm">New bulletin</p>
+                <input value={newBulTitle} onChange={e=>setNewBulTitle(e.target.value)} placeholder="Title (optional)" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none"/>
+                <textarea value={newBulContent} onChange={e=>setNewBulContent(e.target.value)} placeholder="Write your update…" rows={4} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none resize-none"/>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input type="checkbox" checked={newBulPinned} onChange={e=>setNewBulPinned(e.target.checked)} className="rounded"/>
+                  Pin to top of team page
+                </label>
+                <div className="flex gap-2">
+                  <button onClick={()=>postBulletin(id)} disabled={savingBul||!newBulContent.trim()} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingBul?"Posting…":"Post"}</button>
+                  <button onClick={()=>{setShowBulForm(false);setNewBulTitle("");setNewBulContent("");setNewBulPinned(false);}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {!bulletinsLoaded?(
+          <div className="space-y-2">{[1,2].map(i=><div key={i} className="h-16 rounded-xl bg-surface border border-border animate-pulse"/>)}</div>
+        ):bulletins.length===0?(
+          <div className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-foreground-dim">{isCaptain?"No updates yet. Post the first bulletin above.":"No updates from the captain yet."}</div>
+        ):(
+          <div className="space-y-3">
+            {bulletins.map((b:any)=>(
+              <div key={b.id} className={"rounded-2xl border p-4 "+(b.isPinned?"border-signal/30 bg-signal/5":"border-border bg-surface")}>
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      {b.isPinned&&<span className="text-xs text-signal font-medium">📌 Pinned</span>}
+                      {b.title&&<p className="text-sm font-semibold">{b.title}</p>}
+                      <span className="text-xs text-foreground-dim">{b.user.name} · {new Date(b.createdAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+                    </div>
+                    <p className="text-sm text-foreground-dim leading-relaxed whitespace-pre-wrap">{b.content}</p>
+                  </div>
+                  {isCaptain&&(
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={()=>togglePin(b.id,b.isPinned)} className="text-xs text-foreground-dim hover:text-signal">{b.isPinned?"Unpin":"Pin"}</button>
+                      <button onClick={()=>deleteBulletin(b.id)} disabled={deletingBulId===b.id} className="text-xs text-red-400 hover:text-red-300 disabled:opacity-40">{deletingBulId===b.id?"…":"Delete"}</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>}
+
+      {activeTab==="events"&&<div>
+        {isCaptain&&(
+          <div className="mb-5">
+            {!showEvForm?(
+              <button onClick={()=>setShowEvForm(true)} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium hover:opacity-90">+ Add event</button>
+            ):(
+              <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+                <p className="font-medium text-sm">New event</p>
+                <input value={newEvTitle} onChange={e=>setNewEvTitle(e.target.value)} placeholder="Event title *" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none"/>
+                <input type="datetime-local" value={newEvDate} onChange={e=>setNewEvDate(e.target.value)} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none"/>
+                <input value={newEvLoc} onChange={e=>setNewEvLoc(e.target.value)} placeholder="Location (optional)" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none"/>
+                <textarea value={newEvDesc} onChange={e=>setNewEvDesc(e.target.value)} placeholder="Description (optional)" rows={3} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none resize-none"/>
+                <input value={newEvLink} onChange={e=>setNewEvLink(e.target.value)} placeholder="Link (optional, e.g. registration URL)" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none"/>
+                <div className="flex gap-2">
+                  <button onClick={()=>postEvent(id)} disabled={savingEv||!newEvTitle.trim()||!newEvDate} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingEv?"Saving…":"Save event"}</button>
+                  <button onClick={()=>{setShowEvForm(false);setNewEvTitle("");setNewEvDesc("");setNewEvDate("");setNewEvLoc("");setNewEvLink("");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {!eventsLoaded?(
+          <div className="space-y-2">{[1,2].map(i=><div key={i} className="h-16 rounded-xl bg-surface border border-border animate-pulse"/>)}</div>
+        ):teamEvents.length===0?(
+          <div className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-foreground-dim">{isCaptain?"No events yet. Add the first one above.":"No upcoming events."}</div>
+        ):(
+          <div className="space-y-3">
+            {teamEvents.map((e:any)=>{
+              const past=new Date(e.eventDate)<new Date();
+              return(
+                <div key={e.id} className={"rounded-2xl border p-4 flex gap-4 "+(past?"border-border bg-surface opacity-60":"border-border bg-surface")}>
+                  <div className="shrink-0 text-center w-12 pt-0.5">
+                    <p className="text-xs text-foreground-dim uppercase tracking-wide leading-none">{new Date(e.eventDate).toLocaleDateString("en-US",{month:"short"})}</p>
+                    <p className="text-2xl font-bold leading-tight">{new Date(e.eventDate).getDate()}</p>
+                    <p className="text-xs text-foreground-dim">{new Date(e.eventDate).getFullYear()}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold">{e.title}{past&&<span className="ml-2 text-xs text-foreground-dim font-normal">Past</span>}</p>
+                        <p className="text-xs text-foreground-dim mt-0.5">{new Date(e.eventDate).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}{e.location&&` · ${e.location}`}</p>
+                        {e.description&&<p className="text-sm text-foreground-dim mt-1 leading-snug">{e.description}</p>}
+                        {e.link&&<a href={e.link} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline mt-1 inline-block">More info →</a>}
+                      </div>
+                      {isCaptain&&<button onClick={()=>deleteEvent(e.id)} disabled={deletingEvId===e.id} className="text-xs text-red-400 hover:text-red-300 disabled:opacity-40 shrink-0">{deletingEvId===e.id?"…":"Delete"}</button>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>}
+
+      {activeTab==="contact"&&<div>
+        {isCaptain&&(
+          <div className="mb-5">
+            {!showCtForm?(
+              <button onClick={()=>setShowCtForm(true)} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium hover:opacity-90">+ Add contact</button>
+            ):(
+              <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+                <p className="font-medium text-sm">New contact</p>
+                <input value={newCtLabel} onChange={e=>setNewCtLabel(e.target.value)} placeholder="Label (e.g. Coach Email, Team Group Chat)" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none"/>
+                <div className="flex gap-2">
+                  <select value={newCtType} onChange={e=>setNewCtType(e.target.value)} className="bg-background border border-border rounded-xl px-3 py-2 text-sm">
+                    <option value="text">Text</option>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                    <option value="link">Link</option>
+                  </select>
+                  <input value={newCtValue} onChange={e=>setNewCtValue(e.target.value)} placeholder="Value" className="flex-1 bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none"/>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>postContact(id)} disabled={savingCt||!newCtLabel.trim()||!newCtValue.trim()} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingCt?"Saving…":"Save"}</button>
+                  <button onClick={()=>{setShowCtForm(false);setNewCtLabel("");setNewCtValue("");setNewCtType("text");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {!contactsLoaded?(
+          <div className="space-y-2">{[1,2].map(i=><div key={i} className="h-12 rounded-xl bg-surface border border-border animate-pulse"/>)}</div>
+        ):contacts.length===0?(
+          <div className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-foreground-dim">{isCaptain?"No contact info yet. Add coach emails, group chats, or any other info your team needs.":"No contact information added yet."}</div>
+        ):(
+          <div className="space-y-2">
+            {contacts.map((c:any)=>(
+              <div key={c.id} className="rounded-xl border border-border bg-surface px-4 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">{c.label}</p>
+                  {c.type==="email"?<a href={`mailto:${c.value}`} className="text-sm text-signal hover:underline">{c.value}</a>
+                  :c.type==="phone"?<a href={`tel:${c.value}`} className="text-sm text-signal hover:underline">{c.value}</a>
+                  :c.type==="link"?<a href={c.value} target="_blank" rel="noopener noreferrer" className="text-sm text-signal hover:underline truncate block">{c.value}</a>
+                  :<p className="text-sm">{c.value}</p>}
+                </div>
+                {isCaptain&&<button onClick={()=>deleteContact(c.id)} disabled={deletingCtId===c.id} className="text-xs text-red-400 hover:text-red-300 disabled:opacity-40 shrink-0">{deletingCtId===c.id?"…":"Delete"}</button>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>}
+
       {false&&<div className="space-y-3">
           {team.members.map((member:any,i:number)=>(
             <div key={member.userId} className={"rounded-2xl border p-4 "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
