@@ -213,7 +213,7 @@ export default function Home() {
               { q: "Is it free?", a: "Yes, always free to join. No credit card required." },
               { q: "Do I need a wearable or fitness tracker?", a: "No. You can log workouts manually. Wearable integrations are optional." },
               { q: "What races are supported?", a: "100+ major races including Boston, Chicago, New York, Ironman, and more. You can also request new races." },
-              { q: "How do I join a team?", a: "Get an invite code from your team captain and enter it when signing up or from your dashboard." },
+              { q: "How do I join a team?", a: "Get an invite code from your team captain and enter it when signing up or from your dashboard. Don't have one? You can also request an invite code directly from the landing page." },
               { q: "Can I train without a team?", a: "Yes. You can register for a race, follow a training plan, and join the global race community on your own." },
             ].map(({ q, a }) => (
               <div key={q}>
