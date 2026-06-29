@@ -155,6 +155,10 @@ export default function AdminPage() {
   const [creatingCh, setCreatingCh] = useState(false);
   const [createChMsg, setCreateChMsg] = useState("");
 
+  const [stats, setStats] = useState(null);
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
+
   useEffect(() => {
     setLoading(true);
     // Try super admin session first (no password needed)
@@ -595,6 +599,16 @@ export default function AdminPage() {
     setTimeout(() => setCopiedTeamCode(null), 2000);
   }
 
+  async function loadStats() {
+    if (statsLoaded) return;
+    setStatsLoading(true);
+    const res = await fetch(`/api/admin/stats?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setStats(d);
+    setStatsLoaded(true);
+    setStatsLoading(false);
+  }
+
   function switchTab(id) {
     setActiveTab(id);
     if (id === "challenges") { loadChallenges(); loadTeams(); }
@@ -605,6 +619,7 @@ export default function AdminPage() {
     if (id === "races") loadAllRaces();
     if (id === "messages") loadAdminMsgs();
     if (id === "requests") loadInviteRequests();
+    if (id === "stats") loadStats();
   }
 
   if (!authed && loading) {
@@ -734,6 +749,7 @@ export default function AdminPage() {
             { id: "teams", label: "Teams (" + teams.length + ")" },
             { id: "communities", label: "Communities" + (communitiesLoaded ? " (" + communities.length + ")" : "") + (commRequests.filter(r => r.status === "pending").length > 0 ? " · " + commRequests.filter(r => r.status === "pending").length + " pending" : "") },
             { id: "settings", label: "Settings" },
+            { id: "stats", label: "Stats" },
           ].map(tab => (
             <button key={tab.id} onClick={() => switchTab(tab.id)} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors " + (activeTab===tab.id ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
               {tab.label}
@@ -1905,6 +1921,125 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {activeTab === "stats" && (
+          <div>
+            {statsLoading && <p className="text-sm text-foreground-dim py-8 text-center">Loading stats…</p>}
+            {!statsLoading && stats && (
+              <div className="space-y-8">
+
+                {/* Metric tiles */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "Total users", value: stats.totalUsers },
+                    { label: "Teams", value: stats.totalTeams },
+                    { label: "Workouts logged", value: stats.totalActivities },
+                    { label: "Training plans", value: stats.totalPlans },
+                  ].map(m => (
+                    <div key={m.label} className="rounded-2xl border border-border bg-surface p-4">
+                      <p className="text-2xl font-bold">{m.value.toLocaleString()}</p>
+                      <p className="text-xs text-foreground-dim mt-0.5">{m.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Signups per week */}
+                <div className="rounded-2xl border border-border bg-surface p-5">
+                  <p className="text-sm font-medium mb-4">Signups per week — last 8 weeks</p>
+                  {(() => {
+                    const max = Math.max(...stats.signupsPerWeek.map(w => w.count), 1);
+                    return (
+                      <div className="flex items-end gap-2 h-32">
+                        {stats.signupsPerWeek.map((w, i) => {
+                          const pct = Math.round((w.count / max) * 100);
+                          const label = new Date(w.week).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                          return (
+                            <div key={i} className="flex flex-col items-center flex-1 gap-1 h-full justify-end">
+                              <span className="text-xs text-foreground-dim">{w.count > 0 ? w.count : ""}</span>
+                              <div className="w-full bg-signal rounded-t" style={{ height: pct + "%" }} />
+                              <span className="text-xs text-foreground-dim whitespace-nowrap" style={{ fontSize: "10px" }}>{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Daily active users */}
+                <div className="rounded-2xl border border-border bg-surface p-5">
+                  <p className="text-sm font-medium mb-1">Daily active users — last 7 days</p>
+                  <p className="text-xs text-foreground-dim mb-4">Users who logged at least one workout</p>
+                  {(() => {
+                    const max = Math.max(...stats.dailyActiveUsers.map(d => d.count), 1);
+                    return (
+                      <div className="flex items-end gap-2 h-24">
+                        {stats.dailyActiveUsers.map((d, i) => {
+                          const pct = Math.round((d.count / max) * 100);
+                          const label = new Date(d.day).toLocaleDateString(undefined, { weekday: "short" });
+                          return (
+                            <div key={i} className="flex flex-col items-center flex-1 gap-1 h-full justify-end">
+                              <span className="text-xs text-foreground-dim">{d.count > 0 ? d.count : ""}</span>
+                              <div className="w-full bg-signal/60 rounded-t" style={{ height: pct + "%" }} />
+                              <span className="text-xs text-foreground-dim">{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+
+                  {/* Avg workouts per user */}
+                  <div className="rounded-2xl border border-border bg-surface p-5">
+                    <p className="text-sm font-medium mb-3">Avg workouts per user</p>
+                    <p className="text-4xl font-bold text-signal">{stats.avgWorkoutsPerUser}</p>
+                    <p className="text-xs text-foreground-dim mt-1">across all {stats.totalUsers} users</p>
+                  </div>
+
+                  {/* Top 5 most active users */}
+                  <div className="rounded-2xl border border-border bg-surface p-5 md:col-span-2">
+                    <p className="text-sm font-medium mb-3">Top 5 most active users</p>
+                    {stats.topUsers.length === 0 && <p className="text-xs text-foreground-dim">No data yet.</p>}
+                    <div className="space-y-2">
+                      {stats.topUsers.map((u, i) => {
+                        const max = stats.topUsers[0]?.count || 1;
+                        const pct = Math.round((u.count / max) * 100);
+                        return (
+                          <div key={i}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm truncate max-w-xs">{u.name}</span>
+                              <span className="text-xs text-foreground-dim shrink-0 ml-2">{u.count} workouts</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-border rounded-full">
+                              <div className="h-1.5 bg-signal rounded-full" style={{ width: pct + "%" }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tickets by status */}
+                <div className="rounded-2xl border border-border bg-surface p-5">
+                  <p className="text-sm font-medium mb-4">Support ticket volume by status</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {["open", "in_progress", "resolved", "closed"].map(status => (
+                      <div key={status} className="rounded-xl bg-background border border-border px-4 py-3">
+                        <p className="text-xl font-bold">{stats.tickets[status] || 0}</p>
+                        <p className="text-xs text-foreground-dim mt-0.5 capitalize">{status.replace("_", " ")}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
