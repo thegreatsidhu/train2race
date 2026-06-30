@@ -120,8 +120,8 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
                   </p>
                 </div>
 
-                {/* Actions — show on hover */}
-                <div className={"flex gap-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity " + (isMe ? "flex-row-reverse" : "")}>
+                {/* Actions — always visible on mobile, hover on desktop */}
+                <div className={"flex gap-2 px-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity " + (isMe ? "flex-row-reverse" : "")}>
                   <button onClick={() => startReply(msg)} className="text-xs text-foreground-dim hover:text-foreground">Reply</button>
                   {(isMe || isAdmin) && (
                     <button onClick={() => handleDelete(msg.id)} disabled={deletingId === msg.id}
