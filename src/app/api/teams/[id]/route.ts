@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const team = await prisma.team.findUnique({
     where: { id },
     include: {
-      majorRace: { select: { id: true, name: true, raceDate: true, distanceM: true } },
+      majorRace: { select: { id: true, name: true, raceDate: true, distanceM: true, isTriathlon: true } },
       members: {
         include: {
           user: {
@@ -74,8 +74,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const userId = (session.user as { id: string }).id;
   const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } } });
   if (!member || member.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { isPrivate } = await req.json();
-  const team = await prisma.team.update({ where: { id }, data: { isPrivate } });
+  const body = await req.json();
+  const updateData: any = {};
+  if ("isPrivate" in body) updateData.isPrivate = body.isPrivate;
+  if ("majorRaceId" in body) updateData.majorRaceId = body.majorRaceId ?? null;
+  const team = await prisma.team.update({ where: { id }, data: updateData });
   return NextResponse.json({ team });
 }
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

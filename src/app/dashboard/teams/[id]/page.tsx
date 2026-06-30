@@ -22,7 +22,7 @@ const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Durat
 
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"bulletin"|"events"|"contact"|"activity"|"challenges"|"chat"|"members">("bulletin");
+  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"bulletin"|"events"|"contact"|"activity"|"challenges"|"chat"|"members"|"race">("bulletin");
   const [bulletins,setBulletins]=useState<any[]>([]);const [bulletinsLoaded,setBulletinsLoaded]=useState(false);const [newBulTitle,setNewBulTitle]=useState("");const [newBulContent,setNewBulContent]=useState("");const [newBulPinned,setNewBulPinned]=useState(false);const [savingBul,setSavingBul]=useState(false);const [showBulForm,setShowBulForm]=useState(false);const [deletingBulId,setDeletingBulId]=useState<string|null>(null);
   const [teamEvents,setTeamEvents]=useState<any[]>([]);const [eventsLoaded,setEventsLoaded]=useState(false);const [newEvTitle,setNewEvTitle]=useState("");const [newEvDesc,setNewEvDesc]=useState("");const [newEvDate,setNewEvDate]=useState("");const [newEvLoc,setNewEvLoc]=useState("");const [newEvLink,setNewEvLink]=useState("");const [savingEv,setSavingEv]=useState(false);const [showEvForm,setShowEvForm]=useState(false);const [deletingEvId,setDeletingEvId]=useState<string|null>(null);
   const [contacts,setContacts]=useState<any[]>([]);const [contactsLoaded,setContactsLoaded]=useState(false);const [newCtLabel,setNewCtLabel]=useState("");const [newCtValue,setNewCtValue]=useState("");const [newCtType,setNewCtType]=useState("text");const [savingCt,setSavingCt]=useState(false);const [showCtForm,setShowCtForm]=useState(false);const [deletingCtId,setDeletingCtId]=useState<string|null>(null);const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
@@ -33,6 +33,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
   const [dmTarget,setDmTarget]=useState<string|null>(null);const [dmThread,setDmThread]=useState<any[]>([]);const [dmContent,setDmContent]=useState("");const [sendingDm,setSendingDm]=useState(false);const [dmLoading,setDmLoading]=useState(false);const [myThreads,setMyThreads]=useState<any[]>([]);const [threadsLoaded,setThreadsLoaded]=useState(false);
+  const [raceLoaded,setRaceLoaded]=useState(false);const [raceTabData,setRaceTabData]=useState<{members:{userId:string;name:string}[];myJoined:boolean}|null>(null);const [showRaceSearch,setShowRaceSearch]=useState(false);const [raceSearch,setRaceSearch]=useState("");const [raceResults,setRaceResults]=useState<any[]>([]);const [raceSearching,setRaceSearching]=useState(false);const [settingRace,setSettingRace]=useState(false);const [clearingRace,setClearingRace]=useState(false);const [confirmSetRace,setConfirmSetRace]=useState<any>(null);const [confirmClearRace,setConfirmClearRace]=useState(false);const [confirmLeaveRace,setConfirmLeaveRace]=useState(false);const [joiningRace,setJoiningRace]=useState(false);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);loadBulletins(p.id);loadEvents(p.id);const sp=new URLSearchParams(window.location.search);if(sp.get("tab")==="challenges"){loadChallenges(p.id).then(()=>{setActiveTab("challenges");const cId=sp.get("challenge");if(cId){setTimeout(()=>{const el=document.getElementById(`challenge-${cId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},150);}});}else if(sp.get("tab")==="chat"){setActiveTab("chat");}});}, []);
   async function loadTeam(tid:string){try{const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);setMyUserId(data.team?.members?.find((m:any)=>m.isMe)?.userId||"");if(data.team?.majorRace){setLbType(data.team.majorRace.isTriathlon?"triathlon":"run");}}catch{router.push("/dashboard/teams");}}
   async function loadMessages(tid:string){try{const res=await fetch(`/api/teams/${tid}/messages`);if(!res.ok)return;const data=await res.json();setMessages(data.messages||[]);setIsAdmin(data.isAdmin||false);}catch{}}
@@ -132,6 +133,11 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     },300);
     return()=>clearTimeout(t);
   },[inviteQuery,showInvitePanel,team]);
+  useEffect(()=>{
+    if(!raceSearch||raceSearch.length<2){setRaceResults([]);return;}
+    const t=setTimeout(async()=>{setRaceSearching(true);const res=await fetch(`/api/major-races?search=${encodeURIComponent(raceSearch)}&upcoming=1`);const d=await res.json().catch(()=>({}));setRaceResults(d.races||[]);setRaceSearching(false);},320);
+    return()=>clearTimeout(t);
+  },[raceSearch]);
 
   async function addMember(userId:string,name:string){
     setAddingMember(userId);
@@ -150,6 +156,11 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       setTimeout(()=>setInviteMsg(""),3000);
     }
   }
+  async function loadRaceTab(tid:string){if(raceLoaded)return;const res=await fetch(`/api/teams/${tid}/race`);const d=await res.json().catch(()=>({}));setRaceTabData(d);setRaceLoaded(true);}
+  async function setTeamRace(race:any){setSettingRace(true);const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId:race.id})});if(res.ok){setTeam((t:any)=>({...t,majorRace:{id:race.id,name:race.name,raceDate:race.raceDate,distanceM:race.distanceM,isTriathlon:race.isTriathlon||false}}));setShowRaceSearch(false);setRaceSearch("");setRaceResults([]);setConfirmSetRace(null);}setSettingRace(false);}
+  async function clearTeamRace(){setConfirmClearRace(false);setClearingRace(true);const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId:null})});if(res.ok){setTeam((t:any)=>({...t,majorRace:null}));setRaceTabData(prev=>prev?{...prev,members:[],myJoined:false}:null);}setClearingRace(false);}
+  async function joinTeamRace(){if(!team?.majorRace?.id)return;setJoiningRace(true);const res=await fetch("/api/major-races/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId:team.majorRace.id,isPublic:true})});if(res.ok){const myName=team.members.find((m:any)=>m.isMe)?.name||"You";setRaceTabData(prev=>prev?{...prev,myJoined:true,members:[...prev.members,{userId:myUserId,name:myName}]}:{members:[{userId:myUserId,name:myName}],myJoined:true});}setJoiningRace(false);}
+  async function leaveTeamRace(){if(!team?.majorRace?.id)return;setConfirmLeaveRace(false);setJoiningRace(true);const res=await fetch("/api/major-races/register",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId:team.majorRace.id})});if(res.ok){setRaceTabData(prev=>prev?{...prev,myJoined:false,members:prev.members.filter((m:any)=>m.userId!==myUserId)}:null);}setJoiningRace(false);}
   function onMetricChange(metric:string){const firstUnit=metric==="count"?countUnitsFor(challengeForm.type)[0]:METRIC_UNITS[metric]?.[0]??"mi";setChallengeForm(f=>({...f,metric,unit:firstUnit}));}
   if(!team)return<div className="max-w-3xl px-8 py-10"><p className="text-foreground-dim text-sm">Loading...</p></div>;
   const isCreator = myUserId && team.createdBy === myUserId;
@@ -236,6 +247,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
         <button onClick={handleEventsTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="events"?"bg-signal text-background":"border border-border hover:bg-surface")}>Events{teamEvents.length>0?` (${teamEvents.length})`:""}</button>
         <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
+        <button onClick={()=>{setActiveTab("race");loadRaceTab(id);}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="race"?"bg-signal text-background":"border border-border hover:bg-surface")}>Race{team.majorRace?" 🏁":""}</button>
         <button onClick={()=>{setActiveTab("members");loadMyThreads();}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
         <button onClick={handleContactTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="contact"?"bg-signal text-background":"border border-border hover:bg-surface")}>Contact</button>
       </div>
@@ -519,6 +531,99 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
             })}
           </div>
         )}
+      </div>}
+      {activeTab==="race"&&<div>
+        {/* ─── Race is set ─── */}
+        {team.majorRace&&!showRaceSearch&&<div>
+          <div className="rounded-2xl border border-border bg-surface p-5 mb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Team race</p>
+                <h2 className="font-semibold text-lg leading-tight">{team.majorRace.name}</h2>
+                <p className="text-sm text-foreground-dim mt-0.5">
+                  {new Date(team.majorRace.raceDate).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}
+                  {team.majorRace.distanceM&&<span className="ml-1">· {(team.majorRace.distanceM/1609.34).toFixed(1)} mi</span>}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-4xl font-bold font-data text-signal leading-none">{Math.max(0,Math.ceil((new Date(team.majorRace.raceDate).getTime()-Date.now())/86400000))}</p>
+                <p className="text-xs text-foreground-dim mt-1">days to go</p>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between gap-4">
+              <span className="text-xs text-foreground-dim">{raceTabData?.myJoined?"✓ You're registered for this race":"Register to train and race with your team"}</span>
+              {raceTabData?.myJoined
+                ?(confirmLeaveRace
+                  ?<div className="flex items-center gap-2 shrink-0"><span className="text-xs text-foreground-dim">Leave race?</span><button onClick={leaveTeamRace} disabled={joiningRace} className="text-xs text-red-400 font-medium hover:underline disabled:opacity-40">{joiningRace?"...":"Confirm"}</button><button onClick={()=>setConfirmLeaveRace(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button></div>
+                  :<button onClick={()=>setConfirmLeaveRace(true)} className="text-xs text-foreground-dim hover:text-red-400 transition-colors shrink-0">Leave race</button>)
+                :<button onClick={joinTeamRace} disabled={joiningRace} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium hover:opacity-90 disabled:opacity-50 shrink-0">{joiningRace?"Joining...":"Join this race"}</button>
+              }
+            </div>
+          </div>
+          {/* Member registration list */}
+          <div className="rounded-2xl border border-border bg-surface p-5 mb-4">
+            <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Team members registered</p>
+            {!raceTabData
+              ?<p className="text-sm text-foreground-dim">Loading...</p>
+              :raceTabData.members.length===0
+                ?<p className="text-sm text-foreground-dim">No team members registered yet.</p>
+                :<div className="flex flex-wrap gap-2">
+                  {raceTabData.members.map((m:any)=>(
+                    <span key={m.userId} className={"text-xs px-3 py-1.5 rounded-full border "+(m.userId===myUserId?"bg-signal/10 border-signal/30 text-signal":"bg-surface-raised border-border")}>
+                      {m.userId===myUserId?"You":m.name}
+                    </span>
+                  ))}
+                </div>
+            }
+          </div>
+          {/* Captain controls */}
+          {isCaptain&&<div className="flex items-center gap-4">
+            <button onClick={()=>{setShowRaceSearch(true);setConfirmSetRace(null);setRaceSearch("");setRaceResults([]);}} className="text-xs text-foreground-dim hover:text-foreground transition-colors">Change race</button>
+            {confirmClearRace
+              ?<div className="flex items-center gap-2"><span className="text-xs text-foreground-dim">Remove team race?</span><button onClick={clearTeamRace} disabled={clearingRace} className="text-xs text-red-400 font-medium hover:underline disabled:opacity-40">{clearingRace?"...":"Confirm"}</button><button onClick={()=>setConfirmClearRace(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button></div>
+              :<button onClick={()=>setConfirmClearRace(true)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Clear race</button>
+            }
+          </div>}
+        </div>}
+        {/* ─── No race set ─── */}
+        {!team.majorRace&&!showRaceSearch&&<div>
+          {isCaptain
+            ?<div className="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
+              <p className="text-sm font-medium mb-1">No team race set</p>
+              <p className="text-xs text-foreground-dim mb-4">Set a target race so your team can train and race together.</p>
+              <button onClick={()=>setShowRaceSearch(true)} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium">Search races</button>
+            </div>
+            :<div className="rounded-2xl border border-dashed border-border p-8 text-center">
+              <p className="text-sm text-foreground-dim">No team race set yet. Ask your captain to add one.</p>
+            </div>
+          }
+        </div>}
+        {/* ─── Race search form (set or change) ─── */}
+        {showRaceSearch&&isCaptain&&<div className="rounded-2xl border border-border bg-surface p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium">{team.majorRace?"Change team race":"Set team race"}</p>
+            <button onClick={()=>{setShowRaceSearch(false);setRaceSearch("");setRaceResults([]);setConfirmSetRace(null);}} className="text-xs text-foreground-dim hover:text-foreground">Cancel</button>
+          </div>
+          <input value={raceSearch} onChange={e=>setRaceSearch(e.target.value)} placeholder="Search races by name…" autoFocus className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-signal outline-none mb-2"/>
+          {raceSearching&&<p className="text-xs text-foreground-dim mt-1">Searching...</p>}
+          {!raceSearching&&raceSearch.length>=2&&raceResults.length===0&&<p className="text-xs text-foreground-dim mt-1">No upcoming races found.</p>}
+          {raceResults.length>0&&!confirmSetRace&&<div className="mt-2 border border-border rounded-xl overflow-hidden">
+            {raceResults.slice(0,8).map((r:any)=>(
+              <button key={r.id} onClick={()=>setConfirmSetRace(r)} className="w-full text-left flex items-start justify-between px-4 py-3 hover:bg-surface-raised transition-colors border-b border-border/40 last:border-0">
+                <div className="min-w-0 flex-1 mr-3"><p className="text-sm font-medium truncate">{r.name}</p><p className="text-xs text-foreground-dim">{r.city}, {r.country}</p></div>
+                <div className="text-right shrink-0"><p className="text-xs text-foreground-dim">{new Date(r.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p><p className="text-xs text-foreground-dim">{(r.distanceM/1609.34).toFixed(1)} mi</p></div>
+              </button>
+            ))}
+          </div>}
+          {confirmSetRace&&<div className="mt-2 rounded-xl border border-signal/30 bg-signal/5 px-4 py-3">
+            <p className="text-sm font-medium mb-0.5">Set team race to "{confirmSetRace.name}"?</p>
+            <p className="text-xs text-foreground-dim mb-3">{new Date(confirmSetRace.raceDate).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})} · {(confirmSetRace.distanceM/1609.34).toFixed(1)} mi</p>
+            <div className="flex gap-2">
+              <button onClick={()=>setTeamRace(confirmSetRace)} disabled={settingRace} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-50">{settingRace?"Saving...":"Confirm"}</button>
+              <button onClick={()=>setConfirmSetRace(null)} className="px-3 py-1.5 rounded-lg border border-border text-xs">Back</button>
+            </div>
+          </div>}
+        </div>}
       </div>}
       {activeTab==="chat"&&<div className="h-96 md:h-[500px] flex flex-col">
         <ChatPanel
