@@ -17,32 +17,49 @@ export function WeatherBadge({ city, timezone }: { city: string | null; timezone
   const [label, setLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!city) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const geoRes = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
-        );
-        const geo = await geoRes.json();
-        const loc = geo.results?.[0];
-        if (!loc || cancelled) return;
 
-        const useFahrenheit = !timezone || timezone.startsWith("America/") || timezone === "Pacific/Honolulu";
-        const unit = useFahrenheit ? "fahrenheit" : "celsius";
-        const symbol = useFahrenheit ? "°F" : "°C";
+    const useFahrenheit = !timezone || timezone.startsWith("America/") || timezone === "Pacific/Honolulu";
+    const unit = useFahrenheit ? "fahrenheit" : "celsius";
+    const symbol = useFahrenheit ? "°F" : "°C";
 
-        const wxRes = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,weather_code&temperature_unit=${unit}&forecast_days=1`
-        );
-        const wx = await wxRes.json();
-        if (cancelled) return;
+    async function fetchWeather(lat: number, lon: number) {
+      const wxRes = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=${unit}&forecast_days=1`
+      );
+      const wx = await wxRes.json();
+      if (cancelled) return;
+      const temp = Math.round(wx.current?.temperature_2m ?? 0);
+      const icon = WMO_ICON[wx.current?.weather_code ?? 0] ?? "🌡️";
+      setLabel(`${icon} ${temp}${symbol}`);
+    }
 
-        const temp = Math.round(wx.current?.temperature_2m ?? 0);
-        const icon = WMO_ICON[wx.current?.weather_code ?? 0] ?? "🌡️";
-        setLabel(`${icon} ${temp}${symbol}`);
-      } catch {}
-    })();
+    async function fallbackToCity() {
+      if (!city) return;
+      const geoRes = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
+      );
+      const geo = await geoRes.json();
+      const loc = geo.results?.[0];
+      if (!loc || cancelled) return;
+      await fetchWeather(loc.latitude, loc.longitude);
+    }
+
+    if (!navigator.geolocation) {
+      fallbackToCity().catch(() => {});
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        fetchWeather(pos.coords.latitude, pos.coords.longitude).catch(() => {});
+      },
+      () => {
+        fallbackToCity().catch(() => {});
+      },
+      { timeout: 6000 }
+    );
+
     return () => { cancelled = true; };
   }, [city, timezone]);
 
