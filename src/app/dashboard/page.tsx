@@ -6,6 +6,7 @@ import { UpcomingRacesSection } from "@/components/UpcomingRacesSection";
 import { TeamInvitations } from "@/components/TeamInvitations";
 import { DashboardNotifications } from "@/components/DashboardNotifications";
 import { DashboardAnnouncement } from "@/components/DashboardAnnouncement";
+import { WeatherBadge } from "@/components/WeatherBadge";
 import Link from "next/link";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -294,6 +295,7 @@ export default async function TodayPage() {
               {daysToRace}d to race
             </span>
           )}
+          <WeatherBadge city={displayCity} timezone={user?.timezone ?? null} />
         </div>
       </header>
 
