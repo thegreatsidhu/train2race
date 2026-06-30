@@ -11,7 +11,10 @@ export async function POST(req: Request) {
   let distanceM = null;
   if (distance) {
     const d = Number(distance);
-    distanceM = unit === "km" ? d * 1000 : d * 1609.34;
+    if (unit === "km") distanceM = d * 1000;
+    else if (unit === "m") distanceM = d;
+    else if (unit === "yd") distanceM = d * 0.9144;
+    else distanceM = d * 1609.34;
   }
 
   await prisma.activity.create({
