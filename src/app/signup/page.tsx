@@ -44,7 +44,7 @@ function SignupForm() {
       router.push("/login");
       return;
     }
-    router.push("/dashboard");
+    router.push("/onboarding");
   }
 
   return (

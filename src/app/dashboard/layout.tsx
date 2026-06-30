@@ -1,5 +1,6 @@
 ﻿import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { SideNav } from "@/components/SideNav";
 import { MobileNav } from "@/components/MobileNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
@@ -9,6 +10,9 @@ import Image from "next/image";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const userId = (session.user as { id: string }).id;
+  const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { onboardingComplete: true } });
+  if (!dbUser?.onboardingComplete) redirect("/onboarding");
 
   return (
     <div className="flex-1 flex flex-col md:flex-row">

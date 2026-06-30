@@ -25,7 +25,8 @@ model User {
   isBanned        Boolean   @default(false)
   role            String    @default("user")
   bio             String?   @db.VarChar(160)
-  emailOptOut     Boolean   @default(false)
+  emailOptOut         Boolean   @default(false)
+  onboardingComplete  Boolean   @default(false)
   heightCm        Float?
   weightKg        Float?
   timezone        String?  @default("America/Los_Angeles")
