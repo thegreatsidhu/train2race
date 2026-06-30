@@ -23,9 +23,13 @@ export async function GET(req: NextRequest) {
   const rejectedCutoff = new Date(Date.now()-7*24*60*60*1000);
   const deletedRejected = await prisma.teamChallenge.deleteMany({ where: { status: "rejected", createdAt: { lt: rejectedCutoff } } });
 
-  // Monday: weekly team summary emails
+  // Weekly team summary emails — controlled by admin settings
   let weeklyEmails = 0;
-  if (new Date().getDay() === 1 && process.env.RESEND_API_KEY) {
+  const summarySettings = await prisma.setting.findMany({ where: { key: { in: ["emailWeeklySummaryEnabled", "emailWeeklySummaryDay"] } } });
+  const summaryMap = Object.fromEntries(summarySettings.map(s => [s.key, s.value]));
+  const summaryEnabled = summaryMap.emailWeeklySummaryEnabled === "true";
+  const summaryDay = parseInt(summaryMap.emailWeeklySummaryDay ?? "1", 10);
+  if (summaryEnabled && new Date().getDay() === summaryDay && process.env.RESEND_API_KEY) {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const teams = await prisma.team.findMany({

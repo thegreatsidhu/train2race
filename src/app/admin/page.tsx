@@ -159,13 +159,20 @@ export default function AdminPage() {
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Email tab
+  // Email tab — compose
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailTarget, setEmailTarget] = useState("all");
   const [emailTeamId, setEmailTeamId] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailMsg, setEmailMsg] = useState({ text: "", ok: false });
+
+  // Email tab — schedule settings
+  const [emailScheduleLoaded, setEmailScheduleLoaded] = useState(false);
+  const [weeklySummaryEnabled, setWeeklySummaryEnabled] = useState(false);
+  const [weeklySummaryDay, setWeeklySummaryDay] = useState("1");
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [scheduleMsg, setScheduleMsg] = useState({ text: "", ok: false });
 
   useEffect(() => {
     setLoading(true);
@@ -617,6 +624,30 @@ export default function AdminPage() {
     setStatsLoading(false);
   }
 
+  async function loadEmailSchedule() {
+    if (emailScheduleLoaded) return;
+    const res = await fetch(`/api/admin/email-settings?password=${encodeURIComponent(password)}`);
+    if (res.ok) {
+      const d = await res.json();
+      setWeeklySummaryEnabled(!!d.weeklySummaryEnabled);
+      setWeeklySummaryDay(d.weeklySummaryDay ?? "1");
+    }
+    setEmailScheduleLoaded(true);
+  }
+
+  async function saveEmailSchedule() {
+    setSavingSchedule(true);
+    setScheduleMsg({ text: "", ok: false });
+    const res = await fetch("/api/admin/email-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, weeklySummaryEnabled, weeklySummaryDay }),
+    });
+    setSavingSchedule(false);
+    setScheduleMsg(res.ok ? { text: "Saved.", ok: true } : { text: "Failed to save.", ok: false });
+    setTimeout(() => setScheduleMsg({ text: "", ok: false }), 3000);
+  }
+
   async function sendEmailBroadcast() {
     if (!emailSubject.trim() || !emailBody.trim()) return;
     if (emailTarget === "team" && !emailTeamId) return;
@@ -649,7 +680,7 @@ export default function AdminPage() {
     if (id === "messages") loadAdminMsgs();
     if (id === "requests") loadInviteRequests();
     if (id === "stats") loadStats();
-    if (id === "email") loadTeams();
+    if (id === "email") { loadTeams(); loadEmailSchedule(); }
   }
 
   if (!authed && loading) {
@@ -2072,55 +2103,95 @@ export default function AdminPage() {
         )}
 
         {activeTab === "email" && (
-          <div className="max-w-xl space-y-5">
-            <h2 className="font-medium">Send Email</h2>
+          <div className="max-w-xl space-y-10">
 
-            {/* Recipients */}
+            {/* ── Scheduled emails ── */}
             <div>
-              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Recipients</label>
-              <div className="flex gap-2">
-                {["all", "team"].map(t => (
-                  <button key={t} onClick={() => { setEmailTarget(t); setEmailTeamId(""); }} className={"px-4 py-1.5 rounded-full text-sm font-medium transition-colors " + (emailTarget === t ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
-                    {t === "all" ? "All users" : "Specific team"}
+              <h2 className="font-medium mb-1">Scheduled emails</h2>
+              <p className="text-xs text-foreground-dim mb-5">No emails go out automatically unless enabled here.</p>
+
+              <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Weekly team summary</p>
+                    <p className="text-xs text-foreground-dim mt-0.5">Sends each team's weekly miles, MVP, and days-to-race to all members.</p>
+                  </div>
+                  <div onClick={() => setWeeklySummaryEnabled(v => !v)} className={"relative w-10 h-5 shrink-0 rounded-full cursor-pointer transition-colors " + (weeklySummaryEnabled ? "bg-signal" : "bg-border")}>
+                    <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (weeklySummaryEnabled ? "left-5" : "left-0.5")} />
+                  </div>
+                </div>
+
+                {weeklySummaryEnabled && (
+                  <div>
+                    <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Send on</label>
+                    <select value={weeklySummaryDay} onChange={e => setWeeklySummaryDay(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none focus:border-signal">
+                      {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => (
+                        <option key={i} value={String(i)}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button onClick={saveEmailSchedule} disabled={savingSchedule || !emailScheduleLoaded} className="px-4 py-1.5 rounded-full text-sm font-medium bg-signal text-background disabled:opacity-40">
+                    {savingSchedule ? "Saving…" : "Save schedule"}
                   </button>
-                ))}
+                  {scheduleMsg.text && <p className={"text-sm " + (scheduleMsg.ok ? "text-signal" : "text-red-400")}>{scheduleMsg.text}</p>}
+                </div>
               </div>
             </div>
 
-            {emailTarget === "team" && (
+            <div className="border-t border-border" />
+
+            {/* ── Send now ── */}
+            <div className="space-y-5">
+              <h2 className="font-medium">Send now</h2>
+
               <div>
-                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Team</label>
-                {!teamsLoaded ? (
-                  <p className="text-sm text-foreground-dim">Loading teams…</p>
-                ) : (
-                  <select value={emailTeamId} onChange={e => setEmailTeamId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal">
-                    <option value="">Select a team</option>
-                    {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.members?.length ?? ""} members)</option>)}
-                  </select>
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Recipients</label>
+                <div className="flex gap-2">
+                  {["all", "team"].map(t => (
+                    <button key={t} onClick={() => { setEmailTarget(t); setEmailTeamId(""); }} className={"px-4 py-1.5 rounded-full text-sm font-medium transition-colors " + (emailTarget === t ? "bg-signal text-background" : "border border-border hover:bg-surface")}>
+                      {t === "all" ? "All users" : "Specific team"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {emailTarget === "team" && (
+                <div>
+                  <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Team</label>
+                  {!teamsLoaded ? (
+                    <p className="text-sm text-foreground-dim">Loading teams…</p>
+                  ) : (
+                    <select value={emailTeamId} onChange={e => setEmailTeamId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal">
+                      <option value="">Select a team</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.members?.length ?? ""} members)</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Subject</label>
+                <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="e.g. Important update from Train2Race" className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal" />
+              </div>
+
+              <div>
+                <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Message</label>
+                <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={8} placeholder="Write your message here…" className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-y leading-relaxed" />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <button onClick={sendEmailBroadcast} disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim() || (emailTarget === "team" && !emailTeamId)} className="px-5 py-2 rounded-full text-sm font-medium bg-signal text-background disabled:opacity-40 transition-opacity">
+                  {sendingEmail ? "Sending…" : "Send email"}
+                </button>
+                {emailMsg.text && (
+                  <p className={"text-sm " + (emailMsg.ok ? "text-signal" : "text-red-400")}>{emailMsg.text}</p>
                 )}
               </div>
-            )}
-
-            {/* Subject */}
-            <div>
-              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Subject</label>
-              <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="e.g. Important update from Train2Race" className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal" />
             </div>
 
-            {/* Message */}
-            <div>
-              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Message</label>
-              <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={8} placeholder="Write your message here…" className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-y leading-relaxed" />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <button onClick={sendEmailBroadcast} disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim() || (emailTarget === "team" && !emailTeamId)} className="px-5 py-2 rounded-full text-sm font-medium bg-signal text-background disabled:opacity-40 transition-opacity">
-                {sendingEmail ? "Sending…" : "Send email"}
-              </button>
-              {emailMsg.text && (
-                <p className={"text-sm " + (emailMsg.ok ? "text-signal" : "text-red-400")}>{emailMsg.text}</p>
-              )}
-            </div>
           </div>
         )}
 
