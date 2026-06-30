@@ -38,6 +38,7 @@ export function MobileNav({ email, role }: { email: string; role?: string }) {
               { href: "/dashboard/community", label: "Community" },
               { href: "/dashboard/races", label: "Races" },
               { href: "/dashboard/leaderboard", label: "Leaderboard" },
+              { href: "/dashboard/predict", label: "Predict" },
               { href: "/dashboard/nutrition", label: "Nutrition" },
               { href: "/dashboard/profile", label: "Profile" },
               { href: "/dashboard/support", label: "Help & Support" },
