@@ -51,33 +51,63 @@ export async function POST(req, { params }) {
   const goalTime = race.goalTimeSec ? `${Math.floor(race.goalTimeSec/3600)}h ${Math.floor((race.goalTimeSec%3600)/60)}m` : "finish";
   const curMi = weeklyMileageKm ? (weeklyMileageKm/1.60934).toFixed(0) : category==="5K"?"15":category==="10K"?"20":category==="Half Marathon"?"25":"30";
   const curVolume = isTimeBased ? (weeklyHours ? weeklyHours+"h/week" : "3-4h/week") : curMi+"mi/week";
-  const notes = [
+
+  const scheduleNotes = [
     hardDays?.length>0 ? `Hard days: ${hardDays.join(", ")}` : "",
-    longRunDay ? `Long run: ${longRunDay}` : "Long run: Saturday",
-    injuryConcerns ? `INJURY ALERT - "${injuryConcerns}": reduce volume 10-15%, avoid aggravating workouts, substitute with cross-training, never back-to-back hard days` : "",
-    fitnessNotes ? `Fitness: ${fitnessNotes}` : "",
+    longRunDay ? `Long run day: ${longRunDay}` : "Long run day: Saturday",
     prioritize ? `Focus: ${prioritize}` : "",
   ].filter(Boolean).join(". ");
-  const levelNote = athleteLevel === "beginner"
-    ? " BEGINNER: weeks 1-3 easy_run and long_run only (no tempo/intervals). Start at 60% volume. Cutback every 3rd week."
-    : athleteLevel === "advanced"
-    ? " ADVANCED: tempo from week 1, intervals from week 2. Up to 3 quality sessions/week at peak."
+
+  const injuryLine = injuryConcerns
+    ? `INJURY: "${injuryConcerns}" — cut all volume 15%, NO tempo or intervals for first 4 weeks, replace hard sessions with easy_run or cross_train, NEVER consecutive hard days.`
     : "";
+
+  const fitnessLine = fitnessNotes
+    ? `Athlete context: "${fitnessNotes}" — use this to calibrate week 1 starting volume and description tone.`
+    : "";
+
+  // Beginner absolute caps — prevent AI from defaulting to intermediate volumes
+  const BEGINNER_DIST = {"5K":"1.5","10K":"2","Half Marathon":"2.5","Marathon":"3","Ultra":"3"};
+  const BEGINNER_TIME = {"5K":"20","10K":"22","Half Marathon":"25","Marathon":"28","Ultra":"30"};
+  const beginnerCap = isTimeBased
+    ? `BEGINNER RULES: NO tempo, NO intervals for first 6 weeks. Easy runs only for weeks 1-4, add long_run in week 5. Max ${BEGINNER_TIME[category]||25} min per run in week 1. Max 90 min total week 1. Build max 10 min/week on long run. Descriptions must be encouraging: "Run at a pace you can hold a full conversation."`
+    : `BEGINNER RULES: NO tempo, NO intervals for first 6 weeks. Easy runs only for weeks 1-4, add long_run in week 5. Max ${BEGINNER_DIST[category]||2} miles per run in week 1. Max 8 miles total week 1. Build max 0.5mi/week on long run. Descriptions must be encouraging: "Run at a pace you can hold a full conversation."`;
+  const advancedNote = `ADVANCED: tempo from week 1, intervals from week 2, up to 3 quality sessions/week at peak.`;
+  const levelRules = athleteLevel === "beginner" ? beginnerCap : athleteLevel === "advanced" ? advancedNote : "";
+
   const TIME_LONG_MAX = {"5K":45,"10K":65,"Half Marathon":95,"Marathon":155,"Ultra":185};
-  const TIME_VOL = {"5K":"120-210","10K":"150-270","Half Marathon":"210-390","Marathon":"300-540","Ultra":"420-750"};
+  const TIME_VOL = {"5K":"100-180","10K":"130-240","Half Marathon":"180-360","Marathon":"270-480","Ultra":"390-660"};
   const timeLongMax = TIME_LONG_MAX[category] || 95;
-  const timeVol = TIME_VOL[category] || "210-390";
+  const timeVol = TIME_VOL[category] || "180-360";
   const triathlonRules = isTriathlon ? "TRIATHLON: Every week must have swim+bike+run. Min 1 swim/week, 1-2 bikes, 1-2 runs, brick every 2 weeks. Types: swim/bike/easy_run/intervals/long_run/brick. NO running-only plan." : "";
-  const rules = isTimeBased
-    ? `RULES: Long run MAX ${timeLongMax}min NEVER exceed. Weekly ${timeVol}min/week total. ALL training workouts: distanceMiles:null, durationMin must be an integer. Describe in time not distance: "35 minutes easy" NOT "5 miles easy". Week 1 conservative. Max 10% build/week (by minutes). Cutback every 3-4 weeks. Last 2 weeks taper.${levelNote} Last day week ${weeks}: type:race distanceMiles:${distanceMiles} durationMin:estimated_finish_minutes. Generate ONLY ${days} workout days/week NO rest days.`
-    : `RULES: Long run MAX ${g.maxMi}mi NEVER exceed. Weekly ${g.wMi}mi. Peak ${g.pMi}mi. Workouts: ${g.workouts}. Week 1 conservative. Max 10% build/week. Cutback every 3-4 weeks. Last 2 weeks taper.${levelNote} Last day week ${weeks}: type:race distanceMiles:${distanceMiles}. Generate ONLY ${days} workout days/week NO rest days. ${triathlonRules}`;
+
+  const coreRules = isTimeBased
+    ? `PLAN TYPE: TIME-BASED — athlete has no GPS watch, cannot track miles.
+- Every training workout MUST have distanceMiles:null and durationMin set to a positive integer.
+- Race day only: distanceMiles:${distanceMiles}, durationMin:<estimated finish in minutes>.
+- Describe ALL workouts in time: "40 minutes easy" NOT "5 miles easy".
+- Long run max: ${timeLongMax} min. Weekly total: ${timeVol} min/week.
+- Week 1 conservative. Build max 10% per week (minutes). Cutback every 3-4 weeks. Taper final 2 weeks.
+- Last day of week ${weeks}: type:race, distanceMiles:${distanceMiles}, durationMin:estimated finish.
+- Generate ONLY ${days} workout days/week. NO rest days in JSON.`
+    : `RULES: Long run MAX ${g.maxMi}mi. Weekly ${g.wMi}mi. Peak ${g.pMi}mi. Workouts: ${g.workouts}. Week 1 conservative. Build max 10%/week. Cutback every 3-4 weeks. Taper final 2 weeks. Last day week ${weeks}: type:race distanceMiles:${distanceMiles}. Generate ONLY ${days} workout days/week. NO rest days in JSON. ${triathlonRules}`;
+
   const example = isTimeBased
-    ? `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"35 minutes easy conversational pace","distanceMiles":null,"durationMin":35}]`
-    : `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"Easy pace conversational effort","distanceMiles":3,"durationMin":null}]`;
-  const prompt = `Expert coach. ${weeks}-week ${category} plan. Race: ${race.raceName} ${distanceMiles}mi goal ${goalTime}. Athlete: ${curVolume}, ${days}days/week, level:${athleteLevel||"intermediate"}. ${notes}
-${rules}
-Return ONLY JSON array: ${example}
-Types: easy_run/tempo/intervals/long_run/cross_train${isTriathlon?"/swim/bike/brick":""}. No markdown.`;
+    ? `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"40 minutes easy, conversational pace","distanceMiles":null,"durationMin":40}]`
+    : `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"Easy conversational effort, 3 miles","distanceMiles":3,"durationMin":null}]`;
+
+  const prompt = `You are an expert endurance coach. Build a ${weeks}-week ${category} training plan.
+
+RACE: ${race.raceName}, ${distanceMiles} miles, goal: ${goalTime}
+ATHLETE: ${curVolume} current, ${days} days/week, level: ${athleteLevel||"intermediate"}
+SCHEDULE: ${scheduleNotes}
+${injuryLine ? injuryLine+"\n" : ""}${fitnessLine ? fitnessLine+"\n" : ""}
+${levelRules ? levelRules+"\n" : ""}${coreRules}
+
+Return ONLY a JSON array, no markdown, no explanation:
+${example}
+
+Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlon?", swim, bike, brick":""}. Keep descriptions under 12 words.`;
   try {
     const msg = await anthropic.messages.create({ model: g.model, max_tokens: g.maxTokens, messages: [{ role: "user", content: prompt }] });
     const text = msg.content[0].type === "text" ? msg.content[0].text : "";
