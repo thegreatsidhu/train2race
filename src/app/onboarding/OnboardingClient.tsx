@@ -68,6 +68,8 @@ export function OnboardingClient({ name }: { name: string }) {
   const [raceSearching, setRaceSearching] = useState(false);
   const [selectedRace, setSelectedRace] = useState<Race | null>(null);
   const [savingRace, setSavingRace] = useState(false);
+  const [showCommunityPrompt, setShowCommunityPrompt] = useState(false);
+  const [joiningCommunity, setJoiningCommunity] = useState(false);
 
   // Step 2 — Team
   const [teamMode, setTeamMode] = useState<"invite" | "create" | null>(null);
@@ -124,11 +126,23 @@ export function OnboardingClient({ name }: { name: string }) {
       }),
     });
     if (res.ok || res.status === 409) {
-      setStep(2);
+      setShowCommunityPrompt(true);
     } else {
       setError("Couldn't save race. You can skip for now.");
     }
     setSavingRace(false);
+  }
+
+  async function joinRaceCommunity() {
+    if (!selectedRace) { setStep(2); return; }
+    setJoiningCommunity(true);
+    await fetch("/api/major-races/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ majorRaceId: selectedRace.id, isPublic: true }),
+    }).catch(() => {});
+    setJoiningCommunity(false);
+    setStep(2);
   }
 
   async function joinTeam() {
@@ -219,6 +233,45 @@ export function OnboardingClient({ name }: { name: string }) {
 
   // Step 1 — Find race
   if (step === 1) {
+    // Sub-state: race saved, now offer to join community
+    if (showCommunityPrompt && selectedRace) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
+          <div className="w-full max-w-md mx-auto">
+            <StepDots current={1} />
+            <Card>
+              <div className="text-center mb-6">
+                <div className="text-4xl mb-3">🎯</div>
+                <h2 className="text-xl font-bold tracking-tight mb-1">Race target set!</h2>
+                <p className="text-foreground-dim text-sm">{selectedRace.name} · {fmtRaceDate(selectedRace.raceDate)}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-background p-4 mb-6">
+                <p className="text-sm font-semibold mb-1">Join the {selectedRace.name} community?</p>
+                <p className="text-xs text-foreground-dim leading-relaxed">
+                  Connect with other athletes training for this race — compare progress, chat, and cheer each other on.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={joinRaceCommunity}
+                  disabled={joiningCommunity}
+                  className="w-full py-2.5 rounded-xl bg-signal text-background font-medium text-sm disabled:opacity-60"
+                >
+                  {joiningCommunity ? "Joining…" : "Join community →"}
+                </button>
+                <button
+                  onClick={() => setStep(2)}
+                  className="w-full py-2 rounded-xl border border-border text-sm text-foreground-dim hover:text-foreground transition-colors"
+                >
+                  Skip for now
+                </button>
+              </div>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
         <div className="w-full max-w-md mx-auto">
