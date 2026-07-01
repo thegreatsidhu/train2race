@@ -220,6 +220,45 @@ function CommunityPageInner() {
         <p className="text-foreground-dim text-sm">Connect and train with athletes across groups and races.</p>
       </header>
 
+      {/* Your communities */}
+      {!loading && !commEventsLoading && (myRegs.length > 0 || commEvents.some((e: any) => e.isMember)) && (
+        <section className="mb-6">
+          <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-3">Your communities</p>
+          <div className="space-y-2">
+            {myRegs.map((reg: any) => (
+              <div key={reg.id} className="rounded-2xl border border-signal/30 bg-signal/5 p-4 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{reg.majorRace.name}</p>
+                  <p className="text-xs text-foreground-dim mt-0.5">
+                    Race community · {reg.majorRace.raceDate ? new Date(reg.majorRace.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Date TBD"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setPageTab("races"); loadEvent(reg.majorRace); }}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-signal/40 text-signal hover:bg-signal/10 transition-colors"
+                >
+                  Open →
+                </button>
+              </div>
+            ))}
+            {commEvents.filter((e: any) => e.isMember).map((e: any) => (
+              <div key={e.id} className="rounded-2xl border border-signal/30 bg-signal/5 p-4 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{e.name}</p>
+                  <p className="text-xs text-foreground-dim mt-0.5">{e.memberCount} member{e.memberCount !== 1 ? "s" : ""}{e.description ? ` · ${e.description}` : ""}</p>
+                </div>
+                <button
+                  onClick={() => router.push(`/dashboard/teams/${e.id}`)}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-signal/40 text-signal hover:bg-signal/10 transition-colors"
+                >
+                  View →
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Tab bar */}
       <div className="flex items-center gap-2 flex-wrap mb-6">
         {(["groups", "create", "races"] as const).map(t => (

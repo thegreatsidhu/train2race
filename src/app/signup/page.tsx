@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { InviteRequestForm } from "@/components/InviteRequestForm";
 
@@ -79,7 +80,10 @@ export default function SignupPage() {
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <Link href="/" className="font-semibold tracking-tight text-lg">Train2Race</Link>
+          <Link href="/" className="inline-flex flex-col items-center gap-3">
+            <Image src="/logo.png" alt="Train2Race" width={64} height={64} className="rounded-2xl" />
+            <span className="font-semibold tracking-tight text-lg">Train2Race</span>
+          </Link>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Create your account</h1>
         <p className="text-foreground-dim text-sm mb-6">You need an invite code to sign up.</p>

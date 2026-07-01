@@ -123,6 +123,7 @@ export function OnboardingClient({ name }: { name: string }) {
         raceDate: selectedRace.raceDate,
         distanceM: selectedRace.distanceM,
         isTriathlon: selectedRace.isTriathlon,
+        majorRaceId: selectedRace.id,
       }),
     });
     if (res.ok || res.status === 409) {
@@ -136,11 +137,19 @@ export function OnboardingClient({ name }: { name: string }) {
   async function joinRaceCommunity() {
     if (!selectedRace) { setStep(2); return; }
     setJoiningCommunity(true);
-    await fetch("/api/major-races/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ majorRaceId: selectedRace.id, isPublic: true }),
-    }).catch(() => {});
+    try {
+      const res = await fetch("/api/major-races/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ majorRaceId: selectedRace.id, isPublic: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setError(err.error || "Couldn't join community. You can join from the Community page.");
+      }
+    } catch {
+      setError("Couldn't join community. You can join from the Community page.");
+    }
     setJoiningCommunity(false);
     setStep(2);
   }

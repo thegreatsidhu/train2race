@@ -23,10 +23,10 @@ export function welcomeEmailHtml(firstName: string): string {
 
   <!-- Logo -->
   <tr><td align="center" style="padding-bottom:24px;">
-    <div style="display:inline-block;background:#13161b;border:1px solid #2a2e35;border-radius:12px;padding:12px 22px;">
-      <span style="color:#5ec9b5;font-size:18px;font-weight:700;letter-spacing:.1em;">T2R</span>
-      <span style="color:#ede9e2;font-size:14px;font-weight:600;margin-left:8px;letter-spacing:.04em;">Train2Race</span>
-    </div>
+    <a href="https://train2race.com" style="display:inline-flex;flex-direction:column;align-items:center;gap:10px;text-decoration:none;">
+      <img src="https://train2race.com/logo.png" alt="Train2Race" width="64" height="64" style="border-radius:14px;display:block;" />
+      <span style="color:#ede9e2;font-size:16px;font-weight:700;letter-spacing:.04em;">Train2Race</span>
+    </a>
   </td></tr>
 
   <!-- Card -->
