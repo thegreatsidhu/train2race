@@ -38,8 +38,9 @@ export async function POST(req, { params }) {
   const recentPlan = await prisma.trainingPlan.findFirst({ where: { raceId: race.id, createdAt: { gte: new Date(Date.now()-5*60*1000) } }, select: { id: true } });
   if (recentPlan) return NextResponse.json({ error: "Please wait 5 minutes before regenerating" }, { status: 429 });
   const body = await req.json();
-  const { weeklyMileageKm, recentRaceTime, trainingDaysPerWeek, hardDays, longRunDay, injuryConcerns, fitnessNotes, prioritize } = body;
+  const { weeklyMileageKm, weeklyHours, trackingMethod, athleteLevel, recentRaceTime, trainingDaysPerWeek, hardDays, longRunDay, injuryConcerns, fitnessNotes, prioritize } = body;
   const isTriathlon = race.isTriathlon || false;
+  const isTimeBased = trackingMethod === "time" && !isTriathlon;
   const category = getCategory(race.distanceM, isTriathlon);
   const g = RACE_GUIDELINES[category];
   const days = Number(trainingDaysPerWeek) || 5;
@@ -49,6 +50,7 @@ export async function POST(req, { params }) {
   const distanceMiles = (race.distanceM / 1609.34).toFixed(1);
   const goalTime = race.goalTimeSec ? `${Math.floor(race.goalTimeSec/3600)}h ${Math.floor((race.goalTimeSec%3600)/60)}m` : "finish";
   const curMi = weeklyMileageKm ? (weeklyMileageKm/1.60934).toFixed(0) : category==="5K"?"15":category==="10K"?"20":category==="Half Marathon"?"25":"30";
+  const curVolume = isTimeBased ? (weeklyHours ? weeklyHours+"h/week" : "3-4h/week") : curMi+"mi/week";
   const notes = [
     hardDays?.length>0 ? `Hard days: ${hardDays.join(", ")}` : "",
     longRunDay ? `Long run: ${longRunDay}` : "Long run: Saturday",
@@ -56,10 +58,25 @@ export async function POST(req, { params }) {
     fitnessNotes ? `Fitness: ${fitnessNotes}` : "",
     prioritize ? `Focus: ${prioritize}` : "",
   ].filter(Boolean).join(". ");
+  const levelNote = athleteLevel === "beginner"
+    ? " BEGINNER: weeks 1-3 easy_run and long_run only (no tempo/intervals). Start at 60% volume. Cutback every 3rd week."
+    : athleteLevel === "advanced"
+    ? " ADVANCED: tempo from week 1, intervals from week 2. Up to 3 quality sessions/week at peak."
+    : "";
+  const TIME_LONG_MAX = {"5K":45,"10K":65,"Half Marathon":95,"Marathon":155,"Ultra":185};
+  const TIME_VOL = {"5K":"120-210","10K":"150-270","Half Marathon":"210-390","Marathon":"300-540","Ultra":"420-750"};
+  const timeLongMax = TIME_LONG_MAX[category] || 95;
+  const timeVol = TIME_VOL[category] || "210-390";
   const triathlonRules = isTriathlon ? "TRIATHLON: Every week must have swim+bike+run. Min 1 swim/week, 1-2 bikes, 1-2 runs, brick every 2 weeks. Types: swim/bike/easy_run/intervals/long_run/brick. NO running-only plan." : "";
-  const prompt = `Expert coach. ${weeks}-week ${category} plan. Race: ${race.raceName} ${distanceMiles}mi goal ${goalTime}. Athlete: ${curMi}mi/week ${days}days/week. ${notes}
-RULES: Long run MAX ${g.maxMi}mi NEVER exceed. Weekly ${g.wMi}mi. Peak ${g.pMi}mi. Workouts: ${g.workouts}. Week 1 conservative. Max 10% build/week. Cutback every 3-4 weeks. Last 2 weeks taper. Generate ONLY ${days} workout days/week NO rest days. Keep descriptions under 12 words. ${triathlonRules}
-Return ONLY JSON array: [{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"Easy pace conversational effort","distanceMiles":3,"durationMin":null}]
+  const rules = isTimeBased
+    ? `RULES: Long run MAX ${timeLongMax}min NEVER exceed. Weekly ${timeVol}min/week total. ALL training workouts: distanceMiles:null, durationMin must be an integer. Describe in time not distance: "35 minutes easy" NOT "5 miles easy". Week 1 conservative. Max 10% build/week (by minutes). Cutback every 3-4 weeks. Last 2 weeks taper.${levelNote} Last day week ${weeks}: type:race distanceMiles:${distanceMiles} durationMin:estimated_finish_minutes. Generate ONLY ${days} workout days/week NO rest days.`
+    : `RULES: Long run MAX ${g.maxMi}mi NEVER exceed. Weekly ${g.wMi}mi. Peak ${g.pMi}mi. Workouts: ${g.workouts}. Week 1 conservative. Max 10% build/week. Cutback every 3-4 weeks. Last 2 weeks taper.${levelNote} Last day week ${weeks}: type:race distanceMiles:${distanceMiles}. Generate ONLY ${days} workout days/week NO rest days. ${triathlonRules}`;
+  const example = isTimeBased
+    ? `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"35 minutes easy conversational pace","distanceMiles":null,"durationMin":35}]`
+    : `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"Easy pace conversational effort","distanceMiles":3,"durationMin":null}]`;
+  const prompt = `Expert coach. ${weeks}-week ${category} plan. Race: ${race.raceName} ${distanceMiles}mi goal ${goalTime}. Athlete: ${curVolume}, ${days}days/week, level:${athleteLevel||"intermediate"}. ${notes}
+${rules}
+Return ONLY JSON array: ${example}
 Types: easy_run/tempo/intervals/long_run/cross_train${isTriathlon?"/swim/bike/brick":""}. No markdown.`;
   try {
     const msg = await anthropic.messages.create({ model: g.model, max_tokens: g.maxTokens, messages: [{ role: "user", content: prompt }] });
@@ -68,7 +85,15 @@ Types: easy_run/tempo/intervals/long_run/cross_train${isTriathlon?"/swim/bike/br
     // Repair truncated JSON by closing any open array
     if (!cleaned.endsWith("]")) { const lastBrace = cleaned.lastIndexOf("}"); if (lastBrace > -1) cleaned = cleaned.substring(0, lastBrace+1) + "]"; }
     const workouts = JSON.parse(cleaned);
-    const validated = workouts.filter(w => w.type !== "rest").map(w => ({ ...w, distanceMiles: w.distanceMiles > g.maxMi ? g.maxMi : w.distanceMiles }));
+    const TIME_DUR_DEFAULT = {easy_run:40,long_run:70,tempo:35,intervals:40,cross_train:45};
+    const validated = workouts.filter(w => w.type !== "rest").map(w => {
+      let d = w.distanceMiles;
+      if (w.type === "race") d = parseFloat(distanceMiles);
+      else if (isTimeBased) d = null;
+      else if (d > g.maxMi) d = g.maxMi;
+      const dur = (isTimeBased && w.type !== "race" && !w.durationMin) ? (TIME_DUR_DEFAULT[w.type]||40) : (w.durationMin||null);
+      return {...w, distanceMiles:d, durationMin:dur};
+    });
     await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
     const start = new Date();
     start.setDate(start.getDate() - start.getDay() + 1);
