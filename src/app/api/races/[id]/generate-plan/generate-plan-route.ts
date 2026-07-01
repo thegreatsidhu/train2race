@@ -124,14 +124,48 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ? `\nADVANCED RULES: Include tempo from week 1, intervals from week 2. Up to 3 quality sessions/week at peak. Standard 10% weekly build, occasional 15% in build phase.`
     : "";
 
-  const timeBasedInstructions = isTimeBased
-    ? `\nTIME-BASED PLAN — athlete has no GPS watch:
-- Set distanceMiles:null for ALL training workouts. Use durationMin for every workout.
-- RACE DAY only: distanceMiles:${distanceMiles} (for logging), durationMin: estimated finish in minutes.
-- Describe workouts in time, not distance: "45 minutes easy" not "5 miles easy".
-- Easy runs: 25-50 min. Tempo: 20-40 min. Intervals: 30-50 min (include warmup/cooldown). Long run: 45-150 min.
-- Weekly volume: ${timeVolumeMin} minutes/week total.`
-    : "";
+  const TIME_LONG_MAX: Record<string, number> = {
+    "5K": 45, "10K": 65, "Half Marathon": 95, "Marathon": 155, "Ultra": 185,
+  };
+  const timeLongMax = TIME_LONG_MAX[category] || 95;
+
+  const TIME_WORKOUTS_GUIDE: Record<string, string> = {
+    "5K": "easy 20-35min, tempo 15-25min, intervals 25-35min, long 30-45min",
+    "10K": "easy 25-40min, tempo 20-35min, intervals 30-45min, long 45-65min",
+    "Half Marathon": "easy 30-50min, tempo 25-45min, intervals 35-50min, long 60-95min",
+    "Marathon": "easy 40-60min, tempo 30-50min, intervals 40-55min, long 90-155min",
+    "Ultra": "easy 45-70min, tempo 35-55min, intervals 45-65min, long 120-185min",
+  };
+  const timeWorkoutsGuide = TIME_WORKOUTS_GUIDE[category] || "easy 30-50min, tempo 25-40min, intervals 35-50min, long 60-90min";
+
+  const rulesBlock = isTimeBased
+    ? `RULES:
+- Long run MAX: ${timeLongMax} minutes — NEVER exceed
+- Weekly volume: ${timeVolumeMin} minutes/week total
+- Key workout durations: ${timeWorkoutsGuide}
+- Week 1: conservative, at or below current training time
+- Build max 10% per week (by minutes)
+- Cutback week every 3-4 weeks (reduce 20%)
+- Final 1-2 weeks: taper (reduce durations)
+- CRITICAL: every training workout MUST have distanceMiles:null and durationMin set to an integer
+- Describe workouts in time: "35 minutes easy" NOT "5 miles easy"
+- Last day of week ${weeksToRace}: type:"race", distanceMiles:${distanceMiles}, durationMin:<estimated finish in minutes>, description:"Race day! Give it everything."
+- Generate ONLY ${days} workout days per week, NO rest days in JSON`
+    : `RULES:
+- Long run/ride MAX: ${g.maxMi} miles — NEVER exceed
+- Weekly volume: ${g.wMi}
+- Peak week: ${g.pMi}
+- Key workouts: ${g.workouts}
+- Week 1: conservative, at or below current volume
+- Build max 10% per week
+- Cutback week every 3-4 weeks (reduce 20%)
+- Final 1-2 weeks: taper
+- Last day of week ${weeksToRace}: include exactly ONE workout with type:"race", title:"Race Day", distanceMiles:${distanceMiles}, description:"Race day! Run your goal time."
+- Generate ONLY ${days} workout days per week, NO rest days in JSON`;
+
+  const exampleWorkout = isTimeBased
+    ? `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"35 minutes easy conversational pace","distanceMiles":null,"durationMin":35}]`
+    : `[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"Easy conversational pace, focus on form","distanceMiles":3,"durationMin":null}]`;
 
   const notes = [
     hardDays?.length > 0 ? `Hard days: ${hardDays.join(", ")}` : "",
@@ -179,23 +213,13 @@ TRIATHLON BUILD-UP RULES (CRITICAL):
 
 Race: ${race.raceName}, ${distanceMiles} miles, goal ${goalTime}
 Athlete: ${curVolume} current, ${days} days/week training, level: ${athleteLevel || "intermediate"}
-${notes}${levelInstructions}${timeBasedInstructions}
+${notes}${levelInstructions}
 
-RULES:
-- Long run/ride MAX: ${g.maxMi} miles — NEVER exceed
-- Weekly volume: ${g.wMi}
-- Peak week: ${g.pMi}
-- Key workouts: ${g.workouts}
-- Week 1: conservative, at or below current volume
-- Build max 10% per week
-- Cutback week every 3-4 weeks (reduce 20%)
-- Final 1-2 weeks: taper
-- Last day of week ${weeksToRace}: include exactly ONE workout with type:"race", title:"Race Day", distanceMiles:${distanceMiles}, description:"Race day! Run your goal time."
-- Generate ONLY ${days} workout days per week, NO rest days in JSON
+${rulesBlock}
 ${triathlonInstructions}
 
 Return ONLY a JSON array. Keep descriptions under 15 words:
-[{"week":1,"day":"Tuesday","type":"easy_run","title":"Easy Run","description":"Easy conversational pace, focus on form","distanceMiles":3,"durationMin":null}]
+${exampleWorkout}
 
 Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlon ? ", swim, bike, brick" : ""}
 No markdown. No explanation. Just the array.`;
@@ -210,12 +234,18 @@ No markdown. No explanation. Just the array.`;
     const text = msg.content[0].type === "text" ? msg.content[0].text : "";
     const workouts = JSON.parse(text.replace(/```json|```/g, "").trim());
 
+    const TIME_DEFAULT_DURATION: Record<string, number> = {
+      easy_run: 40, long_run: 70, tempo: 35, intervals: 40, cross_train: 45,
+    };
+
     const validated = workouts
       .filter((w: any) => w.type !== "rest")
       .map((w: any) => {
         let d = w.distanceMiles;
         if (w.type === "race") {
           d = parseFloat(distanceMiles);
+        } else if (isTimeBased) {
+          d = null; // strip any distance the AI may have included for time-based plans
         } else if (triDist) {
           if (w.type === "bike") {
             // Always use the deterministic progressive target — ignore AI value
@@ -231,7 +261,10 @@ No markdown. No explanation. Just the array.`;
         } else {
           d = d > g.maxMi ? g.maxMi : d;
         }
-        return { ...w, distanceMiles: d };
+        const dur = (isTimeBased && w.type !== "race" && !w.durationMin)
+          ? (TIME_DEFAULT_DURATION[w.type] || 40)
+          : (w.durationMin || null);
+        return { ...w, distanceMiles: d, durationMin: dur };
       });
 
     await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
