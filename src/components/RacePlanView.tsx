@@ -374,14 +374,14 @@ function RebuildModal({ race, onClose, onRebuilt, isFirstBuild = false }: { race
   const [step, setStep] = useState(1);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string|null>(null);
-  const [form, setForm] = useState({ currentWeeklyMileage: race.weeklyMileageKm ? (race.weeklyMileageKm/1.60934).toFixed(0) : "", trainingDaysPerWeek: race.trainingDaysPerWeek ? String(race.trainingDaysPerWeek) : "5", hardDays: [] as string[], longRunDay: "Saturday", recentRaceTime: race.recentRaceTime||"", injuryConcerns: "", fitnessNotes: "", prioritize: "balanced" });
+  const [form, setForm] = useState({ athleteLevel: "intermediate", trackingMethod: "distance", currentWeeklyMileage: race.weeklyMileageKm ? (race.weeklyMileageKm/1.60934).toFixed(0) : "", weeklyHours: "", trainingDaysPerWeek: race.trainingDaysPerWeek ? String(race.trainingDaysPerWeek) : "5", hardDays: [] as string[], longRunDay: "Saturday", recentRaceTime: race.recentRaceTime||"", injuryConcerns: "", fitnessNotes: "", prioritize: "balanced" });
   const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
   function toggleHardDay(day: string) { setForm(f => ({...f, hardDays: f.hardDays.includes(day) ? f.hardDays.filter(d=>d!==day) : [...f.hardDays, day]})); }
 
   async function handleRebuild() {
     setGenerating(true); setError(null);
     try {
-      const payload = { weeklyMileageKm: form.currentWeeklyMileage ? Number(form.currentWeeklyMileage)*1.60934 : race.weeklyMileageKm, recentRaceTime: form.recentRaceTime, trainingDaysPerWeek: Number(form.trainingDaysPerWeek), raceType: race.raceType, isTriathlon: race.isTriathlon, hardDays: form.hardDays, longRunDay: form.longRunDay, injuryConcerns: form.injuryConcerns, fitnessNotes: form.fitnessNotes, prioritize: form.prioritize };
+      const payload = { athleteLevel: form.athleteLevel, trackingMethod: form.trackingMethod, weeklyMileageKm: form.trackingMethod === "distance" ? (form.currentWeeklyMileage ? Number(form.currentWeeklyMileage)*1.60934 : race.weeklyMileageKm) : null, weeklyHours: form.trackingMethod === "time" ? (form.weeklyHours ? Number(form.weeklyHours) : null) : null, recentRaceTime: form.recentRaceTime, trainingDaysPerWeek: Number(form.trainingDaysPerWeek), raceType: race.raceType, isTriathlon: race.isTriathlon, hardDays: form.hardDays, longRunDay: form.longRunDay, injuryConcerns: form.injuryConcerns, fitnessNotes: form.fitnessNotes, prioritize: form.prioritize };
       const check = await fetch("/api/races/" + race.id + "/generate-plan", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(8000), body: JSON.stringify(payload) }).catch(() => null);
       if (check && !check.ok) { const data = await check.json(); setError(data.error || "Failed to generate plan"); setGenerating(false); return; }
       let attempts = 0;
@@ -412,10 +412,37 @@ function RebuildModal({ race, onClose, onRebuilt, isFirstBuild = false }: { race
         {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
         {step===1 && (
           <div className="space-y-4">
-            <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Current weekly mileage (miles)</label><input type="number" placeholder="e.g. 30" value={form.currentWeeklyMileage} onChange={e=>setForm({...form,currentWeeklyMileage:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
+            <div>
+              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Your experience level</label>
+              <div className="grid grid-cols-3 gap-2">
+                {([["beginner","Beginner","New to training"],["intermediate","Intermediate","1+ year running"],["advanced","Advanced","Racing regularly"]] as [string,string,string][]).map(([val,label,sub])=>(
+                  <button key={val} onClick={()=>setForm({...form,athleteLevel:val})} className={"text-left px-3 py-2.5 rounded-xl border transition-colors "+(form.athleteLevel===val?"bg-signal text-background border-signal":"border-border hover:bg-surface")}>
+                    <p className="text-xs font-medium">{label}</p>
+                    <p className={"text-xs mt-0.5 "+(form.athleteLevel===val?"opacity-70":"text-foreground-dim")}>{sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">How do you track your workouts?</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={()=>setForm({...form,trackingMethod:"distance"})} className={"px-3 py-3 rounded-xl border text-left transition-colors "+(form.trackingMethod==="distance"?"bg-signal text-background border-signal":"border-border hover:bg-surface")}>
+                  <p className="text-xs font-medium">GPS / Watch</p>
+                  <p className={"text-xs mt-0.5 "+(form.trackingMethod==="distance"?"opacity-70":"text-foreground-dim")}>Plan by miles &amp; distance</p>
+                </button>
+                <button onClick={()=>setForm({...form,trackingMethod:"time"})} className={"px-3 py-3 rounded-xl border text-left transition-colors "+(form.trackingMethod==="time"?"bg-signal text-background border-signal":"border-border hover:bg-surface")}>
+                  <p className="text-xs font-medium">Time only</p>
+                  <p className={"text-xs mt-0.5 "+(form.trackingMethod==="time"?"opacity-70":"text-foreground-dim")}>Plan by minutes, no watch needed</p>
+                </button>
+              </div>
+            </div>
+            {form.trackingMethod==="distance"
+              ? <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Current weekly mileage (miles)</label><input type="number" placeholder="e.g. 20" value={form.currentWeeklyMileage} onChange={e=>setForm({...form,currentWeeklyMileage:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
+              : <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Weekly training time (hours)</label><input type="number" step="0.5" min="0" placeholder="e.g. 4" value={form.weeklyHours} onChange={e=>setForm({...form,weeklyHours:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
+            }
             <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Recent race time (optional)</label><input placeholder="e.g. 1:52 half marathon" value={form.recentRaceTime} onChange={e=>setForm({...form,recentRaceTime:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal"/></div>
             <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Training days per week: {form.trainingDaysPerWeek}</label><input type="range" min={3} max={7} value={form.trainingDaysPerWeek} onChange={e=>setForm({...form,trainingDaysPerWeek:e.target.value})} className="w-full accent-signal"/><div className="flex justify-between text-xs text-foreground-dim"><span>3 days</span><span>7 days</span></div></div>
-            <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Current fitness notes</label><textarea rows={2} placeholder="e.g. Coming off a break, feeling strong..." value={form.fitnessNotes} onChange={e=>setForm({...form,fitnessNotes:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-none"/></div>
+            <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Current fitness notes (optional)</label><textarea rows={2} placeholder="e.g. Coming off a break, feeling strong..." value={form.fitnessNotes} onChange={e=>setForm({...form,fitnessNotes:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-none"/></div>
             <button onClick={()=>setStep(2)} className="w-full py-2.5 rounded-full bg-signal text-background text-sm font-medium">Next</button>
           </div>
         )}
@@ -430,7 +457,7 @@ function RebuildModal({ race, onClose, onRebuilt, isFirstBuild = false }: { race
         {step===3 && (
           <div className="space-y-4">
             <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Injury concerns or limitations?</label><textarea rows={3} placeholder="e.g. Tight IT band, no back-to-back hard days..." value={form.injuryConcerns} onChange={e=>setForm({...form,injuryConcerns:e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-none"/></div>
-            <div className="rounded-xl bg-surface border border-border p-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Plan summary</p><p className="text-sm">{form.currentWeeklyMileage||"?"} mi/week - {form.trainingDaysPerWeek} days - {form.prioritize}{form.longRunDay?" - Long run "+form.longRunDay:""}{form.hardDays.length>0?" - Hard: "+form.hardDays.map(d=>d.slice(0,3)).join(", "):""}</p></div>
+            <div className="rounded-xl bg-surface border border-border p-3"><p className="text-xs text-foreground-dim uppercase tracking-wide mb-1">Plan summary</p><p className="text-sm capitalize">{form.athleteLevel} · {form.trackingMethod==="time"?(form.weeklyHours?form.weeklyHours+"h/wk":"time-based"):(form.currentWeeklyMileage?form.currentWeeklyMileage+" mi/wk":"?")} · {form.trainingDaysPerWeek} days · {form.prioritize}{form.longRunDay?" · Long run "+form.longRunDay:""}{form.hardDays.length>0?" · Hard: "+form.hardDays.map(d=>d.slice(0,3)).join(", "):""}</p></div>
             <div className="flex gap-3"><button onClick={()=>setStep(2)} disabled={generating} className="flex-1 py-2.5 rounded-full border border-border text-sm disabled:opacity-60">Back</button><button onClick={handleRebuild} disabled={generating} className="flex-1 py-2.5 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{generating ? "Building... (30s)" : "Build plan"}</button></div>
           </div>
         )}

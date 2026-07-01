@@ -78,9 +78,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const body = await req.json();
   const {
-    weeklyMileageKm, recentRaceTime, trainingDaysPerWeek,
+    weeklyMileageKm, weeklyHours, trackingMethod, athleteLevel,
+    recentRaceTime, trainingDaysPerWeek,
     raceType, hardDays, longRunDay, injuryConcerns, fitnessNotes, prioritize,
   } = body;
+
+  const isTimeBased = trackingMethod === "time" && !race.isTriathlon;
 
   // Always use isTriathlon from the DB — don't trust the request body
   const isTriathlon = race.isTriathlon || false;
@@ -104,6 +107,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const curMi = weeklyMileageKm
     ? (weeklyMileageKm / 1.60934).toFixed(0)
     : category === "5K" ? "15" : category === "10K" ? "20" : category === "Half Marathon" ? "25" : "30";
+
+  const curVolume = isTimeBased
+    ? (weeklyHours ? `${weeklyHours} hours/week` : "3-4 hours/week")
+    : `${curMi} miles/week`;
+
+  const TIME_VOLUME: Record<string, string> = {
+    "5K": "120-210", "10K": "150-270", "Half Marathon": "210-390",
+    "Marathon": "300-540", "Ultra": "420-750",
+  };
+  const timeVolumeMin = TIME_VOLUME[category] || "210-390";
+
+  const levelInstructions = athleteLevel === "beginner"
+    ? `\nBEGINNER RULES: Weeks 1-3 easy_run and long_run ONLY — zero tempo, zero intervals. Introduce tempo after week 4, intervals after week 8 (if plan is long enough). Start week 1 at 60% of stated volume. Cutback every 3rd week. Descriptions should be encouraging and simple.`
+    : athleteLevel === "advanced"
+    ? `\nADVANCED RULES: Include tempo from week 1, intervals from week 2. Up to 3 quality sessions/week at peak. Standard 10% weekly build, occasional 15% in build phase.`
+    : "";
+
+  const timeBasedInstructions = isTimeBased
+    ? `\nTIME-BASED PLAN — athlete has no GPS watch:
+- Set distanceMiles:null for ALL training workouts. Use durationMin for every workout.
+- RACE DAY only: distanceMiles:${distanceMiles} (for logging), durationMin: estimated finish in minutes.
+- Describe workouts in time, not distance: "45 minutes easy" not "5 miles easy".
+- Easy runs: 25-50 min. Tempo: 20-40 min. Intervals: 30-50 min (include warmup/cooldown). Long run: 45-150 min.
+- Weekly volume: ${timeVolumeMin} minutes/week total.`
+    : "";
 
   const notes = [
     hardDays?.length > 0 ? `Hard days: ${hardDays.join(", ")}` : "",
@@ -150,8 +178,8 @@ TRIATHLON BUILD-UP RULES (CRITICAL):
   const prompt = `Expert endurance coach. Create a ${weeksToRace}-week ${category} training plan.
 
 Race: ${race.raceName}, ${distanceMiles} miles, goal ${goalTime}
-Athlete: ${curMi} miles/week current, ${days} days/week training
-${notes}
+Athlete: ${curVolume} current, ${days} days/week training, level: ${athleteLevel || "intermediate"}
+${notes}${levelInstructions}${timeBasedInstructions}
 
 RULES:
 - Long run/ride MAX: ${g.maxMi} miles — NEVER exceed
