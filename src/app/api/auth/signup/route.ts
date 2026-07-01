@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { sendEmail, welcomeEmailHtml } from "@/lib/email";
 
 const SignupSchema = z.object({
   name: z.string().min(1).max(100),
@@ -65,6 +66,15 @@ export async function POST(req: Request) {
     }
     throw err;
   }
+
+  // Send welcome email — fire and forget, never block signup
+  const firstName = user.name?.split(" ")[0] ?? "Athlete";
+  sendEmail({
+    to: user.email!,
+    subject: "Welcome to Train2Race 🏁",
+    html: welcomeEmailHtml(firstName),
+    from: "Train2Race <support@train2race.com>",
+  }).catch(() => {});
 
   if (invite) {
     if (!invite.reusable) {
