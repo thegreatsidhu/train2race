@@ -27,6 +27,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
+          select: { id: true, email: true, name: true, image: true, passwordHash: true, isBanned: true },
         });
 
         if (!user || !user.passwordHash) return null;
@@ -36,6 +37,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.passwordHash
         );
         if (!valid) return null;
+
+        if (user.isBanned) return null;
 
         return { id: user.id, email: user.email, name: user.name, image: user.image };
       },

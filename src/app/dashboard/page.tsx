@@ -129,7 +129,7 @@ export default async function TodayPage() {
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:weekStart,lte:weekEnd}},select:{distanceM:true,durationSec:true,type:true}}),
-    prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true,city:true}}),
+    prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true,city:true,dateOfBirth:true,sex:true}}),
     prisma.raceRegistration.findFirst({where:{userId,majorRace:{raceDate:{gte:today},status:"active"}},orderBy:{majorRace:{raceDate:"asc"}},include:{majorRace:{select:{id:true,name:true,city:true,country:true,raceDate:true}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
@@ -233,6 +233,7 @@ export default async function TodayPage() {
   const streak = computeStreak(recentForStreak, today);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const isNewUser = !hasConnection && !activeRace && recentActivities.length === 0;
+  const profileIncomplete = !(user as any)?.dateOfBirth || !(user as any)?.sex;
 
   const workoutItems = completedWorkouts.map((w: any) => ({
     id: `workout_${w.id}`, title: w.title, type: w.type,
@@ -315,6 +316,17 @@ export default async function TodayPage() {
           ...(recentGroupChallenges as any[]).map((c: any) => ({ id: "ch-" + c.id, type: "challenge" as const, teamId: c.teamId, teamName: c.team.name, title: c.title, createdAt: c.createdAt.toISOString() })),
         ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
       />
+
+      {/* ── Profile incomplete reminder ── */}
+      {profileIncomplete && (
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Finish setting up your profile</p>
+            <p className="text-xs text-foreground-dim mt-0.5">Add your date of birth and sex so your plan is personalized to you.</p>
+          </div>
+          <Link href="/dashboard/profile" className="text-xs text-signal hover:underline shrink-0">Update →</Link>
+        </div>
+      )}
 
       {/* ── Quote ── */}
       <div className="mb-8 border-l-2 border-signal/30 pl-4">
