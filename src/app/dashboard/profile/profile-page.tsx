@@ -133,7 +133,7 @@ export default function ProfilePage() {
       body: JSON.stringify({ reason: deleteReason, otherText: deleteOther.trim() || null }),
     });
     if (res.ok) {
-      await signOut({ callbackUrl: "/" });
+      await signOut({ callbackUrl: window.location.origin + "/" });
     } else {
       setDeleting(false);
       setDeleteError("Something went wrong. Please try again.");

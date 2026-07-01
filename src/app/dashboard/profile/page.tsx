@@ -80,7 +80,7 @@ export default function ProfilePage() {
     setDeleting(true); setDeleteError("");
     const res = await fetch("/api/profile/delete", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: deleteReason, otherText: deleteOther }) });
     if (res.ok) {
-      await signOut({ callbackUrl: "/" });
+      await signOut({ callbackUrl: window.location.origin + "/" });
     } else {
       setDeleting(false);
       setDeleteError("Something went wrong. Please try again.");
