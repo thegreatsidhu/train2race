@@ -178,8 +178,6 @@ export default async function TodayPage() {
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const isNewUser = !hasConnection && !activeRace && recentActivities.length === 0;
   const profileIncomplete = !(user as any)?.dateOfBirth || !(user as any)?.sex;
-  const totalTeams = teamsWithActivity.length;
-
   const workoutItems = completedWorkouts.map((w: any) => ({
     id: `workout_${w.id}`, title: w.title, type: w.type,
     startTime: w.completedAt ?? new Date(w.date),
@@ -430,7 +428,7 @@ export default async function TodayPage() {
             <h2 className="text-xs font-medium text-foreground-dim uppercase tracking-wide">Your crew</h2>
           </div>
           <div className="space-y-2">
-            {teamsWithActivity.slice(0, 3).map((t: any) => (
+            {teamsWithActivity.map((t: any) => (
               <Link key={t.id} href={`/dashboard/teams/${t.id}`}
                 className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 hover:border-signal/30 transition-colors group">
                 <div className="w-9 h-9 rounded-full bg-signal/10 border border-signal/20 flex items-center justify-center shrink-0">
@@ -447,13 +445,6 @@ export default async function TodayPage() {
               </Link>
             ))}
           </div>
-          {totalTeams > 3 && (
-            <div className="mt-2">
-              <Link href="/dashboard/teams" className="text-xs text-signal hover:underline">
-                See all {totalTeams} teams →
-              </Link>
-            </div>
-          )}
         </section>
       ) : !isNewUser && (
         <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-5 mb-6 flex items-center justify-between">
