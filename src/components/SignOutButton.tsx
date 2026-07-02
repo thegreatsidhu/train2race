@@ -3,9 +3,17 @@
 import { signOut } from "next-auth/react";
 
 export function SignOutButton() {
+  async function handleSignOut() {
+    try {
+      const data = await fetch("/api/me/week-summary").then(r => r.json());
+      sessionStorage.setItem("logout-stats", JSON.stringify(data));
+    } catch {}
+    await signOut({ callbackUrl: "/goodbye" });
+  }
+
   return (
     <button
-      onClick={() => signOut({ callbackUrl: window.location.origin + "/" })}
+      onClick={handleSignOut}
       className="text-sm text-foreground-dim hover:text-alert transition-colors"
     >
       Sign out
