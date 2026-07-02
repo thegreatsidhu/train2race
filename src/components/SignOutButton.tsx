@@ -8,7 +8,8 @@ export function SignOutButton() {
       const data = await fetch("/api/me/week-summary").then(r => r.json());
       sessionStorage.setItem("logout-stats", JSON.stringify(data));
     } catch {}
-    await signOut({ callbackUrl: "/goodbye" });
+    await signOut({ redirect: false });
+    window.location.href = "/goodbye";
   }
 
   return (
