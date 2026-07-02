@@ -1259,14 +1259,14 @@ export default function AdminPage() {
                     {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                   <input value={newChTitle} onChange={e => setNewChTitle(e.target.value)} placeholder="Challenge title" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                  <select value={newChType} onChange={e => { const v = e.target.value; setNewChType(v); if (v === "walk") { setNewChMetric("count"); setNewChUnit("steps"); } else if (newChMetric === "count" && newChUnit === "steps") { setNewChUnit("sessions"); } }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                  <select value={newChType} onChange={e => setNewChType(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
                     <option value="run">Run</option><option value="walk">Walk</option><option value="swim">Swim</option><option value="bike">Bike</option><option value="custom">Custom</option>
                   </select>
-                  <select value={newChMetric} onChange={e => { const m = e.target.value; setNewChMetric(m); setNewChUnit(m === "distance" ? "mi" : m === "duration" ? "min" : newChType === "walk" ? "steps" : "sessions"); setNewChGoalPerDay(false); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                  <select value={newChMetric} onChange={e => { const m = e.target.value; setNewChMetric(m); setNewChUnit(m === "distance" ? "mi" : m === "duration" ? "min" : "sessions"); setNewChGoalPerDay(false); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
                     <option value="distance">Distance</option><option value="duration">Duration</option><option value="count">Count</option>
                   </select>
                   <select value={newChUnit} onChange={e => setNewChUnit(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
-                    {(newChMetric === "distance" ? ["mi","km"] : newChMetric === "duration" ? ["min"] : newChType === "walk" ? ["steps"] : ["sessions"]).map(u => <option key={u} value={u}>{u}</option>)}
+                    {(newChMetric === "distance" ? ["mi","km"] : newChMetric === "duration" ? ["min"] : ["sessions"]).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                   <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (required)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <label className="flex items-center gap-2 text-sm col-span-2"><input type="checkbox" checked={newChGoalPerDay} onChange={e => setNewChGoalPerDay(e.target.checked)} /> Per day goal</label>

@@ -524,13 +524,11 @@ export default async function TodayPage() {
       )}
 
       {/* ── Upcoming races nearby ── */}
-      <Accordion label="Upcoming races near you">
-        <UpcomingRacesSection
-          defaultCity={timezoneCity ?? raceCity}
-          registeredRaceIds={(allRaceRegs as any[]).map((r: any) => r.majorRaceId)}
-          hasRacePlan={!!activeRace}
-        />
-      </Accordion>
+      <UpcomingRacesSection
+        defaultCity={timezoneCity ?? raceCity}
+        registeredRaceIds={(allRaceRegs as any[]).map((r: any) => r.majorRaceId)}
+        hasRacePlan={!!activeRace}
+      />
 
       {/* ── Recent activity ── */}
       <details open className="mb-6 group">

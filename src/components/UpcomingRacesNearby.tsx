@@ -10,7 +10,7 @@ function milesLabel(distanceM: number) {
   return mi >= 26 ? "Marathon" : mi >= 13 ? "Half Marathon" : mi >= 6 ? `${mi.toFixed(0)} mi` : `${mi.toFixed(1)} mi`;
 }
 
-export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { city: string | null; registeredRaceIds: string[]; hasRacePlan: boolean }) {
+export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan, onHasRaces }: { city: string | null; registeredRaceIds: string[]; hasRacePlan: boolean; onHasRaces?: (has: boolean) => void }) {
   const router = useRouter();
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,8 +26,8 @@ export function UpcomingRacesNearby({ city, registeredRaceIds, hasRacePlan }: { 
     setRaces([]);
     fetch(`/api/major-races?city=${encodeURIComponent(city)}&upcoming=1`)
       .then(r => r.json())
-      .then(d => { if (!cancelled) { setRaces((d.races || []).slice(0, 5)); setLoading(false); } })
-      .catch(() => { if (!cancelled) setLoading(false); });
+      .then(d => { if (!cancelled) { const r = (d.races || []).slice(0, 5); setRaces(r); setLoading(false); onHasRaces?.(r.length > 0); } })
+      .catch(() => { if (!cancelled) { setLoading(false); onHasRaces?.(false); } });
     return () => { cancelled = true; };
   }, [city]);
 
