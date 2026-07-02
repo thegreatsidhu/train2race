@@ -208,6 +208,7 @@ model RaceTarget {
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   trainingPlan TrainingPlan?
+  @@index([userId, raceDate])
   @@map("race_targets")
 }
 
@@ -273,6 +274,7 @@ model TrainingPlan {
   workouts    TrainingWorkout[]
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   race        RaceTarget        @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  @@index([userId])
   @@map("training_plans")
 }
 
@@ -414,6 +416,7 @@ model TeamChallenge {
   createdAt   DateTime @default(now())
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   entries     TeamChallengeEntry[]
+  @@index([teamId, endDate])
   @@map("team_challenges")
 }
 
@@ -427,6 +430,7 @@ model TeamChallengeEntry {
   createdAt   DateTime @default(now())
   challenge   TeamChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([challengeId, userId])
   @@map("team_challenge_entries")
 }
 model TeamMember {
@@ -439,6 +443,7 @@ model TeamMember {
   team             Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([teamId, userId])
+  @@index([userId])
   @@map("team_members")
 }
 model TeamInvitation {

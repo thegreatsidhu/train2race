@@ -1,4 +1,4 @@
-export const revalidate = 0;
+export const revalidate = 30;
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ActivityList } from "@/components/ActivityList";
@@ -8,6 +8,8 @@ import { DashboardNotifications } from "@/components/DashboardNotifications";
 import { DashboardAnnouncement } from "@/components/DashboardAnnouncement";
 import { WeatherBadge } from "@/components/WeatherBadge";
 import Link from "next/link";
+import { ActiveChallengesSection } from "@/components/ActiveChallengesSection";
+import { RaceCommunityLeaderboard } from "@/components/RaceCommunityLeaderboard";
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run:"bg-green-900/50 text-green-300 border-green-700",
@@ -66,96 +68,24 @@ export default async function TodayPage() {
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const fortyFiveDaysAgo = new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
   const now = new Date();
-  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, myMemberships, rawTeamMessages, allRaceRegs, adminDms, announcements] = await Promise.all([
+  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
-    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,raw:true}}),
+    prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:weekStart,lte:weekEnd}},select:{distanceM:true,durationSec:true,type:true}}),
     prisma.user.findUnique({where:{id:userId},select:{name:true,timezone:true,city:true,dateOfBirth:true,sex:true}}),
     prisma.raceRegistration.findFirst({where:{userId,majorRace:{raceDate:{gte:today},status:"active"}},orderBy:{majorRace:{raceDate:"asc"}},include:{majorRace:{select:{id:true,name:true,city:true,country:true,raceDate:true}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
-    prisma.teamMember.findMany({where:{userId},select:{teamId:true,lastViewedChatAt:true}}),
-    prisma.teamMessage.findMany({where:{team:{members:{some:{userId}}},userId:{not:userId},isDeleted:false,createdAt:{gte:thirtyDaysAgo}},select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},user:{select:{name:true}}},orderBy:{createdAt:"desc"},take:100}),
     prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
-    (prisma as any).adminMessage.findMany({where:{toUserId:userId,isRead:false},orderBy:{createdAt:"desc"},take:10,select:{id:true,content:true,createdAt:true}}),
     (prisma as any).announcement.findMany({where:{AND:[{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},{OR:[{scheduledFor:null},{scheduledFor:{lte:now}}]}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
+    prisma.team.findMany({where:{members:{some:{userId}}},select:{id:true,name:true,_count:{select:{members:true}}},orderBy:{createdAt:"desc"},take:10}),
   ]);
 
-  // Recent group events & challenges for alert banners (last 7 days)
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const userTeamIds = (myMemberships as any[]).map((m: any) => m.teamId);
-  const [recentGroupEvents, recentGroupChallenges] = userTeamIds.length > 0
-    ? await Promise.all([
-        (prisma as any).teamEvent.findMany({
-          where: { teamId: { in: userTeamIds }, createdAt: { gte: sevenDaysAgo } },
-          select: { id: true, title: true, createdAt: true, teamId: true, team: { select: { name: true } } },
-          orderBy: { createdAt: "desc" }, take: 10,
-        }),
-        (prisma as any).teamChallenge.findMany({
-          where: { teamId: { in: userTeamIds }, createdAt: { gte: sevenDaysAgo }, status: "approved" },
-          select: { id: true, title: true, createdAt: true, teamId: true, team: { select: { name: true } } },
-          orderBy: { createdAt: "desc" }, take: 10,
-        }),
-      ])
-    : [[], []];
-
-  // Teams with member counts + weekly activity
-  const userTeams = await prisma.team.findMany({
-    where: { members: { some: { userId } } },
-    select: { id: true, name: true, _count: { select: { members: true } }, members: { select: { userId: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-  });
-  const allTeamMemberIds = [...new Set(userTeams.flatMap((t: any) => t.members.map((m: any) => m.userId)))];
-  const weeklyActiveUsers = allTeamMemberIds.length > 0
-    ? await prisma.activity.findMany({ where: { userId: { in: allTeamMemberIds }, startTime: { gte: weekStart, lte: weekEnd } }, select: { userId: true }, distinct: ["userId"] })
-    : [];
-  const weeklyActiveSet = new Set(weeklyActiveUsers.map((a: any) => a.userId));
-  const teamsWithActivity = userTeams.map((t: any) => ({
-    id: t.id, name: t.name,
-    memberCount: t._count.members,
-    weeklyActiveCount: t.members.filter((m: any) => weeklyActiveSet.has(m.userId)).length,
+  const teamsWithActivity = (userTeams as any[]).map((t: any) => ({
+    id: t.id, name: t.name, memberCount: t._count.members,
   }));
-
-  // Race community leaderboard
-  let raceLeaderboard: any[] = [];
-  if ((raceReg as any)?.majorRace?.id) {
-    try {
-      const communityRegs = await prisma.raceRegistration.findMany({
-        where: { majorRaceId: (raceReg as any).majorRace.id, isPublic: true },
-        include: { user: { select: { id: true, name: true } }, raceTarget: { select: { trainingPlan: { select: { _count: { select: { workouts: true } }, workouts: { where: { completed: true }, select: { id: true } } } } } } },
-        take: 20,
-      });
-      raceLeaderboard = communityRegs.map((r: any) => {
-        const tp = r.raceTarget?.trainingPlan;
-        const total = tp?._count?.workouts ?? 0;
-        const done = tp?.workouts?.length ?? 0;
-        return { userId: r.userId, name: r.user.name || "Athlete", isMe: r.userId === userId, pct: total > 0 ? Math.round((done / total) * 100) : 0, hasPlan: total > 0 };
-      }).sort((a: any, b: any) => b.pct - a.pct).slice(0, 8);
-    } catch {}
-  }
-
-  let activeChallenges: any[] = [];
-  try {
-    activeChallenges = await (prisma as any).teamChallenge.findMany({
-      where:{team:{members:{some:{userId}}},endDate:{gte:today},status:"approved"},
-      include:{team:{select:{id:true,name:true}},entries:{where:{userId},select:{value:true}}},
-      orderBy:{endDate:"asc"}, take:10,
-    });
-  } catch {}
-
-  let unreadDms: any[] = [];
-  try {
-    unreadDms = await (prisma as any).directMessage.findMany({
-      where:{toUserId:userId,isRead:false,createdAt:{gte:thirtyDaysAgo}},
-      select:{id:true,content:true,createdAt:true,teamId:true,team:{select:{id:true,name:true}},fromUser:{select:{name:true}}},
-      orderBy:{createdAt:"desc"}, take:20,
-    });
-  } catch {}
 
   const weeklyMiles = weeklyActivities.reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const weeklyTime = weeklyActivities.reduce((s,a)=>s+(a.durationSec||0),0);
@@ -187,31 +117,11 @@ export default async function TodayPage() {
   }));
   const loggedItems = recentActivities.map((a: any) => ({
     id: a.id, title: a.title, type: a.type, startTime: a.startTime,
-    durationSec: a.durationSec, distanceM: a.distanceM, source: a.source,
-    raw: a.raw?.notes ? { notes: a.raw.notes } : null,
+    durationSec: a.durationSec, distanceM: a.distanceM, source: a.source, raw: null,
   }));
   const mergedActivities = [...loggedItems, ...workoutItems]
     .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
     .slice(0, 10);
-
-  // Chat / DM notifications
-  const chatViewMap = new Map((myMemberships as any[]).map((m: any) => [m.teamId, m.lastViewedChatAt]));
-  const recentTeamMessages = (rawTeamMessages as any[]).filter((msg: any) => {
-    const lastViewed = chatViewMap.get(msg.teamId);
-    return !lastViewed || new Date(msg.createdAt) > new Date(lastViewed);
-  });
-  const msgByTeam = new Map<string, {teamId:string;teamName:string;count:number;senderName:string;preview:string}>();
-  for (const msg of recentTeamMessages) {
-    if (!msgByTeam.has(msg.teamId)) msgByTeam.set(msg.teamId, { teamId: msg.team.id, teamName: msg.team.name, count: 0, senderName: msg.user.name ?? "Someone", preview: msg.content });
-    msgByTeam.get(msg.teamId)!.count++;
-  }
-  const teamMessageGroups = Array.from(msgByTeam.values());
-  const dmByTeam = new Map<string, {teamId:string;teamName:string;count:number;senderName:string;preview:string}>();
-  for (const dm of (unreadDms as any[])) {
-    if (!dmByTeam.has(dm.teamId)) dmByTeam.set(dm.teamId, { teamId: dm.team.id, teamName: dm.team.name, count: 0, senderName: dm.fromUser.name ?? "Captain", preview: dm.content });
-    dmByTeam.get(dm.teamId)!.count++;
-  }
-  const dmGroups = Array.from(dmByTeam.values());
 
   return (
     <div className="max-w-2xl px-4 md:px-8 py-6 md:py-10">
@@ -250,15 +160,7 @@ export default async function TodayPage() {
       <DashboardAnnouncement announcements={(announcements as any[]).map((a: any) => ({ id: a.id, title: a.title, content: a.content }))} />
 
       {/* ── DM / chat / group notifications ── */}
-      <DashboardNotifications
-        teamMessageGroups={teamMessageGroups}
-        dmGroups={dmGroups}
-        adminDms={(adminDms as any[]).map((m: any) => ({ id: m.id, content: m.content, createdAt: m.createdAt.toISOString() }))}
-        groupAlerts={[
-          ...(recentGroupEvents as any[]).map((e: any) => ({ id: "ev-" + e.id, type: "event" as const, teamId: e.teamId, teamName: e.team.name, title: e.title, createdAt: e.createdAt.toISOString() })),
-          ...(recentGroupChallenges as any[]).map((c: any) => ({ id: "ch-" + c.id, type: "challenge" as const, teamId: c.teamId, teamName: c.team.name, title: c.title, createdAt: c.createdAt.toISOString() })),
-        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
-      />
+      <DashboardNotifications />
 
       {/* ── Profile incomplete reminder ── */}
       {profileIncomplete && (
@@ -379,47 +281,11 @@ export default async function TodayPage() {
       )}
 
       {/* ── Race community leaderboard ── */}
-      {raceLeaderboard.length > 0 && (raceReg as any)?.majorRace && (
-        <section className="mb-6">
-          <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <p className="text-xs text-foreground-dim uppercase tracking-wide mb-0.5">Race community</p>
-              <h2 className="font-semibold">{(raceReg as any).majorRace.name}</h2>
-              <p className="text-xs text-foreground-dim mt-0.5">
-                {raceLeaderboard.length} athletes registered ·{" "}
-                {new Date((raceReg as any).majorRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
-              </p>
-            </div>
-            <div className="divide-y divide-border/40">
-              {raceLeaderboard.map((athlete: any, i: number) => (
-                <div key={athlete.userId} className={"flex items-center gap-3 px-5 py-3 "+(athlete.isMe?"bg-signal/5":"")}>
-                  <span className={"text-xs font-data w-5 shrink-0 tabular-nums "+(i===0?"text-yellow-400":i===1?"text-slate-300":i===2?"text-amber-600/80":"text-foreground-dim")}>
-                    {i+1}
-                  </span>
-                  <span className={"text-sm flex-1 min-w-0 truncate "+(athlete.isMe?"font-semibold text-signal":"")}>
-                    {athlete.isMe?"You":athlete.name}
-                  </span>
-                  {athlete.hasPlan?(
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="w-20 h-1.5 bg-border rounded-full hidden sm:block">
-                        <div className="h-1.5 rounded-full bg-signal" style={{width:athlete.pct+"%"}}/>
-                      </div>
-                      <span className="text-xs text-foreground-dim w-8 text-right tabular-nums">{athlete.pct}%</span>
-                    </div>
-                  ):(
-                    <span className="text-xs text-foreground-dim/50 shrink-0">No plan</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="px-5 py-3 border-t border-border">
-              <Link href={`/dashboard/community?race=${(raceReg as any).majorRace.id}`} className="text-xs text-signal hover:underline">
-                View full community →
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      <RaceCommunityLeaderboard
+        majorRaceId={(raceReg as any)?.majorRace?.id ?? null}
+        raceName={(raceReg as any)?.majorRace?.name}
+        raceDate={(raceReg as any)?.majorRace?.raceDate?.toISOString()}
+      />
 
       {/* ── Your teams ── */}
       {teamsWithActivity.length > 0 ? (
@@ -438,7 +304,6 @@ export default async function TodayPage() {
                   <p className="text-sm font-medium truncate">{t.name}</p>
                   <p className="text-xs text-foreground-dim mt-0.5">
                     {t.memberCount} {t.memberCount===1?"member":"members"}
-                    {t.weeklyActiveCount > 0 && <> · <span className="text-signal">{t.weeklyActiveCount} active this week</span></>}
                   </p>
                 </div>
                 <span className="text-foreground-dim text-xs group-hover:text-signal transition-colors shrink-0">→</span>
@@ -478,41 +343,7 @@ export default async function TodayPage() {
       )}
 
       {/* ── Active challenges ── */}
-      {activeChallenges.length > 0 && (
-        <Accordion label={`Active challenges (${activeChallenges.length})`} defaultOpen>
-          <div className="space-y-3">
-            {activeChallenges.map((c: any) => {
-              const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
-              const cpct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
-              const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
-              return (
-                <Link key={c.id} href={`/dashboard/teams/${c.team.id}?tab=challenges&challenge=${c.id}`} className="block rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-surface-raised transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="text-sm font-medium">{c.title}</p>
-                      <p className="text-xs text-foreground-dim mt-0.5 capitalize">{c.team.name} · {c.type} · {c.unit}</p>
-                    </div>
-                    <span className="text-xs text-foreground-dim shrink-0 ml-3">{daysLeft}d left</span>
-                  </div>
-                  {cpct !== null ? (
-                    <div>
-                      <div className="flex justify-between text-xs text-foreground-dim mb-1">
-                        <span>{myTotal} / {c.goal} {c.unit}</span>
-                        <span>{cpct}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-border rounded-full">
-                        <div className="h-1.5 rounded-full bg-signal transition-all" style={{width:`${cpct}%`}}/>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-foreground-dim">{myTotal} {c.unit} logged</p>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </Accordion>
-      )}
+      <ActiveChallengesSection />
 
       {/* ── Upcoming races nearby ── */}
       <UpcomingRacesSection
