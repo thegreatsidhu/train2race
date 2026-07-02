@@ -170,9 +170,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       <div className="flex items-start justify-between mb-6">
         <div><button onClick={()=>router.push("/dashboard/teams")} className="text-xs text-foreground-dim hover:text-foreground mb-2 block">Back to Teams</button><h1 className="text-2xl font-semibold">{team.name}</h1>{team.description&&<p className="text-foreground-dim text-sm mt-0.5">{team.description}</p>}{team.majorRace&&<p className="text-xs text-signal mt-1">🏁 {team.majorRace.name} · {new Date(team.majorRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>}</div>
         <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
-          <button onClick={copyInviteCode} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border hover:bg-surface-raised transition-colors text-sm"><span className="font-mono font-bold tracking-widest">{team.inviteCode}</span><span className="text-xs text-foreground-dim">{copied?"Copied!":"Copy code"}</span></button>
-          <button onClick={copyInviteLink} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border hover:bg-surface-raised transition-colors text-sm"><span className="text-xs">🔗</span><span className="text-xs text-foreground-dim">{copiedLink?"Link copied!":"Copy invite link"}</span></button>
-          <p className="text-xs text-foreground-dim">Invite members</p>
+          <button onClick={copyInviteLink} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border hover:bg-surface-raised transition-colors text-sm"><span className="text-xs">🔗</span><span className="text-xs text-foreground-dim">{copiedLink?"Link copied!":"Invite"}</span></button>
           {team.isAdmin&&<button onClick={togglePrivacy} disabled={togglingPrivacy} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingPrivacy?"Saving...":(team.isPrivate?"Private — make public":"Public — make private")}</button>}
           {team.isAdmin&&<button onClick={()=>{setShowInvitePanel(p=>!p);setInviteQuery("");setInviteResults([]);}} className={"text-xs transition-colors "+(showInvitePanel?"text-signal hover:text-foreground":"text-foreground-dim hover:text-foreground")}>+ Find &amp; add members</button>}
         </div>
@@ -678,6 +676,14 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
             </div>
           </div>
         )}
+
+        <div className="rounded-xl border border-border bg-surface px-4 py-3 flex items-center justify-between mb-2">
+          <div>
+            <p className="text-xs text-foreground-dim mb-0.5">Invite code</p>
+            <p className="font-mono font-bold tracking-widest text-sm">{team.inviteCode}</p>
+          </div>
+          <button onClick={copyInviteCode} className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-surface-raised transition-colors shrink-0">{copied?"Copied!":"Copy code"}</button>
+        </div>
 
         {team.members.length === 0 && (
           <p className="text-sm text-foreground-dim py-2">No members yet.</p>
