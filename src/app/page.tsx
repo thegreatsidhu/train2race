@@ -23,7 +23,6 @@ export default function Home() {
           <div>
             <p className="font-data text-xs uppercase tracking-[0.18em] text-signal mb-6">Train together · Race together</p>
             <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.12] mb-7">Nobody crosses the<br/>finish line alone.</h1>
-            <p className="text-xl text-foreground-dim mb-5">From beginners to experienced athletes — Train2Race helps you every step of the journey.</p>
             <p className="text-foreground-dim leading-relaxed max-w-md mb-10">Bring your crew together around a shared race goal — team leaderboards, group chat, training plans, and a global community all in one place.</p>
             <div className="flex items-center gap-4 flex-wrap mb-5">
               <Link href="/signup" className="px-6 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Join for free</Link>
@@ -85,7 +84,7 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-10">
             <Pillar eyebrow="Private leaderboards" title="Friendly competition every week" body="Ranked by workout completion, weekly mileage, and consistency. See exactly where you stand against your teammates throughout the entire training cycle." />
             <Pillar eyebrow="Team chat" title="Stay connected all season" body="Message your team directly inside Train2Race. Celebrate PRs, share tips, swap routes, and keep everyone motivated from the first long run to race morning." />
-            <Pillar eyebrow="Team invitations" title="Bring your whole crew" body="Search by name and send an invite. Teammates accept from their dashboard — no codes to share, no emails to forward. Everyone is in within seconds." />
+            <Pillar eyebrow="Team invitations" title="Bring your whole crew" body="Share your invite code and teammates join instantly. No searching, no approval steps — just share the code and everyone is in." />
           </div>
         </section>
 
@@ -134,36 +133,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Join or create a community */}
-        <section className="py-20 border-t border-border grid md:grid-cols-2 gap-16 items-center">
-          <div>
-            <p className="font-data text-xs uppercase tracking-[0.14em] text-signal mb-5">Community</p>
-            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mb-5">Join or create a community to help you reach your fitness goals</h2>
-            <p className="text-foreground-dim leading-relaxed mb-8">Whether you're just starting out or preparing for your tenth race, being part of a community keeps you motivated, accountable, and connected to people who understand the journey.</p>
-            <div className="space-y-4 text-sm text-foreground-dim">
-              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Search for local community groups training for your race</span></div>
-              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Join an existing community or submit a request to start your own</span></div>
-              <div className="flex items-start gap-3"><span className="text-signal shrink-0">→</span><span>Get notified when new events and challenges are added</span></div>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {[
-              { name: "Donuts, Beer & Run Repeat", members: 41, race: "Chicago Marathon" },
-              { name: "Moms Run Sundays", members: 28, race: "LA 5K Series" },
-              { name: "Miles Before Mimosas", members: 35, race: "NYC Half Marathon" },
-              { name: "Run Club — Tuesday Crew", members: 19, race: "Boston Marathon" },
-            ].map(c => (
-              <div key={c.name} className="flex items-center justify-between rounded-xl border border-border bg-surface px-5 py-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{c.name}</p>
-                  <p className="text-xs text-foreground-dim mt-1">🏁 {c.race} · {c.members} members</p>
-                </div>
-                <Link href="/signup" className="text-xs text-signal ml-4 shrink-0 hover:underline">Join →</Link>
-              </div>
-            ))}
-            <p className="text-xs text-foreground-dim px-1 pt-2">Don't see your area? Submit a request and we'll set it up.</p>
-          </div>
-        </section>
 
         {/* Community + Leaderboards */}
         <section className="py-16 border-t border-border">
