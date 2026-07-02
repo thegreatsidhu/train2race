@@ -488,7 +488,7 @@ export default async function TodayPage() {
 
       {/* ── Active challenges ── */}
       {activeChallenges.length > 0 && (
-        <Accordion label={`Active challenges (${activeChallenges.length})`}>
+        <Accordion label={`Active challenges (${activeChallenges.length})`} defaultOpen>
           <div className="space-y-3">
             {activeChallenges.map((c: any) => {
               const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
@@ -524,7 +524,7 @@ export default async function TodayPage() {
       )}
 
       {/* ── Upcoming races nearby ── */}
-      <Accordion label={displayCity ? `Upcoming races in ${displayCity}` : "Upcoming races"}>
+      <Accordion label="Upcoming races near you">
         <UpcomingRacesSection
           defaultCity={timezoneCity ?? raceCity}
           registeredRaceIds={(allRaceRegs as any[]).map((r: any) => r.majorRaceId)}
@@ -533,7 +533,7 @@ export default async function TodayPage() {
       </Accordion>
 
       {/* ── Recent activity ── */}
-      <details className="mb-6 group">
+      <details open className="mb-6 group">
         <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
           <h2 className="text-sm font-medium text-foreground-dim select-none">Recent activity</h2>
           <div className="flex items-center gap-2">

@@ -25,9 +25,6 @@ export function UpcomingRacesSection({
 
   return (
     <section className="mb-6">
-      <h2 className="text-sm font-medium text-foreground-dim mb-3">
-        Upcoming races in {city}
-      </h2>
       <UpcomingRacesNearby city={city} registeredRaceIds={registeredRaceIds ?? []} hasRacePlan={hasRacePlan ?? false} />
     </section>
   );

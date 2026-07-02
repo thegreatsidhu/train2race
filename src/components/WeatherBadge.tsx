@@ -13,6 +13,17 @@ const WMO_ICON: Record<number, string> = {
   95: "⛈️", 96: "⛈️", 99: "⛈️",
 };
 
+const WMO_DESC: Record<number, string> = {
+  0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast",
+  45: "Fog", 48: "Fog",
+  51: "Light drizzle", 53: "Drizzle", 55: "Drizzle", 56: "Drizzle", 57: "Drizzle",
+  61: "Light rain", 63: "Rain", 65: "Heavy rain", 66: "Rain", 67: "Rain",
+  71: "Light snow", 73: "Snow", 75: "Heavy snow", 77: "Snow",
+  80: "Showers", 81: "Showers", 82: "Heavy showers",
+  85: "Snow", 86: "Snow",
+  95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm",
+};
+
 export function WeatherBadge({ city, timezone }: { city: string | null; timezone: string | null }) {
   const [label, setLabel] = useState<string | null>(null);
 
@@ -30,8 +41,10 @@ export function WeatherBadge({ city, timezone }: { city: string | null; timezone
       const wx = await wxRes.json();
       if (cancelled) return;
       const temp = Math.round(wx.current?.temperature_2m ?? 0);
-      const icon = WMO_ICON[wx.current?.weather_code ?? 0] ?? "🌡️";
-      setLabel(`${icon} ${temp}${symbol}`);
+      const code = wx.current?.weather_code ?? 0;
+      const icon = WMO_ICON[code] ?? "🌡️";
+      const desc = WMO_DESC[code] ?? "";
+      setLabel(`${icon} ${temp}${symbol}${desc ? ` · ${desc}` : ""}`);
     }
 
     async function fallbackToCity() {
