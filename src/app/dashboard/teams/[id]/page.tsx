@@ -692,7 +692,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                   {member.userId===team.createdBy&&<span className="text-xs text-foreground-dim">Owner</span>}
                 </div>
                 {member.bio&&<p className="text-xs text-foreground-dim mt-0.5 max-w-sm">{member.bio}</p>}
-                <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(member.joinedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
+                <p className="text-xs text-foreground-dim mt-0.5">Joined {new Date(member.joinedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}{member.weeklyMiles>0?` · ${member.weeklyMiles} mi this week`:""}</p>
               </div>
               <div className="flex gap-2 shrink-0 flex-wrap justify-end">
                 {/* Message button — captains only, not self */}
