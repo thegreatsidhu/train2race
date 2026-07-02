@@ -531,7 +531,7 @@ export default async function TodayPage() {
       />
 
       {/* ── Recent activity ── */}
-      <details open className="mb-6 group">
+      <details className="mb-6 group">
         <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
           <h2 className="text-sm font-medium text-foreground-dim select-none">Recent activity</h2>
           <div className="flex items-center gap-2">
