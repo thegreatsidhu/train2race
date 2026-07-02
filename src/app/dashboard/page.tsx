@@ -21,51 +21,6 @@ const TYPE_COLORS: Record<string, string> = {
   race:"bg-signal/20 text-signal border-signal/50",
 };
 
-const QUOTES = [
-  { text: "The miracle isn't that I finished. The miracle is that I had the courage to start.", author: "John Bingham" },
-  { text: "Pain is inevitable. Suffering is optional.", author: "Haruki Murakami" },
-  { text: "To give anything less than your best is to sacrifice the gift.", author: "Steve Prefontaine" },
-  { text: "Ask yourself: 'Can I give more?' The answer is usually: 'Yes'.", author: "Paul Tergat" },
-  { text: "Run when you can, walk when you have to, crawl if you must; just never give up.", author: "Dean Karnazes" },
-  { text: "Champions are made from something deep inside — a desire, a dream, a vision.", author: "Muhammad Ali" },
-  { text: "The body does not want you to do this. As you run, it tells you to stop but the mind must be strong.", author: "Haile Gebrselassie" },
-  { text: "Somewhere in the world someone is training when you are not. When you race him, he will win.", author: "Tom Fleming" },
-  { text: "You have a choice. You can throw in the towel, or you can use it to wipe the sweat off your face.", author: "Unknown" },
-  { text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", author: "Aristotle" },
-  { text: "Most people never run far enough on their first wind to find out they've got a second.", author: "William James" },
-  { text: "Believe that you can run farther or faster. Believe that you're strong enough, tough enough.", author: "John Bingham" },
-  { text: "The obsession with running is really an obsession with the potential for more and more life.", author: "George Sheehan" },
-  { text: "It does not matter how slowly you go as long as you do not stop.", author: "Confucius" },
-  { text: "Every morning you have two choices: continue to sleep with your dreams, or wake up and chase them.", author: "Unknown" },
-  { text: "Your body can stand almost anything. It's your mind you have to convince.", author: "Unknown" },
-  { text: "The only bad workout is the one that didn't happen.", author: "Unknown" },
-  { text: "If it doesn't challenge you, it won't change you.", author: "Fred DeVito" },
-  { text: "Don't count the miles; make the miles count.", author: "Unknown" },
-  { text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
-  { text: "The hardest step for a runner is the first one out the door.", author: "Unknown" },
-  { text: "Running is the greatest metaphor for life, because you get out of it what you put into it.", author: "Oprah Winfrey" },
-  { text: "Act like a horse. Be dumb. Just run.", author: "Jumbo Elliott" },
-  { text: "There will be days when I don't know if I can run a marathon. Those are the days I run a marathon.", author: "Unknown" },
-  { text: "Hills are just speed work in disguise.", author: "Frank Shorter" },
-  { text: "The voice inside your head that says you can't do this is a liar.", author: "Unknown" },
-  { text: "What seems hard now will one day be your warm-up.", author: "Unknown" },
-  { text: "Success isn't always about greatness. It's about consistency. Consistent hard work leads to success.", author: "Dwayne Johnson" },
-  { text: "The more difficult the victory, the greater the happiness in winning.", author: "Pelé" },
-  { text: "Do something today that your future self will thank you for.", author: "Sean Patrick Flanery" },
-  { text: "You miss 100% of the workouts you skip.", author: "Unknown" },
-  { text: "Motivation gets you started. Habit keeps you going.", author: "Jim Ryun" },
-  { text: "If you're going through hell, keep going.", author: "Winston Churchill" },
-  { text: "The finish line is just the beginning of a whole new race.", author: "Unknown" },
-  { text: "One step at a time is all it takes to get you there.", author: "Emily Dickinson" },
-  { text: "Strength does not come from the body. It comes from the will.", author: "Unknown" },
-  { text: "Life is short. Run fast.", author: "Unknown" },
-  { text: "Your only competition is who you were yesterday.", author: "Unknown" },
-  { text: "Courage is not having the strength to go on; it is going on when you don't have the strength.", author: "Theodore Roosevelt" },
-  { text: "You are stronger than you think.", author: "Unknown" },
-  { text: "Train hard, win easy.", author: "Unknown" },
-  { text: "The pain you feel today will be the strength you feel tomorrow.", author: "Unknown" },
-  { text: "You were built for this. Every mile, every rep, every early morning led here.", author: "Unknown" },
-];
 
 const TIMEZONE_CITY: Record<string, string> = {
   "America/New_York":"New York","America/Chicago":"Chicago","America/Los_Angeles":"Los Angeles",
@@ -93,15 +48,6 @@ function getGreeting(timezone: string | null) {
   } catch { return "Welcome back"; }
 }
 
-function raceMessage(days: number): string {
-  if (days === 0) return "Race day is TODAY — go get it.";
-  if (days <= 7) return "Race week. Trust your training — you've earned this.";
-  if (days <= 14) return "Two weeks out. Taper smart and stay healthy.";
-  if (days <= 30) return "Final month. Every workout matters now.";
-  if (days <= 60) return "Eight weeks out. This is where champions are made.";
-  if (days <= 90) return "Stay consistent. The work you do today compounds.";
-  return "Long runway ahead — build the base, stack the miles.";
-}
 
 function computeStreak(activities: { startTime: Date }[], today: Date): number {
   const days = new Set(activities.map(a => { const d = new Date(a.startTime); d.setHours(0,0,0,0); return d.getTime(); }));
@@ -120,7 +66,6 @@ export default async function TodayPage() {
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const fortyFiveDaysAgo = new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000);
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(),0,0).getTime()) / 86400000);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const now = new Date();
@@ -163,7 +108,7 @@ export default async function TodayPage() {
     where: { members: { some: { userId } } },
     select: { id: true, name: true, _count: { select: { members: true } }, members: { select: { userId: true } } },
     orderBy: { createdAt: "desc" },
-    take: 5,
+    take: 10,
   });
   const allTeamMemberIds = [...new Set(userTeams.flatMap((t: any) => t.members.map((m: any) => m.userId)))];
   const weeklyActiveUsers = allTeamMemberIds.length > 0
@@ -229,11 +174,11 @@ export default async function TodayPage() {
   const timezoneCity = TIMEZONE_CITY[user?.timezone ?? ""] ?? null;
   const raceCity = (raceReg as any)?.majorRace?.city ?? null;
   const displayCity = (user as any)?.city ?? timezoneCity ?? raceCity;
-  const quote = QUOTES[dayOfYear % QUOTES.length];
   const streak = computeStreak(recentForStreak, today);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const isNewUser = !hasConnection && !activeRace && recentActivities.length === 0;
   const profileIncomplete = !(user as any)?.dateOfBirth || !(user as any)?.sex;
+  const totalTeams = teamsWithActivity.length;
 
   const workoutItems = completedWorkouts.map((w: any) => ({
     id: `workout_${w.id}`, title: w.title, type: w.type,
@@ -328,12 +273,6 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {/* ── Quote ── */}
-      <div className="mb-8 border-l-2 border-signal/30 pl-4">
-        <p className="text-sm italic text-foreground-dim leading-relaxed">"{quote.text}"</p>
-        <p className="text-xs text-foreground-dim/60 mt-1.5">— {quote.author}</p>
-      </div>
-
       {/* ── New user onboarding ── */}
       {isNewUser && (
         <section className="mb-8">
@@ -369,7 +308,7 @@ export default async function TodayPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-foreground-dim uppercase tracking-[0.12em] mb-1.5">Your next race</p>
                 <h2 className="font-semibold text-lg leading-tight truncate">{activeRace.raceName}</h2>
-                <p className="text-xs text-signal mt-2 leading-relaxed">{raceMessage(daysToRace)}</p>
+                <p className="text-xs text-foreground-dim mt-2">Race day: {new Date(activeRace.raceDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-5xl font-data font-bold text-signal leading-none">{daysToRace}</p>
@@ -377,7 +316,7 @@ export default async function TodayPage() {
               </div>
             </div>
             {/* Plan progress */}
-            {totalWorkouts > 0 && (
+            {totalWorkouts > 0 && doneWorkouts > 0 && (
               <div className="px-5 py-3 border-t border-border/50">
                 <div className="flex justify-between text-xs text-foreground-dim mb-1.5">
                   <span>{doneWorkouts} of {totalWorkouts} workouts complete</span>
@@ -489,10 +428,9 @@ export default async function TodayPage() {
         <section className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-medium text-foreground-dim uppercase tracking-wide">Your crew</h2>
-            <Link href="/dashboard/teams" className="text-xs text-signal hover:underline">All teams →</Link>
           </div>
           <div className="space-y-2">
-            {teamsWithActivity.map((t: any) => (
+            {teamsWithActivity.slice(0, 3).map((t: any) => (
               <Link key={t.id} href={`/dashboard/teams/${t.id}`}
                 className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 hover:border-signal/30 transition-colors group">
                 <div className="w-9 h-9 rounded-full bg-signal/10 border border-signal/20 flex items-center justify-center shrink-0">
@@ -509,6 +447,13 @@ export default async function TodayPage() {
               </Link>
             ))}
           </div>
+          {totalTeams > 3 && (
+            <div className="mt-2">
+              <Link href="/dashboard/teams" className="text-xs text-signal hover:underline">
+                See all {totalTeams} teams →
+              </Link>
+            </div>
+          )}
         </section>
       ) : !isNewUser && (
         <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-5 mb-6 flex items-center justify-between">
