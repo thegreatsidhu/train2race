@@ -65,7 +65,14 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 // Maps step number → visual dot position based on goal
-function getDotStep(step: number, goal: string) {
+function getDotStep(step: number, goal: string, skipTeam = false) {
+  if (skipTeam) {
+    // Team step removed: goal(1) [race(2)] workout(4→last)
+    if (step === 1) return 1;
+    if (step === 2) return 2;
+    if (step === 4) return goal === "Train for a race" ? 3 : 2;
+    return step;
+  }
   if (goal === "Train for a race") {
     // goal(1) race(2) team(3) workout(4)
     return step;
@@ -81,6 +88,14 @@ export function OnboardingClient({ name }: { name: string }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
+
+  // Pending team invite (set by /join/[code] before redirecting to auth)
+  const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
+  useEffect(() => {
+    const code = localStorage.getItem("pendingTeamCode");
+    if (code) setPendingInviteCode(code);
+  }, []);
+  const hasPendingInvite = pendingInviteCode !== null;
 
   // Step 1 — Fitness goal
   const [fitnessGoal, setFitnessGoal] = useState("");
@@ -174,7 +189,7 @@ export function OnboardingClient({ name }: { name: string }) {
       setError("Couldn't join community. You can join from the Community page.");
     }
     setJoiningCommunity(false);
-    setStep(3);
+    setStep(hasPendingInvite ? 4 : 3);
   }
 
   async function joinTeam() {
@@ -239,11 +254,18 @@ export function OnboardingClient({ name }: { name: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fitnessGoal }),
     }).catch(() => {});
-    router.push("/dashboard");
+    if (pendingInviteCode) {
+      localStorage.removeItem("pendingTeamCode");
+      router.push(`/join/${pendingInviteCode}`);
+    } else {
+      router.push("/dashboard");
+    }
   }
 
-  const dotTotal = fitnessGoal === "Train for a race" ? 4 : 3;
-  const dotStep  = getDotStep(step, fitnessGoal);
+  const dotTotal = hasPendingInvite
+    ? (fitnessGoal === "Train for a race" ? 3 : 2)
+    : (fitnessGoal === "Train for a race" ? 4 : 3);
+  const dotStep = getDotStep(step, fitnessGoal, hasPendingInvite);
 
   // Step 0 — Welcome
   if (step === 0) {
@@ -285,7 +307,7 @@ export function OnboardingClient({ name }: { name: string }) {
                   key={g.value}
                   onClick={() => {
                     setFitnessGoal(g.value);
-                    setStep(g.value === "Train for a race" ? 2 : 3);
+                    setStep(g.value === "Train for a race" ? 2 : (hasPendingInvite ? 4 : 3));
                   }}
                   className="w-full py-3 rounded-xl border border-border hover:border-signal text-sm font-medium transition-colors text-left px-4 flex items-center gap-3"
                 >
@@ -332,7 +354,7 @@ export function OnboardingClient({ name }: { name: string }) {
                   {joiningCommunity ? "Joining…" : "Join community →"}
                 </button>
                 <button
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(hasPendingInvite ? 4 : 3)}
                   className="w-full py-2 rounded-xl border border-border text-sm text-foreground-dim hover:text-foreground transition-colors"
                 >
                   Skip for now
@@ -418,7 +440,7 @@ export function OnboardingClient({ name }: { name: string }) {
                 </button>
               )}
               <button
-                onClick={() => { setError(""); setStep(3); }}
+                onClick={() => { setError(""); setStep(hasPendingInvite ? 4 : 3); }}
                 className={`py-2.5 rounded-xl text-sm text-foreground-dim hover:text-foreground border border-border transition-colors ${selectedRace ? "px-4" : "flex-1"}`}
               >
                 Skip for now

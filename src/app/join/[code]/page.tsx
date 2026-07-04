@@ -29,6 +29,7 @@ export default function JoinTeamPage() {
     setJoining(true);
     const res = await fetch(`/api/teams/invite/${code}`, { method: "POST" });
     if (res.status === 401) {
+      localStorage.setItem("pendingTeamCode", code);
       router.push(`/signin?redirect=/join/${code}`);
       return;
     }
