@@ -18,8 +18,8 @@ export default function LogWorkoutPage() {
     type: "run",
     title: "",
     date: todayLocal(),
-    durationHours: "",
-    durationMins: "",
+    durationHours: "0",
+    durationMins: "0",
     distance: "",
     notes: "",
   });
@@ -28,8 +28,11 @@ export default function LogWorkoutPage() {
   const noDistance = form.type === "strength" || form.type === "other";
 
   async function handleSubmit() {
+    const errors: string[] = [];
+    if (!form.date) errors.push("date");
     const totalMin = Number(form.durationHours || 0) * 60 + Number(form.durationMins || 0);
-    if (!totalMin) { setError("Please enter a duration."); return; }
+    if (!totalMin) errors.push("duration (hours or minutes)");
+    if (errors.length) { setError("Missing required fields: " + errors.join(", ") + "."); return; }
     setError("");
     setLoading(true);
     const effectiveUnit = isSwim ? swimUnit : unit;
@@ -75,13 +78,13 @@ export default function LogWorkoutPage() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input type="number" min="0" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm pr-10"
-                placeholder="0" value={form.durationHours}
+                value={form.durationHours}
                 onChange={e => setForm({ ...form, durationHours: e.target.value })} />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground-dim pointer-events-none">hr</span>
             </div>
             <div className="relative flex-1">
               <input type="number" min="0" max="59" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm pr-10"
-                placeholder="30" value={form.durationMins}
+                value={form.durationMins}
                 onChange={e => setForm({ ...form, durationMins: e.target.value })} />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground-dim pointer-events-none">min</span>
             </div>
@@ -108,7 +111,6 @@ export default function LogWorkoutPage() {
               )}
             </div>
             <input type="number" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
-              placeholder={isSwim ? (swimUnit === "m" ? "e.g. 1500" : "e.g. 1650") : (unit === "mi" ? "e.g. 3.1" : "e.g. 5.0")}
               value={form.distance}
               onChange={e => setForm({ ...form, distance: e.target.value })} />
           </div>
