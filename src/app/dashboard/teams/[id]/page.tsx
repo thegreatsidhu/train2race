@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
+import { TeamActivityFeed } from "@/components/TeamActivityFeed";
 
 function fmtMsgDate(iso: string): string {
   const d = new Date(iso);
@@ -22,7 +23,7 @@ const LB_METRICS = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Durat
 
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"bulletin"|"events"|"contact"|"activity"|"challenges"|"chat"|"members"|"race">("bulletin");
+  const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [activeTab,setActiveTab]=useState<"bulletin"|"events"|"contact"|"activity"|"leaderboard"|"challenges"|"chat"|"members"|"race">("activity");
   const [bulletins,setBulletins]=useState<any[]>([]);const [bulletinsLoaded,setBulletinsLoaded]=useState(false);const [newBulTitle,setNewBulTitle]=useState("");const [newBulContent,setNewBulContent]=useState("");const [newBulPinned,setNewBulPinned]=useState(false);const [savingBul,setSavingBul]=useState(false);const [showBulForm,setShowBulForm]=useState(false);const [deletingBulId,setDeletingBulId]=useState<string|null>(null);
   const [teamEvents,setTeamEvents]=useState<any[]>([]);const [eventsLoaded,setEventsLoaded]=useState(false);const [newEvTitle,setNewEvTitle]=useState("");const [newEvDesc,setNewEvDesc]=useState("");const [newEvDate,setNewEvDate]=useState("");const [newEvLoc,setNewEvLoc]=useState("");const [newEvLink,setNewEvLink]=useState("");const [savingEv,setSavingEv]=useState(false);const [showEvForm,setShowEvForm]=useState(false);const [deletingEvId,setDeletingEvId]=useState<string|null>(null);
   const [contacts,setContacts]=useState<any[]>([]);const [contactsLoaded,setContactsLoaded]=useState(false);const [newCtLabel,setNewCtLabel]=useState("");const [newCtValue,setNewCtValue]=useState("");const [newCtType,setNewCtType]=useState("text");const [savingCt,setSavingCt]=useState(false);const [showCtForm,setShowCtForm]=useState(false);const [deletingCtId,setDeletingCtId]=useState<string|null>(null);const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
@@ -112,7 +113,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     setLbLoading(false);
   },[id,lbPeriod,lbMetric,lbType]);
 
-  useEffect(()=>{if(activeTab==="activity"&&id)loadLbData();},[activeTab,loadLbData,id]);
+  useEffect(()=>{if(activeTab==="leaderboard"&&id)loadLbData();},[activeTab,loadLbData,id]);
 
   function formatLbValue(e:any){
     if(lbMetric==="distance")return`${e.distanceMi} mi`;
@@ -240,11 +241,12 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       ))}
 
       <div className="flex gap-2 mb-6 flex-wrap">
+        <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
         <button onClick={handleBulletinTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="bulletin"?"bg-signal text-background":"border border-border hover:bg-surface")}>Bulletin{bulletins.length>0?` (${bulletins.length})`:""}</button>
         <button onClick={()=>setActiveTab("chat")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="chat"?"bg-signal text-background":"border border-border hover:bg-surface")}>Chat ({messages.length})</button>
         <button onClick={handleChallengesTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="challenges"?"bg-signal text-background":"border border-border hover:bg-surface")}>Challenges</button>
         <button onClick={handleEventsTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="events"?"bg-signal text-background":"border border-border hover:bg-surface")}>Events{teamEvents.length>0?` (${teamEvents.length})`:""}</button>
-        <button onClick={()=>setActiveTab("activity")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="activity"?"bg-signal text-background":"border border-border hover:bg-surface")}>Activity</button>
+        <button onClick={()=>setActiveTab("leaderboard")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="leaderboard"?"bg-signal text-background":"border border-border hover:bg-surface")}>Leaderboard</button>
         <button onClick={()=>{setActiveTab("race");loadRaceTab(id);}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="race"?"bg-signal text-background":"border border-border hover:bg-surface")}>Race{team.majorRace?" 🏁":""}</button>
         <button onClick={()=>{setActiveTab("members");loadMyThreads();}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
         <button onClick={handleContactTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="contact"?"bg-signal text-background":"border border-border hover:bg-surface")}>Contact</button>
@@ -419,6 +421,9 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       </div>}
 
       {activeTab==="activity"&&<div>
+        <TeamActivityFeed teamId={id} />
+      </div>}
+      {activeTab==="leaderboard"&&<div>
           <div className="flex flex-wrap gap-3 mb-4">
             <div className="flex flex-wrap gap-1.5">
               {LB_PERIODS.map(p=><button key={p.v} onClick={()=>setLbPeriod(p.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors "+(lbPeriod===p.v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{p.l}</button>)}

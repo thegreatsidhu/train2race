@@ -42,8 +42,12 @@ export default function LogWorkoutPage() {
       body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit }),
     });
     setLoading(false);
-    if (res.ok) router.push("/dashboard");
-    else setError("Something went wrong. Please try again.");
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      router.push(data.isFirstWorkout ? "/dashboard?kudo=first" : "/dashboard");
+    } else {
+      setError("Something went wrong. Please try again.");
+    }
   }
 
   return (

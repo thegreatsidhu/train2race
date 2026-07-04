@@ -31,10 +31,11 @@ export async function GET() {
       dmGroups: [],
       adminDms: adminDms.map((m: any) => ({ id: m.id, content: m.content, createdAt: m.createdAt.toISOString() })),
       groupAlerts: [],
+      kudosReceived: [],
     });
   }
 
-  const [rawTeamMessages, adminDms, recentEvents, recentChallenges, unreadDms] = await Promise.all([
+  const [rawTeamMessages, adminDms, recentEvents, recentChallenges, unreadDms, kudosReceived] = await Promise.all([
     prisma.teamMessage.findMany({
       where: { teamId: { in: userTeamIds }, userId: { not: userId }, isDeleted: false, createdAt: { gte: thirtyDaysAgo } },
       select: { content: true, createdAt: true, teamId: true, team: { select: { id: true, name: true } }, user: { select: { name: true } } },
@@ -59,6 +60,20 @@ export async function GET() {
       select: { id: true, content: true, createdAt: true, teamId: true, team: { select: { id: true, name: true } }, fromUser: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 20,
+    }),
+    (prisma as any).kudo.findMany({
+      where: {
+        activity: { userId },
+        createdAt: { gte: sevenDaysAgo },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        fromUser: { select: { name: true, email: true } },
+        activity: { select: { id: true, title: true, type: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
     }),
   ]);
 
@@ -90,5 +105,12 @@ export async function GET() {
     dmGroups: Array.from(dmByTeam.values()),
     adminDms: (adminDms as any[]).map((m: any) => ({ id: m.id, content: m.content, createdAt: m.createdAt.toISOString() })),
     groupAlerts,
+    kudosReceived: (kudosReceived as any[]).map((k: any) => ({
+      id: k.id,
+      createdAt: k.createdAt.toISOString(),
+      fromName: k.fromUser.name || k.fromUser.email || "A teammate",
+      activityTitle: k.activity.title || k.activity.type,
+      activityId: k.activity.id,
+    })),
   });
 }

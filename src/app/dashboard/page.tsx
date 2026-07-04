@@ -10,6 +10,7 @@ import { WeatherBadge } from "@/components/WeatherBadge";
 import Link from "next/link";
 import { ActiveChallengesSection } from "@/components/ActiveChallengesSection";
 import { RaceCommunityLeaderboard } from "@/components/RaceCommunityLeaderboard";
+import { KudosBanner } from "@/components/KudosBanner";
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run:"bg-green-900/50 text-green-300 border-green-700",
@@ -161,6 +162,9 @@ export default async function TodayPage() {
 
       {/* ── DM / chat / group notifications ── */}
       <DashboardNotifications />
+
+      {/* ── Milestone celebration banner ── */}
+      <KudosBanner streak={streak} pct={pct} totalWorkouts={totalWorkouts} monthlyMiles={monthlyMiles} />
 
       {/* ── Profile incomplete reminder ── */}
       {profileIncomplete && (

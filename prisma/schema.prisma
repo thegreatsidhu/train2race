@@ -56,6 +56,7 @@ model User {
   teamBulletins            TeamBulletin[]
   teamEvents               TeamEvent[]
   communityRequests        CommunityRequest[]
+  kudosGiven  Kudo[]  @relation("KudosGiven")
   @@map("users")
 }
 
@@ -174,9 +175,23 @@ model Activity {
   raw           Json?
   createdAt     DateTime   @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kudos       Kudo[]
   @@unique([source, externalId])
   @@index([userId, startTime])
   @@map("activities")
+}
+
+model Kudo {
+  id         String   @id @default(cuid())
+  fromUserId String
+  activityId String
+  createdAt  DateTime @default(now())
+  fromUser   User     @relation("KudosGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  @@unique([fromUserId, activityId])
+  @@index([activityId])
+  @@index([fromUserId])
+  @@map("kudos")
 }
 
 model Goal {

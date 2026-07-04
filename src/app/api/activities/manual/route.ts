@@ -41,7 +41,8 @@ export async function POST(req: Request) {
         raw: notes ? { notes } : null,
       },
     });
-    return NextResponse.json({ ok: true });
+    const count = await prisma.activity.count({ where: { userId } });
+    return NextResponse.json({ ok: true, isFirstWorkout: count === 1 });
   } catch (err: any) {
     console.error("manual activity create error:", err);
     return NextResponse.json({ error: "Failed to save workout" }, { status: 500 });
