@@ -58,7 +58,7 @@ Rules:
 - Unique IDs: w1_d1, w1_d2, w2_d1, etc. across all weeks`;
 
   const res = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 4096,
     messages: [{ role: "user", content: prompt }],
   });
@@ -94,7 +94,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 Keep tips actionable, simple, and tailored to the user's specific goal.`;
 
   const res = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1024,
     messages: [{ role: "user", content: prompt }],
   });
