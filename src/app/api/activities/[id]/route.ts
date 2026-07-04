@@ -34,7 +34,7 @@ export async function PATCH(req, { params }) {
     data: {
       type,
       title: title || type,
-      startTime: new Date(date),
+      startTime: new Date(date + "T12:00:00"),
       durationSec: Math.round(Number(durationMin) * 60),
       distanceM,
       raw: notes ? { notes } : null,

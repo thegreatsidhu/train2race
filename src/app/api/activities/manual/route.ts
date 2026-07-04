@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Date and duration are required" }, { status: 400 });
     }
 
-    const startTime = new Date(date);
+    const startTime = new Date(date + "T12:00:00");
     if (isNaN(startTime.getTime())) {
       return NextResponse.json({ error: "Invalid date" }, { status: 400 });
     }
