@@ -1,81 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DataSource } from "@prisma/client";
+import { DataSource } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { encrypt } from "@/lib/crypto";
-import { getOAuthConnector } from "@/lib/connectors/registry";
+import {
+  normalizeAppleHealthDaily,
+  normalizeAppleHealthWorkouts,
+  type AppleHealthPayload,
+} from "@/lib/connectors/apple-health";
+import { upsertDailyMetrics, upsertActivities } from "@/lib/sync/persist";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ source: string }> }
-) {
-  const { source } = await params;
-  const upperSource = source.toUpperCase();
-  if (!(upperSource in DataSource) || upperSource === "APPLE_HEALTH") {
-    return NextResponse.json({ error: "Unsupported source" }, { status: 400 });
+// URL shape: /api/connectors/apple-health?token=<webhookSecret>
+// The user pastes this exact URL (with their unique token) into their
+// Health Auto Export "REST API" automation. No OAuth needed since Apple
+// has no public web API — the export app pushes data from the device.
+
+export async function POST(req: NextRequest) {
+  const token = new URL(req.url).searchParams.get("token");
+  if (!token) {
+    return NextResponse.json({ error: "Missing token" }, { status: 401 });
   }
 
-  const url = new URL(req.url);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const error = url.searchParams.get("error");
+  const connection = await prisma.deviceConnection.findFirst({
+    where: { source: DataSource.APPLE_HEALTH, webhookSecret: token, status: "active" },
+  });
 
-  if (error) {
-    return NextResponse.redirect(
-      new URL(`/dashboard/connections?error=${encodeURIComponent(error)}`, req.url)
-    );
-  }
-  if (!code || !state) {
-    return NextResponse.redirect(new URL("/dashboard/connections?error=missing_code", req.url));
+  if (!connection) {
+    return NextResponse.json({ error: "Invalid or revoked token" }, { status: 401 });
   }
 
-  // Verify state: decode it, check the nonce matches what we set in the cookie
-  let userId: string;
+  let payload: AppleHealthPayload;
   try {
-    const decoded = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
-    const cookieNonce = req.cookies.get(`oauth_state_${upperSource}`)?.value;
-    if (!cookieNonce || cookieNonce !== decoded.nonce) {
-      throw new Error("State mismatch");
-    }
-    userId = decoded.userId;
+    payload = await req.json();
   } catch {
-    return NextResponse.redirect(new URL("/dashboard/connections?error=invalid_state", req.url));
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const connector = getOAuthConnector(upperSource as Exclude<DataSource, "APPLE_HEALTH">);
+  if (!payload?.data) {
+    return NextResponse.json({ error: "Missing data.metrics/workouts" }, { status: 400 });
+  }
 
   try {
-    const tokens = await connector.exchangeCodeForTokens(code);
+    const dailyMetrics = normalizeAppleHealthDaily(payload);
+    const activities = normalizeAppleHealthWorkouts(payload);
 
-    await prisma.deviceConnection.upsert({
-      where: { userId_source: { userId, source: upperSource as DataSource } },
-      create: {
-        userId,
-        source: upperSource as DataSource,
-        accessToken: encrypt(tokens.accessToken),
-        refreshToken: tokens.refreshToken ? encrypt(tokens.refreshToken) : null,
-        expiresAt: tokens.expiresAt,
-        externalUserId: tokens.externalUserId,
-        status: "active",
-      },
-      update: {
-        accessToken: encrypt(tokens.accessToken),
-        refreshToken: tokens.refreshToken ? encrypt(tokens.refreshToken) : null,
-        expiresAt: tokens.expiresAt,
-        externalUserId: tokens.externalUserId,
-        status: "active",
-        lastError: null,
-      },
+    await upsertDailyMetrics(connection.userId, DataSource.APPLE_HEALTH, dailyMetrics);
+    await upsertActivities(connection.userId, DataSource.APPLE_HEALTH, activities);
+
+    await prisma.deviceConnection.update({
+      where: { id: connection.id },
+      data: { lastSyncedAt: new Date(), lastError: null },
     });
 
-    const res = NextResponse.redirect(
-      new URL(`/dashboard/connections?connected=${source}`, req.url)
-    );
-    res.cookies.delete(`oauth_state_${upperSource}`);
-    return res;
+    return NextResponse.json({
+      ok: true,
+      daysReceived: dailyMetrics.length,
+      workoutsReceived: activities.length,
+    });
   } catch (err) {
-    console.error(`OAuth callback failed for ${upperSource}:`, err);
-    return NextResponse.redirect(
-      new URL(`/dashboard/connections?error=token_exchange_failed`, req.url)
-    );
+    console.error("Apple Health webhook processing failed:", err);
+    await prisma.deviceConnection.update({
+      where: { id: connection.id },
+      data: { lastError: err instanceof Error ? err.message : "Unknown error" },
+    });
+    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 }

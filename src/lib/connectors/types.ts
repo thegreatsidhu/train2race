@@ -1,4 +1,4 @@
-import type { DataSource } from "@prisma/client";
+import type { DataSource } from "@/generated/prisma/client";
 
 /**
  * Every wearable integration (Garmin, Whoop, Strava, Apple Health) implements

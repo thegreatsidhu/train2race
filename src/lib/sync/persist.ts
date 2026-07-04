@@ -1,4 +1,4 @@
-import { DataSource } from "@prisma/client";
+import { DataSource } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { NormalizedActivity, NormalizedDailyMetrics } from "@/lib/connectors/types";
 

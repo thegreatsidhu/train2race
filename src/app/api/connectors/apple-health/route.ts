@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DataSource } from "@prisma/client";
+import { DataSource } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   normalizeAppleHealthDaily,

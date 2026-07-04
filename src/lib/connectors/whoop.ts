@@ -1,4 +1,4 @@
-import { DataSource } from "@prisma/client";
+import { DataSource } from "@/generated/prisma/client";
 import type {
   ConnectorTokens,
   NormalizedActivity,

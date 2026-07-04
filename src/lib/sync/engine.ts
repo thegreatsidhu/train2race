@@ -1,4 +1,4 @@
-import { DataSource } from "@prisma/client";
+import { DataSource } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getOAuthConnector } from "@/lib/connectors/registry";

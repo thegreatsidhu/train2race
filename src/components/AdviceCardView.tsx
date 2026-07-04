@@ -1,4 +1,4 @@
-import type { AdviceCard } from "@prisma/client";
+import type { AdviceCard } from "@/generated/prisma/client";
 
 const CATEGORY_LABELS: Record<string, string> = {
   training: "Training",
