@@ -111,6 +111,7 @@ export default function LogWorkoutPage() {
               )}
             </div>
             <input type="number" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
+              placeholder={isSwim ? (swimUnit === "m" ? "e.g. 1500" : "e.g. 1650") : (unit === "mi" ? "e.g. 3.1" : "e.g. 5.0")}
               value={form.distance}
               onChange={e => setForm({ ...form, distance: e.target.value })} />
           </div>
