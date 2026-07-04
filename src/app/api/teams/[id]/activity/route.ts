@@ -28,7 +28,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       id: true, type: true, title: true, startTime: true,
       distanceM: true, durationSec: true, userId: true,
       user: { select: { id: true, name: true, email: true } },
-      kudos: { select: { fromUserId: true } },
+      highFives: { select: { fromUserId: true } },
     },
     orderBy: { startTime: "desc" },
     take: 40,
@@ -44,8 +44,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     userId: a.userId,
     userName: a.user.name || a.user.email || "Athlete",
     isMe: a.userId === userId,
-    kudoCount: a.kudos.length,
-    iKudoed: a.kudos.some(k => k.fromUserId === userId),
+    highFiveCount: a.highFives.length,
+    iHighFived: a.highFives.some(k => k.fromUserId === userId),
   }));
 
   return NextResponse.json({ activities: formatted });

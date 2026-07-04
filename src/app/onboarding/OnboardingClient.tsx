@@ -19,6 +19,13 @@ const ACTIVITY_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+const FITNESS_GOALS = [
+  { value: "Train for a race", icon: "🏁", desc: "Set a race target and follow a training plan" },
+  { value: "Get more active",  icon: "💪", desc: "Build a consistent workout habit" },
+  { value: "Lose weight",      icon: "⚖️", desc: "Track workouts and stay accountable" },
+  { value: "Stay accountable with friends", icon: "👥", desc: "Train with your crew and push each other" },
+];
+
 function fmtRaceDate(d: string | null) {
   if (!d) return "Date TBD";
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -30,10 +37,10 @@ function fmtDistance(m: number | null) {
   return `${Math.round(m)} m`;
 }
 
-function StepDots({ current }: { current: number }) {
+function StepDots({ current, total = 4 }: { current: number; total?: number }) {
   return (
     <div className="flex items-center justify-center gap-1.5 mb-8">
-      {[1, 2, 3, 4].map((n) => (
+      {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
         <div
           key={n}
           className={`rounded-full transition-all duration-300 ${
@@ -57,12 +64,28 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Maps step number → visual dot position based on goal
+function getDotStep(step: number, goal: string) {
+  if (goal === "Train for a race") {
+    // goal(1) race(2) team(3) workout(4)
+    return step;
+  }
+  // Non-race: goal(1) team(3→2) workout(4→3)
+  if (step === 1) return 1;
+  if (step === 3) return 2;
+  if (step === 4) return 3;
+  return step;
+}
+
 export function OnboardingClient({ name }: { name: string }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
 
-  // Step 1 — Race
+  // Step 1 — Fitness goal
+  const [fitnessGoal, setFitnessGoal] = useState("");
+
+  // Step 2 — Race (only for "Train for a race")
   const [raceQuery, setRaceQuery] = useState("");
   const [raceResults, setRaceResults] = useState<Race[]>([]);
   const [raceSearching, setRaceSearching] = useState(false);
@@ -71,14 +94,14 @@ export function OnboardingClient({ name }: { name: string }) {
   const [showCommunityPrompt, setShowCommunityPrompt] = useState(false);
   const [joiningCommunity, setJoiningCommunity] = useState(false);
 
-  // Step 2 — Team
+  // Step 3 — Team
   const [teamMode, setTeamMode] = useState<"invite" | "create" | null>(null);
   const [inviteCode, setInviteCode] = useState("");
   const [teamName, setTeamName] = useState("");
   const [savingTeam, setSavingTeam] = useState(false);
   const [teamError, setTeamError] = useState("");
 
-  // Step 3 — Workout
+  // Step 4 — Workout
   const [workoutType, setWorkoutType] = useState("run");
   const [workoutDate, setWorkoutDate] = useState(() => {
     const d = new Date();
@@ -91,7 +114,7 @@ export function OnboardingClient({ name }: { name: string }) {
   const [savingWorkout, setSavingWorkout] = useState(false);
 
   useEffect(() => {
-    if (step !== 1 || !raceQuery || raceQuery.length < 2) {
+    if (step !== 2 || !raceQuery || raceQuery.length < 2) {
       setRaceResults([]);
       return;
     }
@@ -135,7 +158,7 @@ export function OnboardingClient({ name }: { name: string }) {
   }
 
   async function joinRaceCommunity() {
-    if (!selectedRace) { setStep(2); return; }
+    if (!selectedRace) { setStep(3); return; }
     setJoiningCommunity(true);
     try {
       const res = await fetch("/api/major-races/register", {
@@ -151,7 +174,7 @@ export function OnboardingClient({ name }: { name: string }) {
       setError("Couldn't join community. You can join from the Community page.");
     }
     setJoiningCommunity(false);
-    setStep(2);
+    setStep(3);
   }
 
   async function joinTeam() {
@@ -162,7 +185,7 @@ export function OnboardingClient({ name }: { name: string }) {
     const res = await fetch(`/api/teams/invite/${code}`, { method: "POST" });
     const d = await res.json().catch(() => ({}));
     if (res.ok || d.alreadyMember) {
-      setStep(3);
+      setStep(4);
     } else {
       setTeamError(d.error || "Invalid invite code. Try again.");
     }
@@ -179,7 +202,7 @@ export function OnboardingClient({ name }: { name: string }) {
       body: JSON.stringify({ name: teamName.trim() }),
     });
     if (res.ok) {
-      setStep(3);
+      setStep(4);
     } else {
       const d = await res.json().catch(() => ({}));
       setTeamError(d.error || "Failed to create team.");
@@ -206,14 +229,21 @@ export function OnboardingClient({ name }: { name: string }) {
         unit: distUnit,
       }),
     }).catch(() => {});
-    setStep(4);
+    setStep(5);
     setSavingWorkout(false);
   }
 
   async function finish() {
-    await fetch("/api/onboarding/complete", { method: "POST" }).catch(() => {});
+    await fetch("/api/onboarding/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fitnessGoal }),
+    }).catch(() => {});
     router.push("/dashboard");
   }
+
+  const dotTotal = fitnessGoal === "Train for a race" ? 4 : 3;
+  const dotStep  = getDotStep(step, fitnessGoal);
 
   // Step 0 — Welcome
   if (step === 0) {
@@ -240,14 +270,47 @@ export function OnboardingClient({ name }: { name: string }) {
     );
   }
 
-  // Step 1 — Find race
+  // Step 1 — Fitness goal
   if (step === 1) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
+        <div className="w-full max-w-md mx-auto">
+          <StepDots current={1} total={dotTotal} />
+          <Card>
+            <h2 className="text-2xl font-bold tracking-tight mb-1">What is your fitness goal?</h2>
+            <p className="text-foreground-dim text-sm mb-6">We'll tailor your experience to match.</p>
+            <div className="flex flex-col gap-3">
+              {FITNESS_GOALS.map((g) => (
+                <button
+                  key={g.value}
+                  onClick={() => {
+                    setFitnessGoal(g.value);
+                    setStep(g.value === "Train for a race" ? 2 : 3);
+                  }}
+                  className="w-full py-3 rounded-xl border border-border hover:border-signal text-sm font-medium transition-colors text-left px-4 flex items-center gap-3"
+                >
+                  <span className="text-xl">{g.icon}</span>
+                  <div>
+                    <div className="font-medium">{g.value}</div>
+                    <div className="text-xs text-foreground-dim">{g.desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 2 — Find race (only reached if goal === "Train for a race")
+  if (step === 2) {
     // Sub-state: race saved, now offer to join community
     if (showCommunityPrompt && selectedRace) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
           <div className="w-full max-w-md mx-auto">
-            <StepDots current={1} />
+            <StepDots current={2} total={4} />
             <Card>
               <div className="text-center mb-6">
                 <div className="text-4xl mb-3">🎯</div>
@@ -269,7 +332,7 @@ export function OnboardingClient({ name }: { name: string }) {
                   {joiningCommunity ? "Joining…" : "Join community →"}
                 </button>
                 <button
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(3)}
                   className="w-full py-2 rounded-xl border border-border text-sm text-foreground-dim hover:text-foreground transition-colors"
                 >
                   Skip for now
@@ -284,7 +347,7 @@ export function OnboardingClient({ name }: { name: string }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
         <div className="w-full max-w-md mx-auto">
-          <StepDots current={1} />
+          <StepDots current={2} total={4} />
           <Card>
             <h2 className="text-2xl font-bold tracking-tight mb-1">What race are you training for?</h2>
             <p className="text-foreground-dim text-sm mb-6">Search the race library to set your target.</p>
@@ -355,7 +418,7 @@ export function OnboardingClient({ name }: { name: string }) {
                 </button>
               )}
               <button
-                onClick={() => { setError(""); setStep(2); }}
+                onClick={() => { setError(""); setStep(3); }}
                 className={`py-2.5 rounded-xl text-sm text-foreground-dim hover:text-foreground border border-border transition-colors ${selectedRace ? "px-4" : "flex-1"}`}
               >
                 Skip for now
@@ -367,12 +430,12 @@ export function OnboardingClient({ name }: { name: string }) {
     );
   }
 
-  // Step 2 — Team
-  if (step === 2) {
+  // Step 3 — Team
+  if (step === 3) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
         <div className="w-full max-w-md mx-auto">
-          <StepDots current={2} />
+          <StepDots current={dotStep} total={dotTotal} />
           <Card>
             <h2 className="text-2xl font-bold tracking-tight mb-1">Train with your crew.</h2>
             <p className="text-foreground-dim text-sm mb-6">
@@ -460,7 +523,7 @@ export function OnboardingClient({ name }: { name: string }) {
 
             <div className="mt-6 pt-4 border-t border-border">
               <button
-                onClick={() => setStep(3)}
+                onClick={() => setStep(4)}
                 className="w-full py-2 text-sm text-foreground-dim hover:text-foreground transition-colors"
               >
                 Skip for now
@@ -472,12 +535,12 @@ export function OnboardingClient({ name }: { name: string }) {
     );
   }
 
-  // Step 3 — Log workout
-  if (step === 3) {
+  // Step 4 — Log workout
+  if (step === 4) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
         <div className="w-full max-w-md mx-auto">
-          <StepDots current={3} />
+          <StepDots current={dotStep} total={dotTotal} />
           <Card>
             <h2 className="text-2xl font-bold tracking-tight mb-1">Log a recent workout.</h2>
             <p className="text-foreground-dim text-sm mb-6">Get on the leaderboard right away.</p>
@@ -572,7 +635,7 @@ export function OnboardingClient({ name }: { name: string }) {
                 {savingWorkout ? "Logging…" : "Log Workout →"}
               </button>
               <button
-                onClick={() => { setError(""); setStep(4); }}
+                onClick={() => { setError(""); setStep(5); }}
                 className="px-4 py-2.5 rounded-xl border border-border text-sm text-foreground-dim hover:text-foreground transition-colors"
               >
                 Skip
@@ -584,7 +647,7 @@ export function OnboardingClient({ name }: { name: string }) {
     );
   }
 
-  // Step 4 — Done
+  // Step 5 — Done
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
       <div className="text-6xl mb-6">🏁</div>

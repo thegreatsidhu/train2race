@@ -90,5 +90,64 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, ranAt: new Date().toISOString() });
+  // Daily high five digest — send once per day per user
+  let digestEmails = 0;
+  if (process.env.RESEND_API_KEY) {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+
+    // Find all high fives received today, grouped by activity owner
+    const todayHighFives = await (prisma as any).highFive.findMany({
+      where: { createdAt: { gte: dayStart } },
+      select: {
+        fromUser: { select: { name: true } },
+        activity: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            user: { select: { id: true, name: true, email: true, emailOptOut: true } },
+          },
+        },
+      },
+    });
+
+    // Group by recipient userId
+    const byRecipient = new Map<string, { user: any; rows: { fromName: string; workoutName: string }[] }>();
+    for (const hf of todayHighFives as any[]) {
+      const owner = hf.activity.user;
+      if (!owner.email || owner.emailOptOut) continue;
+      if (!byRecipient.has(owner.id)) {
+        byRecipient.set(owner.id, { user: owner, rows: [] });
+      }
+      byRecipient.get(owner.id)!.rows.push({
+        fromName: hf.fromUser.name || "A teammate",
+        workoutName: hf.activity.title || hf.activity.type,
+      });
+    }
+
+    for (const { user, rows } of byRecipient.values()) {
+      if (!rows.length) continue;
+      const listHtml = rows
+        .map(r => `<p style="margin:0 0 8px;"><strong style="color:#ede9e2;">${r.fromName}</strong> high fived your <strong style="color:#ede9e2;">${r.workoutName}</strong></p>`)
+        .join("");
+      try {
+        await resend.emails.send({
+          from: FROM,
+          to: user.email,
+          subject: "You got high fives today 🙌",
+          html: groupEmailHtml({
+            preheader: `${rows.length} high five${rows.length !== 1 ? "s" : ""} on your workouts today`,
+            heading: "You got high fives today 🙌",
+            body: listHtml + `<p style="margin:16px 0 0;color:#4a5260;font-size:12px;">To stop receiving these emails, <a href="https://train2race.com/dashboard/settings" style="color:#5ec9b5;text-decoration:none;">unsubscribe in your settings</a>.</p>`,
+            cta: "View your dashboard",
+            ctaUrl: "https://train2race.com/dashboard",
+          }),
+        });
+        digestEmails++;
+      } catch {}
+    }
+  }
+
+  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, ranAt: new Date().toISOString() });
 }

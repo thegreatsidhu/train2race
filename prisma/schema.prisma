@@ -27,6 +27,7 @@ model User {
   bio             String?   @db.VarChar(160)
   emailOptOut         Boolean   @default(false)
   onboardingComplete  Boolean   @default(false)
+  fitnessGoal         String?
   heightCm        Float?
   weightKg        Float?
   timezone        String?  @default("America/Los_Angeles")
@@ -56,7 +57,7 @@ model User {
   teamBulletins            TeamBulletin[]
   teamEvents               TeamEvent[]
   communityRequests        CommunityRequest[]
-  kudosGiven  Kudo[]  @relation("KudosGiven")
+  highFivesGiven  HighFive[]  @relation("HighFivesGiven")
   @@map("users")
 }
 
@@ -175,18 +176,18 @@ model Activity {
   raw           Json?
   createdAt     DateTime   @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kudos       Kudo[]
+  highFives   HighFive[]
   @@unique([source, externalId])
   @@index([userId, startTime])
   @@map("activities")
 }
 
-model Kudo {
+model HighFive {
   id         String   @id @default(cuid())
   fromUserId String
   activityId String
   createdAt  DateTime @default(now())
-  fromUser   User     @relation("KudosGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  fromUser   User     @relation("HighFivesGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
   activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
   @@unique([fromUserId, activityId])
   @@index([activityId])
