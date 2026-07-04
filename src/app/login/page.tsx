@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { InviteRequestForm } from "@/components/InviteRequestForm";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawRedirect = searchParams.get("redirect") ?? "";
+  const redirectTo = rawRedirect.startsWith("/") ? rawRedirect : "/dashboard";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -32,7 +36,7 @@ export default function LoginPage() {
       setError(`Incorrect email or password. ${5 - failCount.current} attempt${5 - failCount.current === 1 ? "" : "s"} remaining.`);
       return;
     }
-    router.push("/dashboard");
+    router.push(redirectTo);
   }
 
   return (
@@ -110,5 +114,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

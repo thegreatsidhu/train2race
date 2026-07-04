@@ -14,23 +14,13 @@ export default function JoinTeamPage() {
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/teams/invite/${code}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.team) setTeam(d.team);
-        else setError(d.error || "Invalid invite link.");
-        setLoading(false);
-      })
-      .catch(() => { setError("Something went wrong."); setLoading(false); });
-  }, [code]);
-
-  async function handleJoin() {
+  async function doJoin() {
     setJoining(true);
+    setError("");
     const res = await fetch(`/api/teams/invite/${code}`, { method: "POST" });
     if (res.status === 401) {
       localStorage.setItem("pendingTeamCode", code);
-      router.push(`/signin?redirect=/join/${code}`);
+      router.push(`/login?redirect=/join/${code}`);
       return;
     }
     const data = await res.json();
@@ -39,9 +29,31 @@ export default function JoinTeamPage() {
       setTimeout(() => router.push(`/dashboard/teams/${data.teamId}`), 1500);
     } else {
       setError(data.error || "Failed to join team.");
+      setJoining(false);
     }
-    setJoining(false);
   }
+
+  useEffect(() => {
+    const pending = localStorage.getItem("pendingTeamCode");
+    const autoJoin = pending === code;
+
+    fetch(`/api/teams/invite/${code}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.team) {
+          setTeam(d.team);
+          setLoading(false);
+          if (autoJoin) {
+            localStorage.removeItem("pendingTeamCode");
+            doJoin();
+          }
+        } else {
+          setError(d.error || "Invalid invite link.");
+          setLoading(false);
+        }
+      })
+      .catch(() => { setError("Something went wrong."); setLoading(false); });
+  }, [code]);
 
   if (loading) {
     return (
@@ -51,7 +63,7 @@ export default function JoinTeamPage() {
     );
   }
 
-  if (error) {
+  if (error && !team) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="max-w-sm w-full text-center">
@@ -76,6 +88,17 @@ export default function JoinTeamPage() {
     );
   }
 
+  if (joining) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-sm w-full text-center">
+          <div className="w-8 h-8 rounded-full border-2 border-signal border-t-transparent animate-spin mx-auto mb-4" />
+          <p className="text-sm text-foreground-dim">Joining {team?.name}...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="max-w-sm w-full">
@@ -93,8 +116,9 @@ export default function JoinTeamPage() {
           <p className="text-sm text-foreground-dim mb-6">
             {team._count.members} member{team._count.members !== 1 ? "s" : ""}
           </p>
+          {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
           <button
-            onClick={handleJoin}
+            onClick={doJoin}
             disabled={joining}
             className="w-full py-3 rounded-full bg-signal text-background font-medium hover:opacity-90 transition-opacity disabled:opacity-50 mb-3"
           >
