@@ -60,6 +60,7 @@ model User {
   teamEvents               TeamEvent[]
   communityRequests        CommunityRequest[]
   highFivesGiven  HighFive[]  @relation("HighFivesGiven")
+  fitnessPlans    FitnessPlan[]
   @@map("users")
 }
 
@@ -575,6 +576,22 @@ model CommunityRequest {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
   @@map("community_requests")
+}
+
+model FitnessPlan {
+  id                  String   @id @default(cuid())
+  userId              String
+  goal                String
+  location            String
+  currentFitness      String
+  daysPerWeek         Int
+  planContent         Json
+  nutritionContent    Json?
+  completedWorkoutIds String[] @default([])
+  createdAt           DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("fitness_plans")
 }
 
 model EventMessage {
