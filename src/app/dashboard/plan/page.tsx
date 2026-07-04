@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { NewRaceForm } from "@/components/NewRaceForm";
 
 // ── Race plan constants ───────────────────────────────────────
@@ -93,7 +94,8 @@ function toDateInput(dateStr: string) {
 }
 
 // ── Main component ────────────────────────────────────────────
-export default function PlanPage() {
+function PlanPageInner() {
+  const searchParams = useSearchParams();
   // Race state
   const [races, setRaces] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
@@ -121,6 +123,10 @@ export default function PlanPage() {
   const [fitnessTab, setFitnessTab] = useState<"workout" | "nutrition">("workout");
   const [confirmDelFit, setConfirmDelFit] = useState(false);
   const [deletingFit, setDeletingFit] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("start") === "fitness") setFitnessStep(1);
+  }, [searchParams]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -979,5 +985,13 @@ export default function PlanPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function PlanPage() {
+  return (
+    <Suspense>
+      <PlanPageInner />
+    </Suspense>
   );
 }

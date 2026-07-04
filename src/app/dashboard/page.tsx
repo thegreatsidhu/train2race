@@ -186,12 +186,13 @@ export default async function TodayPage() {
         <section className="mb-8">
           <div className="rounded-2xl border border-border bg-surface p-6">
             <h2 className="font-semibold mb-1">Welcome to Train2Race</h2>
-            <p className="text-sm text-foreground-dim mb-4">Every great race starts with a single workout. Let's build yours.</p>
+            <p className="text-sm text-foreground-dim mb-4">Every great journey starts with a single workout. Let's build yours.</p>
             <div className="space-y-2">
               {[
-                { href:"/dashboard/plan", label:"Add a target race", desc:"Set your goal race and generate a personalized training plan" },
+                { href:"/dashboard/plan?start=fitness", label:"Get in shape", desc:"Build a personalized workout plan — no race required" },
                 { href:"/dashboard/log-workout", label:"Log your first workout", desc:"Manually record a run, ride, or swim" },
                 { href:"/dashboard/teams", label:"Join a team", desc:"Train alongside your crew and compete on the leaderboard" },
+                { href:"/dashboard/plan", label:"Add a target race", desc:"Set your goal race and generate a personalized training plan" },
                 { href:"/dashboard/community", label:"Join a community", desc:"Find a local community to train with" },
               ].map(item=>(
                 <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 hover:bg-surface-raised transition-colors group">

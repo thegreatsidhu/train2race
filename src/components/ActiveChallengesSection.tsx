@@ -13,18 +13,20 @@ export function ActiveChallengesSection() {
       .catch(() => setLoaded(true));
   }, []);
 
-  if (!loaded || challenges.length === 0) return null;
+  const visible = challenges.filter((c: any) => c.unit?.toLowerCase() !== "steps" && c.type?.toLowerCase() !== "steps");
+
+  if (!loaded || visible.length === 0) return null;
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
   return (
     <details open className="mb-6 group">
       <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
-        <h2 className="text-sm font-medium text-foreground-dim select-none">Active challenges ({challenges.length})</h2>
+        <h2 className="text-sm font-medium text-foreground-dim select-none">Active challenges ({visible.length})</h2>
         <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
       </summary>
       <div className="pt-1 space-y-3">
-        {challenges.map((c: any) => {
+        {visible.map((c: any) => {
           const myTotal  = c.entries.reduce((s: number, e: any) => s + e.value, 0);
           const cpct     = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
           const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
