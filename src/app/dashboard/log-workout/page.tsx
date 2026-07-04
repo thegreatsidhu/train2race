@@ -29,7 +29,8 @@ export default function LogWorkoutPage() {
 
   async function handleSubmit() {
     const totalMin = Number(form.durationHours || 0) * 60 + Number(form.durationMins || 0);
-    if (!totalMin) return;
+    if (!totalMin) { setError("Please enter a duration."); return; }
+    setError("");
     setLoading(true);
     const effectiveUnit = isSwim ? swimUnit : unit;
     const res = await fetch("/api/activities/manual", {
