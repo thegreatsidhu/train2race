@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ActiveChallengesSection } from "@/components/ActiveChallengesSection";
 import { RaceCommunityLeaderboard } from "@/components/RaceCommunityLeaderboard";
 import { KudosBanner } from "@/components/KudosBanner";
+import { DailyAIMessage } from "@/components/DailyAIMessage";
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run:"bg-green-900/50 text-green-300 border-green-700",
@@ -153,6 +154,9 @@ export default async function TodayPage() {
           <WeatherBadge city={displayCity} timezone={user?.timezone ?? null} />
         </div>
       </header>
+
+      {/* ── AI daily message ── */}
+      <DailyAIMessage />
 
       {/* ── Invitations ── */}
       <TeamInvitations />

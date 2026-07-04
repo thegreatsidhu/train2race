@@ -28,6 +28,8 @@ model User {
   emailOptOut         Boolean   @default(false)
   onboardingComplete  Boolean   @default(false)
   fitnessGoal         String?
+  aiDailyMessage      String?
+  aiDailyMessageDate  DateTime?
   heightCm        Float?
   weightKg        Float?
   timezone        String?  @default("America/Los_Angeles")
