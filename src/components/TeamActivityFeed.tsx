@@ -45,7 +45,7 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
   }
 
   if (!loaded) return <p className="text-sm text-foreground-dim py-4">Loading...</p>;
-  if (activities.length === 0) return <p className="text-sm text-foreground-dim py-4">No activity in the last 7 days.</p>;
+  if (activities.length === 0) return <p className="text-sm text-foreground-dim py-4">Be the first to log a workout today! Your team is watching 💪</p>;
 
   return (
     <div className="space-y-3">
@@ -81,6 +81,9 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
                 <span>🙌</span>
                 <span>{a.highFiveCount}</span>
               </div>
+            )}
+            {a.isMe && a.highFiveCount === 0 && (
+              <span className="text-xs text-foreground-dim shrink-0">No high fives yet</span>
             )}
           </div>
         </div>

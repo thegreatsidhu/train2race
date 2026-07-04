@@ -93,7 +93,7 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
       <div className="flex-1 overflow-y-auto space-y-1.5 mb-3 pr-1">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <p className="text-sm text-foreground-dim">No messages yet. Say hi!</p>
+            <p className="text-sm text-foreground-dim">Break the ice! Say hello to your team 👋</p>
           </div>
         ) : messages.map((msg) => {
           const isMe = msg.user.id === myUserId;

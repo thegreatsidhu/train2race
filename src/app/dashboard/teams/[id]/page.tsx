@@ -208,7 +208,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       )}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold">{team.members.length}</p><p className="text-xs text-foreground-dim mt-0.5">Members</p></div>
-        <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold">{Math.round(team.members.reduce((s:number,m:any)=>s+m.pct,0)/(team.members.length||1))}%</p><p className="text-xs text-foreground-dim mt-0.5">Avg progress</p></div>
+        {(()=>{const avg=Math.round(team.members.reduce((s:number,m:any)=>s+m.pct,0)/(team.members.length||1));return(<div className="rounded-xl border border-border bg-surface p-3 text-center">{avg===0?<p className="text-sm font-semibold text-foreground-dim leading-tight">Just getting started!</p>:<p className="text-xl font-bold">{avg}%</p>}<p className="text-xs text-foreground-dim mt-0.5">Avg progress</p></div>);})()}
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold text-signal truncate">{(team.members.find((m:any)=>m.role!=="admin")||team.members[0])?.name?.split(" ")[0]||"—"}</p><p className="text-xs text-foreground-dim mt-0.5">Leading</p></div>
       </div>
       {/* Pinned bulletin preview */}
@@ -435,12 +435,12 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
               {LB_TYPES.map(t=><button key={t.v} onClick={()=>setLbType(t.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors "+(lbType===t.v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{t.l}</button>)}
             </div>
           </div>
-          {lbLoading?<div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-14 rounded-2xl bg-surface animate-pulse"/>)}</div>:lbData.length===0?<p className="text-sm text-foreground-dim py-6 text-center">No activity logged for this period yet.</p>:(
+          {lbLoading?<div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-14 rounded-2xl bg-surface animate-pulse"/>)}</div>:lbData.length===0?<p className="text-sm text-foreground-dim py-6 text-center">Your crew is warming up — check back soon!</p>:(
             <div className="space-y-2">
               {lbData.map((e:any)=>(
                 <div key={e.userId} className={"flex items-center gap-3 rounded-2xl border px-4 py-3 "+(e.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
                   <span className={"w-7 text-center font-bold shrink-0 "+(e.rank===1?"text-yellow-400 text-base":e.rank===2?"text-gray-400 text-base":e.rank===3?"text-amber-600 text-base":"text-foreground-dim text-xs")}>{e.rank<=3?["🥇","🥈","🥉"][e.rank-1]:`#${e.rank}`}</span>
-                  <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{e.name}{e.isMe?" (you)":""}</p>{e.bio&&<p className="text-xs text-foreground-dim truncate">{e.bio}</p>}<p className="text-xs text-foreground-dim">{e.activityCount} {e.activityCount===1?"activity":"activities"}</p></div>
+                  <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{e.name}{e.isMe?" (you)":""}</p>{e.bio&&<p className="text-xs text-foreground-dim truncate">{e.bio}</p>}<p className="text-xs text-foreground-dim">{e.activityCount===0?"Getting started":e.activityCount===1?"1 activity":`${e.activityCount} activities`}</p></div>
                   <p className="font-semibold text-sm shrink-0">{formatLbValue(e)}</p>
                 </div>
               ))}
@@ -476,7 +476,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           )}
         </div>
         {/* Challenge list */}
-        {!challengesLoaded?<p className="text-sm text-foreground-dim">Loading...</p>:challenges.length===0?<p className="text-sm text-foreground-dim">No challenges yet.</p>:(
+        {!challengesLoaded?<p className="text-sm text-foreground-dim">Loading...</p>:challenges.length===0?<p className="text-sm text-foreground-dim">No active challenges. Create one and get your team moving!</p>:(
           <div className="space-y-4">
             {challenges.map(c=>{
               const isPending=c.status==="pending";const isRejected=c.status==="rejected";

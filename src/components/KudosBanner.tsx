@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Confetti } from "@/components/Confetti";
 
 const STREAK_MILESTONES = [7, 14, 30, 60, 100];
 
@@ -66,8 +67,11 @@ export function KudosBanner({
 
   if (!kudo || !MESSAGES[kudo]) return null;
   const { icon, headline, sub } = MESSAGES[kudo];
+  const isFirst = kudo === "first";
 
   return (
+    <>
+      <Confetti active={isFirst} />
     <div className="mb-6 rounded-2xl border border-signal/40 bg-signal/10 px-5 py-4 flex items-start gap-4">
       <span className="text-3xl shrink-0 mt-0.5">{icon}</span>
       <div className="flex-1 min-w-0">
@@ -76,5 +80,6 @@ export function KudosBanner({
       </div>
       <button onClick={() => setKudo(null)} className="shrink-0 self-start text-foreground-dim hover:text-foreground transition-colors text-sm leading-none mt-0.5" aria-label="Dismiss">✕</button>
     </div>
+    </>
   );
 }

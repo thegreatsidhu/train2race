@@ -35,7 +35,7 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
   }
 
   if (activities.length === 0) {
-    return <p className="text-sm text-foreground-dim">No activities yet. Log your first workout!</p>;
+    return <p className="text-sm text-foreground-dim">Your journey starts with one workout.</p>;
   }
 
   return (

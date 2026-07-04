@@ -48,6 +48,13 @@ body {
   font-feature-settings: "tnum" 1;
 }
 
+/* Confetti animation */
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg) scaleX(1); opacity: 1; }
+  50%  { transform: translateY(50vh) rotate(360deg) scaleX(-1); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(720deg) scaleX(1); opacity: 0; }
+}
+
 /* Respect reduced-motion preference for the waveform + transitions */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

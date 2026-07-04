@@ -45,9 +45,9 @@ function formatDuration(sec: number) {
 function getGreeting(timezone: string | null) {
   try {
     const h = parseInt(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: timezone || "America/New_York" }));
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good evening";
+    if (h < 12) return "Good morning 🌅";
+    if (h < 17) return "Good afternoon ☀️";
+    return "Good evening 🌙";
   } catch { return "Welcome back"; }
 }
 
@@ -361,14 +361,14 @@ export default async function TodayPage() {
         <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
           <h2 className="text-sm font-medium text-foreground-dim select-none">Recent activity</h2>
           <div className="flex items-center gap-2">
-            <Link href="/dashboard/log-workout" className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">+ Log workout</Link>
+            <Link href="/dashboard/log-workout" className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">+ Log a workout 💪</Link>
             <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
           </div>
         </summary>
         <div className="pt-1">
           {mergedActivities.length > 0
             ? <ActivityList activities={mergedActivities}/>
-            : <p className="text-sm text-foreground-dim">No activities yet — log your first workout and start the streak.</p>
+            : <p className="text-sm text-foreground-dim">Your journey starts with one workout — let's go! 💪</p>
           }
         </div>
       </details>
