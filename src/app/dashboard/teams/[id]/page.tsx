@@ -101,7 +101,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   function handleChallengesTab(){if(!challengesLoaded&&id){loadChallenges(id);}setActiveTab("challenges");}
   async function openLogEntry(c:any){setLogEntry({challengeId:c.id,value:"",note:""});}
   const METRIC_UNITS:{[k:string]:string[]}={distance:["mi","km"],duration:["min"],count:["sessions"]};
-  function countUnitsFor(_type:string){return ["sessions"];}
+  function countUnitsFor(type:string){return type==="walk"?["steps"]:["sessions"];}
 
   const loadLbData = useCallback(async()=>{
     if(!id)return;

@@ -13,7 +13,7 @@ export function ActiveChallengesSection() {
       .catch(() => setLoaded(true));
   }, []);
 
-  const visible = challenges.filter((c: any) => c.unit?.toLowerCase() !== "steps" && c.type?.toLowerCase() !== "steps");
+  const visible = challenges.filter((c: any) => c.type?.toLowerCase() !== "steps");
 
   if (!loaded || visible.length === 0) return null;
 
