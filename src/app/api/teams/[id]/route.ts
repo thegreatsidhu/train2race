@@ -87,6 +87,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!member || member.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const updateData: any = {};
+  if ("name" in body && typeof body.name === "string" && body.name.trim()) updateData.name = body.name.trim();
   if ("isPrivate" in body) updateData.isPrivate = body.isPrivate;
   if ("majorRaceId" in body) updateData.majorRaceId = body.majorRaceId ?? null;
   const team = await prisma.team.update({ where: { id }, data: updateData });
