@@ -59,8 +59,11 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
               </div>
               <p className="text-sm capitalize">{a.title || a.type}</p>
               <p className="text-xs text-foreground-dim mt-0.5">
-                {a.durationSec > 0 ? Math.round(a.durationSec / 60) + " min" : ""}
-                {formatDistance(a.distanceM) ? (a.durationSec > 0 ? " · " : "") + formatDistance(a.distanceM) : ""}
+                {[
+                  a.durationSec > 0 ? Math.round(a.durationSec / 60) + " min" : null,
+                  formatDistance(a.distanceM),
+                  a.type === "walk" && a.raw?.steps ? Number(a.raw.steps).toLocaleString() + " steps" : null,
+                ].filter(Boolean).join(" · ")}
               </p>
             </div>
             {!a.isMe && (

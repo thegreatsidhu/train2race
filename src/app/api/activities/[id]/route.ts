@@ -20,7 +20,7 @@ export async function PATCH(req, { params }) {
   const { id } = await params;
   const activity = await prisma.activity.findUnique({ where: { id } });
   if (!activity || activity.userId !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const { type, title, date, durationMin, distance, unit, notes } = await req.json();
+  const { type, title, date, durationMin, distance, unit, notes, steps } = await req.json();
   let distanceM = null;
   if (distance) {
     const d = Number(distance);
@@ -37,7 +37,12 @@ export async function PATCH(req, { params }) {
       startTime: new Date(date + "T12:00:00"),
       durationSec: Math.round(Number(durationMin) * 60),
       distanceM,
-      raw: notes ? { notes } : null,
+      raw: (() => {
+        const r: any = {};
+        if (notes) r.notes = notes;
+        if (steps && Number(steps) > 0) r.steps = Number(steps);
+        return Object.keys(r).length ? r : null;
+      })(),
     },
   });
   return NextResponse.json({ activity: updated });

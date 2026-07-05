@@ -26,7 +26,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     where: { userId: { in: memberIds }, startTime: { gte: sevenDaysAgo } },
     select: {
       id: true, type: true, title: true, startTime: true,
-      distanceM: true, durationSec: true, userId: true,
+      distanceM: true, durationSec: true, userId: true, raw: true,
       user: { select: { id: true, name: true, email: true } },
       highFives: { select: { fromUserId: true } },
     },
@@ -41,6 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     startTime: a.startTime.toISOString(),
     distanceM: a.distanceM,
     durationSec: a.durationSec,
+    raw: a.raw,
     userId: a.userId,
     userName: a.user.name || a.user.email || "Athlete",
     isMe: a.userId === userId,

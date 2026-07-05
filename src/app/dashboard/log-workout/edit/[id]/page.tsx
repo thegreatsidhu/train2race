@@ -18,6 +18,7 @@ export default function EditWorkoutPage() {
     durationHours: "",
     durationMins: "",
     distance: "",
+    steps: "",
     notes: "",
   });
 
@@ -46,6 +47,7 @@ export default function EditWorkoutPage() {
           durationHours: String(Math.floor(totalMin / 60)),
           durationMins: String(totalMin % 60),
           distance,
+          steps: a.raw?.steps ? String(a.raw.steps) : "",
           notes: a.raw?.notes || "",
         });
         setLoading(false);
@@ -54,6 +56,7 @@ export default function EditWorkoutPage() {
   }, [id]);
 
   const isSwim = form.type === "swim";
+  const isWalk = form.type === "walk";
   const noDistance = form.type === "strength" || form.type === "other";
 
   async function handleSave() {
@@ -79,7 +82,7 @@ export default function EditWorkoutPage() {
         <div>
           <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Activity type</label>
           <select className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
-            value={form.type} onChange={e => setForm({ ...form, type: e.target.value, distance: "" })}>
+            value={form.type} onChange={e => setForm({ ...form, type: e.target.value, distance: "", steps: "" })}>
             <option value="run">Run</option>
             <option value="ride">Ride</option>
             <option value="swim">Swim</option>
@@ -133,6 +136,15 @@ export default function EditWorkoutPage() {
             </div>
             <input type="number" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
               value={form.distance} onChange={e => setForm({ ...form, distance: e.target.value })} />
+          </div>
+        )}
+        {isWalk && (
+          <div>
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Steps (optional)</label>
+            <input type="number" min="0" step="1" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
+              placeholder="e.g. 8000"
+              value={form.steps}
+              onChange={e => setForm({ ...form, steps: e.target.value })} />
           </div>
         )}
         <div>

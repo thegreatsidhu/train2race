@@ -60,8 +60,11 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="font-data text-sm text-foreground-dim">
-                  {a.durationSec > 0 ? Math.round(a.durationSec / 60) + " min" : ""}
-                  {formatDistance(a.distanceM, a.type) ? (a.durationSec > 0 ? " · " : "") + formatDistance(a.distanceM, a.type) : ""}
+                  {[
+                    a.durationSec > 0 ? Math.round(a.durationSec / 60) + " min" : null,
+                    formatDistance(a.distanceM, a.type),
+                    a.type === "walk" && a.raw?.steps ? Number(a.raw.steps).toLocaleString() + " steps" : null,
+                  ].filter(Boolean).join(" · ")}
                 </span>
                 {a.source === "MANUAL" && (
                   <button onClick={() => router.push(`/dashboard/log-workout/edit/${a.id}`)}
