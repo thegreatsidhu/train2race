@@ -208,6 +208,9 @@ export default async function TodayPage() {
         </section>
       )}
 
+      {/* ── Active challenges ── */}
+      <ActiveChallengesSection />
+
       {/* ── Race countdown ── */}
       {activeRace ? (
         <section className="mb-6">
@@ -329,9 +332,6 @@ export default async function TodayPage() {
           <Link href="/dashboard/teams" className="text-sm text-signal hover:underline ml-4 shrink-0">Find a team →</Link>
         </div>
       )}
-
-      {/* ── Active challenges ── */}
-      <ActiveChallengesSection />
 
       {/* ── Weekly stats ── */}
       {(weeklyMiles > 0 || weeklyTime > 0 || weeklyActivities.length > 0) && (
