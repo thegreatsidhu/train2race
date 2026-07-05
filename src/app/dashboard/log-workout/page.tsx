@@ -24,10 +24,34 @@ export default function LogWorkoutPage() {
     steps: "",
     notes: "",
   });
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [photoError, setPhotoError] = useState("");
 
   const isSwim = form.type === "swim";
   const isWalk = form.type === "walk";
   const noDistance = form.type === "strength" || form.type === "other";
+
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    const remaining = 3 - photoFiles.length;
+    const toAdd = files.slice(0, remaining);
+    const invalid = toAdd.find(f =>
+      !["image/jpeg", "image/jpg", "image/png", "image/heic", "image/heif"].includes(f.type) ||
+      f.size > 5 * 1024 * 1024
+    );
+    if (invalid) { setPhotoError("Photos must be JPG, PNG, or HEIC and under 5 MB each."); return; }
+    setPhotoError("");
+    setPhotoPreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))]);
+    setPhotoFiles(prev => [...prev, ...toAdd]);
+    e.target.value = "";
+  }
+
+  function removePhoto(i: number) {
+    URL.revokeObjectURL(photoPreviews[i]);
+    setPhotoFiles(prev => prev.filter((_, j) => j !== i));
+    setPhotoPreviews(prev => prev.filter((_, j) => j !== i));
+  }
 
   async function handleSubmit() {
     const errors: string[] = [];
@@ -38,10 +62,21 @@ export default function LogWorkoutPage() {
     setError("");
     setLoading(true);
     const effectiveUnit = isSwim ? swimUnit : unit;
+    let photos: string[] = [];
+    if (photoFiles.length > 0) {
+      const results = await Promise.all(photoFiles.map(async file => {
+        const fd = new FormData();
+        fd.append("file", file);
+        const r = await fetch("/api/upload", { method: "POST", body: fd });
+        const d = await r.json().catch(() => ({}));
+        return r.ok ? (d.url as string) : null;
+      }));
+      photos = results.filter(Boolean) as string[];
+    }
     const res = await fetch("/api/activities/manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit }),
+      body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit, photos }),
     });
     setLoading(false);
     if (res.ok) {
@@ -129,6 +164,31 @@ export default function LogWorkoutPage() {
               value={form.steps}
               onChange={e => setForm({ ...form, steps: e.target.value })} />
           </div>
+        <div>
+          <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Photos (optional)</label>
+          {photoPreviews.length > 0 && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {photoPreviews.map((src, i) => (
+                <div key={i} className="relative">
+                  <img src={src} alt="" className="w-20 h-20 object-cover rounded-xl border border-border" />
+                  <button type="button" onClick={() => removePhoto(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold leading-none">
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {photoFiles.length < 3 && (
+            <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border bg-surface cursor-pointer hover:bg-surface-raised transition-colors text-sm text-foreground-dim">
+              <span>📷</span>
+              <span>Add photo{photoFiles.length > 0 ? ` (${photoFiles.length}/3)` : " (up to 3)"}</span>
+              <input type="file" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif" multiple className="hidden"
+                onChange={handlePhotoSelect} />
+            </label>
+          )}
+          {photoError && <p className="text-xs text-red-400 mt-1">{photoError}</p>}
+        </div>
         <div>
           <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Notes (optional)</label>
           <textarea className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"

@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const userId = (session.user as { id: string }).id;
-    const { type, title, date, durationMin, distance, unit, notes, steps } = await req.json();
+    const { type, title, date, durationMin, distance, unit, notes, steps, photos } = await req.json();
 
     if (!date || !durationMin || Number(durationMin) <= 0) {
       return NextResponse.json({ error: "Date and duration are required" }, { status: 400 });
@@ -38,6 +38,7 @@ export async function POST(req: Request) {
         startTime,
         durationSec: Math.round(Number(durationMin) * 60),
         distanceM,
+        photos: Array.isArray(photos) ? photos.filter(u => typeof u === "string") : [],
         raw: (() => {
           const r: any = {};
           if (notes) r.notes = notes;

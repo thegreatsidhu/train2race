@@ -178,6 +178,7 @@ model Activity {
   perceivedEffort Float?
   title         String?
   raw           Json?
+  photos        String[]   @default([])
   createdAt     DateTime   @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   highFives   HighFive[]

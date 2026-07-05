@@ -26,7 +26,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     where: { userId: { in: memberIds }, startTime: { gte: sevenDaysAgo } },
     select: {
       id: true, type: true, title: true, startTime: true,
-      distanceM: true, durationSec: true, userId: true, raw: true,
+      distanceM: true, durationSec: true, userId: true, raw: true, photos: true,
       user: { select: { id: true, name: true, email: true } },
       highFives: { select: { fromUserId: true } },
     },
@@ -47,6 +47,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     isMe: a.userId === userId,
     highFiveCount: a.highFives.length,
     iHighFived: a.highFives.some(k => k.fromUserId === userId),
+    photos: a.photos ?? [],
   }));
 
   return NextResponse.json({ activities: formatted });
