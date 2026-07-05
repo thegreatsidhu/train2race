@@ -295,6 +295,12 @@ export default function AdminPage() {
     setTimeout(() => setUserMsgs(prev => { const n = { ...prev }; delete n[userId]; return n; }), 4000);
   }
 
+  async function resetPlanGenerations(userId) {
+    const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "resetPlanGenerations", userId }) });
+    if (res.ok) { setUserMsg(userId, "Plan generations reset to 0", true); setData(prev => ({ ...prev, users: prev.users.map(u => u.id === userId ? { ...u, planGenerationCount: 0 } : u) })); }
+    else setUserMsg(userId, "Failed to reset", false);
+  }
+
   async function setTempPw(userId) {
     if (!tempPassword || tempPassword.length < 6) { setUserMsg(userId, "Password must be at least 6 characters", false); return; }
     const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "setUserPassword", userId, newPassword: tempPassword }) });
@@ -857,6 +863,11 @@ export default function AdminPage() {
                     <a href={`mailto:${user.email}`} className="text-sm text-foreground-dim hover:text-signal transition-colors">{user.email}</a>
                     <p className="text-xs text-foreground-dim mt-0.5">
                       Joined {new Date(user.createdAt).toLocaleDateString()} · {user.raceTargets?.length || 0} race{user.raceTargets?.length !== 1 ? "s" : ""} · {user._count?.activities || 0} activities
+                      {" · "}
+                      <span className={(user.planGenerationCount || 0) >= 3 ? "text-red-400 font-medium" : ""}>{user.planGenerationCount || 0}/3 plan generations</span>
+                      {(user.planGenerationCount || 0) >= 3 && (
+                        <button onClick={() => resetPlanGenerations(user.id)} className="ml-2 text-signal hover:underline">Reset</button>
+                      )}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {user.connections?.map((c) => (

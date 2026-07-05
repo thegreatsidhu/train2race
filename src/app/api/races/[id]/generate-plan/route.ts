@@ -35,6 +35,8 @@ export async function POST(req, { params }) {
   const userId = session.user.id;
   const race = await prisma.raceTarget.findUnique({ where: { id, userId } });
   if (!race) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const userRecord = await prisma.user.findUnique({ where: { id: userId }, select: { planGenerationCount: true } });
+  if ((userRecord?.planGenerationCount ?? 0) >= 3) return NextResponse.json({ error: "You've used your 3 plan generations. Consistency beats perfection — stick with your current plan for 8 weeks. Need help? Contact support@train2race.com" }, { status: 429 });
   const recentPlan = await prisma.trainingPlan.findFirst({ where: { raceId: race.id, createdAt: { gte: new Date(Date.now()-5*60*1000) } }, select: { id: true } });
   if (recentPlan) return NextResponse.json({ error: "Please wait 5 minutes before regenerating" }, { status: 429 });
   const body = await req.json();
@@ -129,6 +131,7 @@ Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlo
     start.setDate(start.getDate() - start.getDay() + 1);
     const dm = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
     await prisma.trainingPlan.create({ data: { userId, raceId: race.id, workouts: { create: validated.map(w => { const d = new Date(start); d.setDate(start.getDate()+(w.week-1)*7+(dm[w.day]||0)); return { week:w.week, day:w.day, date:d, type:w.type, title:w.title, description:w.description, distanceKm:w.distanceMiles?w.distanceMiles*1.60934:null, durationMin:w.durationMin||null }; }) } } });
+    await prisma.user.update({ where: { id: userId }, data: { planGenerationCount: { increment: 1 } } });
     return NextResponse.json({ ok: true });
   } catch(e) {
     return NextResponse.json({ error: e.message }, { status: 500 });

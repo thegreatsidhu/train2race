@@ -35,6 +35,9 @@ export async function POST(req: Request) {
     },
   });
 
+  // Reset plan generation count so the user gets fresh attempts for the new race
+  await prisma.user.update({ where: { id: userId }, data: { planGenerationCount: 0 } });
+
   return NextResponse.json({ race }, { status: 201 });
 }
 

@@ -87,20 +87,3 @@ export async function GET() {
   }
 }
 
-export async function POST() {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id: string }).id;
-
-  try {
-    const message = await generateMessage(userId);
-    await prisma.user.update({
-      where: { id: userId },
-      data: { aiDailyMessage: message, aiDailyMessageDate: new Date() },
-    });
-    return NextResponse.json({ message, cached: false });
-  } catch (err) {
-    console.error("AI daily message error:", err);
-    return NextResponse.json({ error: "Failed to generate message" }, { status: 500 });
-  }
-}
