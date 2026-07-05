@@ -93,6 +93,44 @@ function toDateInput(dateStr: string) {
   return new Date(dateStr).toISOString().slice(0, 10);
 }
 
+// ── Exercise GIF component ────────────────────────────────────
+const gifCache = new Map<string, string | null>();
+
+function ExerciseGif({ name }: { name: string }) {
+  const [state, setState] = useState<"loading" | string | null>("loading");
+
+  useEffect(() => {
+    if (gifCache.has(name)) { setState(gifCache.get(name)!); return; }
+    let cancelled = false;
+    fetch(`/api/exercises?name=${encodeURIComponent(name.toLowerCase())}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!cancelled) { gifCache.set(name, d.gifUrl ?? null); setState(d.gifUrl ?? null); }
+      })
+      .catch(() => { if (!cancelled) { gifCache.set(name, null); setState(null); } });
+    return () => { cancelled = true; };
+  }, [name]);
+
+  if (state === "loading") {
+    return <div className="w-full h-44 rounded-xl bg-surface animate-pulse mb-3" />;
+  }
+  if (!state) {
+    return (
+      <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(name + " exercise how to")}`}
+        target="_blank" rel="noopener noreferrer"
+        className="flex items-center gap-1.5 text-xs text-foreground-dim hover:text-teal-400 transition-colors mb-3 py-1">
+        <span>▶</span>
+        <span>Watch {name} tutorial on YouTube →</span>
+      </a>
+    );
+  }
+  return (
+    <div className="w-full rounded-xl overflow-hidden mb-3 bg-surface flex items-center justify-center">
+      <img src={state} alt={`${name} demonstration`} className="h-44 w-auto object-contain" loading="lazy" />
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────
 function PlanPageInner() {
   const searchParams = useSearchParams();
@@ -868,17 +906,16 @@ function PlanPageInner() {
                                         <div className="px-5 pb-4 bg-surface/30">
                                           <div className="space-y-2 mb-4">
                                             {(w.exercises || []).map((ex: any, idx: number) => (
-                                              <div key={idx} className="flex items-start gap-3 py-2 border-b border-border/40 last:border-0">
-                                                <span className="text-xs text-foreground-dim/60 font-mono pt-0.5 shrink-0 w-5">{idx + 1}.</span>
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="flex items-baseline gap-2 flex-wrap">
-                                                    <span className="text-sm font-medium">{ex.name}</span>
-                                                    <span className="text-xs text-foreground-dim">{ex.sets} × {ex.reps}</span>
-                                                  </div>
-                                                  {ex.instructions && (
-                                                    <p className="text-xs text-foreground-dim mt-0.5">{ex.instructions}</p>
-                                                  )}
+                                              <div key={idx} className="py-3 border-b border-border/40 last:border-0">
+                                                <div className="flex items-baseline gap-2 flex-wrap mb-2">
+                                                  <span className="text-xs text-foreground-dim/60 font-mono shrink-0">{idx + 1}.</span>
+                                                  <span className="text-sm font-medium">{ex.name}</span>
+                                                  <span className="text-xs text-foreground-dim">{ex.sets} × {ex.reps}</span>
                                                 </div>
+                                                <ExerciseGif name={ex.name} />
+                                                {ex.instructions && (
+                                                  <p className="text-xs text-foreground-dim">{ex.instructions}</p>
+                                                )}
                                               </div>
                                             ))}
                                           </div>
