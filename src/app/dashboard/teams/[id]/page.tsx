@@ -209,7 +209,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold">{team.members.length}</p><p className="text-xs text-foreground-dim mt-0.5">Members</p></div>
         {(()=>{const avg=Math.round(team.members.reduce((s:number,m:any)=>s+m.pct,0)/(team.members.length||1));return(<div className="rounded-xl border border-border bg-surface p-3 text-center">{avg===0?<p className="text-sm font-semibold text-foreground-dim leading-tight">Just getting started!</p>:<p className="text-xl font-bold">{avg}%</p>}<p className="text-xs text-foreground-dim mt-0.5">Avg progress</p></div>);})()}
-        <div className="rounded-xl border border-border bg-surface p-3 text-center"><p className="text-xl font-bold text-signal truncate">{(team.members.find((m:any)=>m.role!=="admin")||team.members[0])?.name?.split(" ")[0]||"—"}</p><p className="text-xs text-foreground-dim mt-0.5">Leading</p></div>
+        {(()=>{const leader=[...team.members].sort((a:any,b:any)=>(b.totalActivityMiles||0)-(a.totalActivityMiles||0))[0];const hasLeader=leader&&(leader.totalActivityMiles||0)>0;return(<div className="rounded-xl border border-border bg-surface p-3 text-center">{hasLeader?<p className="text-xl font-bold text-signal truncate">{leader.name?.split(" ")[0]||"—"}</p>:<p className="text-sm font-semibold text-foreground-dim leading-tight">No leader yet</p>}<p className="text-xs text-foreground-dim mt-0.5">Leading</p></div>);})()}
       </div>
       {/* Pinned bulletin preview */}
       {bulletins.filter(b=>b.isPinned).slice(0,1).map((b:any)=>(

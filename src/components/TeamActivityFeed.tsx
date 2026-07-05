@@ -6,6 +6,14 @@ function formatDistance(distanceM: number | null) {
   return `${(distanceM / 1609.34).toFixed(1)} mi`;
 }
 
+const TYPE_ICON: Record<string, string> = {
+  run: "🏃", ride: "🚴", swim: "🏊", strength: "💪", walk: "🚶", other: "⚡",
+};
+
+function typeIcon(type: string) {
+  return TYPE_ICON[type?.toLowerCase()] ?? "⚡";
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const h = Math.floor(diff / 3600000);
@@ -19,6 +27,7 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
   const [activities, setActivities] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [highFiving, setHighFiving] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(14);
 
   useEffect(() => {
     fetch(`/api/teams/${teamId}/activity`)
@@ -47,9 +56,11 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
   if (!loaded) return <p className="text-sm text-foreground-dim py-4">Loading...</p>;
   if (activities.length === 0) return <p className="text-sm text-foreground-dim py-4">Be the first to log a workout today! Your team is watching 💪</p>;
 
+  const visible = activities.slice(0, visibleCount);
+
   return (
     <div className="space-y-3">
-      {activities.map((a: any) => (
+      {visible.map((a: any) => (
         <div key={a.id} className="rounded-2xl border border-border bg-surface px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -57,7 +68,7 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
                 <p className="text-sm font-medium truncate">{a.isMe ? "You" : a.userName}</p>
                 <span className="text-xs text-foreground-dim shrink-0">{timeAgo(a.startTime)}</span>
               </div>
-              <p className="text-sm capitalize">{a.title || a.type}</p>
+              <p className="text-sm capitalize">{typeIcon(a.type)} {a.title || a.type}</p>
               <p className="text-xs text-foreground-dim mt-0.5">
                 {[
                   a.durationSec > 0 ? Math.round(a.durationSec / 60) + " min" : null,
@@ -85,12 +96,16 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
                 <span>{a.highFiveCount}</span>
               </div>
             )}
-            {a.isMe && a.highFiveCount === 0 && (
-              <span className="text-xs text-foreground-dim shrink-0">No high fives yet</span>
-            )}
           </div>
         </div>
       ))}
+      {activities.length > visibleCount && (
+        <button
+          onClick={() => setVisibleCount(c => c + 14)}
+          className="w-full py-2 text-sm text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">
+          Load more
+        </button>
+      )}
     </div>
   );
 }

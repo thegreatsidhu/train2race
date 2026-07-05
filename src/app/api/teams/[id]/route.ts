@@ -41,6 +41,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     select: { code: true },
   });
 
+  const memberIds = team.members.map(m => m.userId);
+  const activityMilesRaw = await prisma.activity.findMany({
+    where: { userId: { in: memberIds }, distanceM: { gt: 0 } },
+    select: { userId: true, distanceM: true },
+  });
+  const activityMilesMap: Record<string, number> = {};
+  for (const a of activityMilesRaw) {
+    activityMilesMap[a.userId] = (activityMilesMap[a.userId] || 0) + (a.distanceM || 0);
+  }
+
   const planIds = team.members.flatMap(m => m.user.trainingPlans.map(p => p.id));
   const [dueCounts, doneCounts, weeklyData] = planIds.length > 0
     ? await Promise.all([
@@ -63,7 +73,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const total = plan ? (dueMap[plan.id] ?? 0) : 0;
     const done  = plan ? (doneMap[plan.id] ?? 0) : 0;
     const weeklyMiles = plan ? Math.round((weeklyMap[plan.id] || 0) / 1.60934 * 10) / 10 : 0;
-    return { userId: m.user.id, name: m.user.name||m.user.email||"", bio: m.user.bio||null, role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles };
+    const totalActivityMiles = Math.round(((activityMilesMap[m.userId] || 0) / 1609.34) * 10) / 10;
+    return { userId: m.user.id, name: m.user.name||m.user.email||"", bio: m.user.bio||null, role: m.role, isMe: m.userId===userId, joinedAt: m.joinedAt, totalWorkouts: total, doneWorkouts: done, pct: total>0?Math.round((done/total)*100):0, weeklyMiles, totalActivityMiles };
   }).sort((a,b)=>b.pct-a.pct);
   return NextResponse.json({ team: { ...team, members: membersWithStats, isAdmin: team.members.find(m=>m.userId===userId)?.role==="admin", activeSignupCode: activeInviteCode?.code || null } });
 }
