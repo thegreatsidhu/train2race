@@ -19,6 +19,19 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [deletedPhotos, setDeletedPhotos] = useState<Set<string>>(new Set());
+
+  async function removePhoto(activityId: string, photoUrl: string) {
+    setDeletedPhotos(prev => new Set(prev).add(photoUrl));
+    const res = await fetch(`/api/activities/${activityId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ removePhoto: photoUrl }),
+    });
+    if (!res.ok) {
+      setDeletedPhotos(prev => { const next = new Set(prev); next.delete(photoUrl); return next; });
+    }
+  }
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -92,16 +105,26 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
                 </div>
               </div>
 
-              {photos.length > 0 && (
+              {photos.filter(u => !deletedPhotos.has(u)).length > 0 && (
                 <div className="flex gap-2 mt-2 flex-wrap">
-                  {photos.map((url, i) => (
-                    <button key={i} onClick={() => setLightbox(url)} className="focus:outline-none">
-                      <img
-                        src={url}
-                        alt=""
-                        className="w-16 h-16 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity"
-                      />
-                    </button>
+                  {photos.filter(u => !deletedPhotos.has(u)).map((url, i) => (
+                    <div key={i} className="relative group">
+                      <button onClick={() => setLightbox(url)} className="focus:outline-none">
+                        <img
+                          src={url}
+                          alt=""
+                          className="w-16 h-16 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity"
+                        />
+                      </button>
+                      {a.source === "MANUAL" && (
+                        <button
+                          onClick={() => removePhoto(a.id, url)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove photo">
+                          ×
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

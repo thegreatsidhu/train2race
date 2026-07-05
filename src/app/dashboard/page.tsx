@@ -330,6 +330,9 @@ export default async function TodayPage() {
         </div>
       )}
 
+      {/* ── Active challenges ── */}
+      <ActiveChallengesSection />
+
       {/* ── Weekly stats ── */}
       {(weeklyMiles > 0 || weeklyTime > 0 || weeklyActivities.length > 0) && (
         <section className="mb-6">
@@ -350,9 +353,6 @@ export default async function TodayPage() {
           </div>
         </section>
       )}
-
-      {/* ── Active challenges ── */}
-      <ActiveChallengesSection />
 
       {/* ── Upcoming races nearby ── */}
       <UpcomingRacesSection

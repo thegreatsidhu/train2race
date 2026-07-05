@@ -20,7 +20,16 @@ export async function PATCH(req, { params }) {
   const { id } = await params;
   const activity = await prisma.activity.findUnique({ where: { id } });
   if (!activity || activity.userId !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const { type, title, date, durationMin, distance, unit, notes, steps } = await req.json();
+  const body = await req.json();
+  // Photo-only update: remove a single photo from the activity
+  if (body.removePhoto) {
+    const { deleteFromR2 } = await import("@/lib/r2");
+    const newPhotos = (activity.photos ?? []).filter((p) => p !== body.removePhoto);
+    await deleteFromR2(body.removePhoto).catch(() => {});
+    const updated = await prisma.activity.update({ where: { id }, data: { photos: newPhotos } });
+    return NextResponse.json({ activity: updated });
+  }
+  const { type, title, date, durationMin, distance, unit, notes, steps } = body;
   let distanceM = null;
   if (distance) {
     const d = Number(distance);

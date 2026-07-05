@@ -26,5 +26,10 @@ export async function GET() {
     take: 10,
   });
 
-  return NextResponse.json({ challenges });
+  const enriched = challenges.map((c: any) => ({
+    ...c,
+    userAccepted: Array.isArray(c.acceptances) && c.acceptances.includes(userId),
+  }));
+
+  return NextResponse.json({ challenges: enriched });
 }

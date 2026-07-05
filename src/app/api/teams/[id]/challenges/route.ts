@@ -84,6 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       description: description?.trim() || null,
       isPublic: isPublic === true,
       status: member.role === "admin" ? "approved" : "pending",
+      acceptances: [userId],
     },
   });
   // Email team members when challenge is approved (captain-created)
