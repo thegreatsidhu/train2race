@@ -20,7 +20,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       entries: { include: { user: { select: { id: true, name: true } } } },
     },
   });
-  return NextResponse.json({ challenges });
+
+  // For steps challenges, aggregate raw.steps from Activity records per participant
+  const today = new Date().toISOString().split("T")[0];
+  const enriched = await Promise.all(challenges.map(async (c) => {
+    if (c.unit !== "steps" || c.metric !== "count") return c;
+    const participantIds = [...new Set(c.entries.map((e: any) => e.userId))];
+    if (participantIds.length === 0) return { ...c, stepsByUser: {} };
+    const endBound = new Date(c.endDate.getTime() + 86400000);
+    const activities = await prisma.activity.findMany({
+      where: { userId: { in: participantIds }, createdAt: { gte: c.startDate, lte: endBound } },
+      select: { userId: true, raw: true, createdAt: true },
+    });
+    const stepsByUser: Record<string, { total: number; todayTotal: number }> = {};
+    for (const act of activities) {
+      const steps = Number((act.raw as any)?.steps ?? 0);
+      if (steps <= 0) continue;
+      if (!stepsByUser[act.userId]) stepsByUser[act.userId] = { total: 0, todayTotal: 0 };
+      stepsByUser[act.userId].total += steps;
+      const actDay = act.createdAt.toISOString().split("T")[0];
+      if (actDay === today) stepsByUser[act.userId].todayTotal += steps;
+    }
+    return { ...c, stepsByUser };
+  }));
+
+  return NextResponse.json({ challenges: enriched });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

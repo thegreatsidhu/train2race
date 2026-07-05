@@ -138,15 +138,13 @@ export default function EditWorkoutPage() {
               value={form.distance} onChange={e => setForm({ ...form, distance: e.target.value })} />
           </div>
         )}
-        {isWalk && (
-          <div>
+        <div>
             <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Steps (optional)</label>
             <input type="number" min="0" step="1" className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"
               placeholder="e.g. 8000"
               value={form.steps}
               onChange={e => setForm({ ...form, steps: e.target.value })} />
           </div>
-        )}
         <div>
           <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Notes (optional)</label>
           <textarea className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"

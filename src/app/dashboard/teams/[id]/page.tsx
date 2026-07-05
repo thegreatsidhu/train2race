@@ -462,11 +462,12 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                 <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Activity</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.type} onChange={e=>{const t=e.target.value;if(t==="walk"){const u=countUnitsFor("walk")[0];setChallengeForm(f=>({...f,type:t,metric:"count",unit:u}));}else setChallengeForm(f=>({...f,type:t,unit:f.metric==="count"?"sessions":f.unit}));}}><option value="run">Run</option><option value="walk">Walk</option><option value="swim">Swim</option><option value="bike">Bike</option><option value="custom">Custom</option></select></div>
                 <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Track by</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.metric} onChange={e=>onMetricChange(e.target.value)}><option value="distance">Distance</option><option value="duration">Duration</option><option value="count">Count</option></select></div>
                 <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Unit</label><select className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.unit} onChange={e=>setChallengeForm(f=>({...f,unit:e.target.value}))}>{(challengeForm.metric==="count"?countUnitsFor(challengeForm.type):METRIC_UNITS[challengeForm.metric]||["mi"]).map(u=><option key={u} value={u}>{u}</option>)}</select></div>
-                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Goal</label><input type="number" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="Required" value={challengeForm.goal} onChange={e=>setChallengeForm(f=>({...f,goal:e.target.value}))}/><label className="flex items-center gap-1.5 mt-1.5 cursor-pointer text-xs text-foreground-dim"><input type="checkbox" checked={challengeForm.goalPerDay} onChange={e=>setChallengeForm(f=>({...f,goalPerDay:e.target.checked}))} className="rounded"/>{challengeForm.goalPerDay?"Per day goal":"Make it a per day goal"}</label></div>
+                <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Goal</label><input type="number" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" placeholder="Required" value={challengeForm.goal} onChange={e=>setChallengeForm(f=>({...f,goal:e.target.value}))}/><p className="text-xs text-foreground-dim mt-1">{challengeForm.unit==="steps"?"e.g. 10,000 steps per day":challengeForm.metric==="distance"?"e.g. 50 miles total":challengeForm.metric==="duration"?"e.g. 500 minutes":"e.g. 20 workouts"}</p><label className="flex items-center gap-1.5 mt-1.5 cursor-pointer text-xs text-foreground-dim"><input type="checkbox" checked={challengeForm.goalPerDay} onChange={e=>setChallengeForm(f=>({...f,goalPerDay:e.target.checked}))} className="rounded"/>{challengeForm.goalPerDay?"Per day goal":"Make it a per day goal"}</label></div>
                 <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Start date</label><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.startDate} onChange={e=>setChallengeForm(f=>({...f,startDate:e.target.value}))}/></div>
                 <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">End date</label><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.endDate} onChange={e=>setChallengeForm(f=>({...f,endDate:e.target.value}))}/></div>
                 <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Description (optional)</label><textarea className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" rows={2} value={challengeForm.description} onChange={e=>setChallengeForm(f=>({...f,description:e.target.value}))}/></div>
               </div>
+              {challengeForm.unit==="steps"&&<div className="rounded-xl border border-teal-500/30 bg-teal-900/10 p-3 text-xs space-y-1.5"><p className="font-medium text-teal-400">ℹ️ Don't have a step tracker? These free apps work great:</p><p className="font-medium text-foreground-dim pt-0.5">iPhone:</p><p className="text-foreground-dim">• <a href="https://www.apple.com/ios/health/" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Apple Health</a> (built-in, no download needed)</p><p className="text-foreground-dim">• <a href="https://apps.apple.com/us/app/pedometer/id712286167" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Pedometer++</a></p><p className="font-medium text-foreground-dim pt-0.5">Android:</p><p className="text-foreground-dim">• <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.fitness" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Google Fit</a> (free)</p><p className="text-foreground-dim">• <a href="https://play.google.com/store/apps/details?id=com.sec.android.app.shealth" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Samsung Health</a> (free)</p><p className="text-foreground-dim pt-0.5">Log your daily steps in Train2Race using the <strong className="text-foreground">+ Log workout</strong> button. Select any activity type and enter your step count.</p></div>}
               <div className="flex gap-2"><button onClick={createChallenge} disabled={savingChallenge||!challengeForm.title||!challengeForm.goal||!challengeForm.startDate||!challengeForm.endDate} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingChallenge?(team.isAdmin||isCreator?"Creating...":"Submitting..."):(team.isAdmin||isCreator?"Create challenge":"Submit for approval")}</button><button onClick={()=>{setShowNewChallenge(false);setCreateMsg("");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button></div>
             </div>
           ):(
@@ -481,14 +482,21 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           <div className="space-y-4">
             {challenges.map(c=>{
               const isPending=c.status==="pending";const isRejected=c.status==="rejected";
+              const isStepsChallenge=c.unit==="steps"&&c.metric==="count";
               const totals:{[uid:string]:{name:string;total:number;todayTotal:number}}={};
               const todayStr=new Date().toISOString().split("T")[0];
-              c.entries.forEach((e:any)=>{
-                if(!totals[e.userId])totals[e.userId]={name:e.user.name||"?",total:0,todayTotal:0};
-                totals[e.userId].total+=e.value;
-                const eDay=e.date?new Date(e.date).toISOString().split("T")[0]:null;
-                if(eDay===todayStr)totals[e.userId].todayTotal+=e.value;
-              });
+              if(isStepsChallenge&&c.stepsByUser){
+                const nameMap:{[uid:string]:string}={};
+                c.entries.forEach((e:any)=>{if(!nameMap[e.userId])nameMap[e.userId]=e.user.name||"?";});
+                Object.entries(c.stepsByUser as Record<string,{total:number;todayTotal:number}>).forEach(([uid,st])=>{totals[uid]={name:nameMap[uid]||"?",total:st.total,todayTotal:st.todayTotal};});
+              }else{
+                c.entries.forEach((e:any)=>{
+                  if(!totals[e.userId])totals[e.userId]={name:e.user.name||"?",total:0,todayTotal:0};
+                  totals[e.userId].total+=e.value;
+                  const eDay=e.date?new Date(e.date).toISOString().split("T")[0]:null;
+                  if(eDay===todayStr)totals[e.userId].todayTotal+=e.value;
+                });
+              }
               const sorted=Object.entries(totals).sort((a,b)=>c.goalPerDay?(b[1].todayTotal-a[1].todayTotal):(b[1].total-a[1].total));
               const myEntry=totals[myUserId??''];
               const myDisplayTotal=c.goalPerDay?(myEntry?.todayTotal??0):(myEntry?.total??0);
