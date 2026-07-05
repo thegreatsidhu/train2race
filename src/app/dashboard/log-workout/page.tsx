@@ -69,9 +69,16 @@ export default function LogWorkoutPage() {
         fd.append("file", file);
         const r = await fetch("/api/upload", { method: "POST", body: fd });
         const d = await r.json().catch(() => ({}));
-        return r.ok ? (d.url as string) : null;
+        if (!r.ok) return { error: d.error || "Upload failed" };
+        return { url: d.url as string };
       }));
-      photos = results.filter(Boolean) as string[];
+      const failed = results.find(r => "error" in r);
+      if (failed && "error" in failed) {
+        setLoading(false);
+        setError("Photo upload failed: " + failed.error + ". Please try again.");
+        return;
+      }
+      photos = results.map(r => ("url" in r ? r.url : "")).filter(Boolean);
     }
     const res = await fetch("/api/activities/manual", {
       method: "POST",
