@@ -25,9 +25,20 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Train2Race - Team training for endurance athletes",
+  title: "Train2Race — Train Together. Race Together.",
   description:
-    "Train2Race brings your crew together around a shared race goal — team leaderboards, group chat, training plans, and a global community of endurance athletes chasing the same finish line.",
+    "Join your crew, log workouts, crush challenges, and stay accountable. Train2Race brings your team together around a shared goal — whether that's a race or just getting in shape.",
+  openGraph: {
+    title: "Train2Race — Train Together. Race Together.",
+    description:
+      "Join your crew, log workouts, crush challenges, and stay accountable. Train2Race brings your team together around a shared goal — whether that's a race or just getting in shape.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Train2Race — Train Together. Race Together.",
+    description:
+      "Join your crew, log workouts, crush challenges, and stay accountable. Train2Race brings your team together around a shared goal — whether that's a race or just getting in shape.",
+  },
   applicationName: "Train2Race",
   appleWebApp: {
     capable: true,
