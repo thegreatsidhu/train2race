@@ -171,6 +171,9 @@ export default function AdminPage() {
   const [raceSearch, setRaceSearch] = useState("");
   const [raceDistFilter, setRaceDistFilter] = useState("all");
   const [raceYearFilter, setRaceYearFilter] = useState("all");
+  const [raceDateFilter, setRaceDateFilter] = useState("upcoming"); // upcoming | all | past
+  const [confirmDeletePast, setConfirmDeletePast] = useState(false);
+  const [deletingPastRaces, setDeletingPastRaces] = useState(false);
   const [showCreateChallenge, setShowCreateChallenge] = useState(false);
   const [newChTeamId, setNewChTeamId] = useState("");
   const [newChTitle, setNewChTitle] = useState("");
@@ -316,6 +319,18 @@ export default function AdminPage() {
     if (res.ok) {
       setAllRaces(prev => prev.map(r => r.id === raceId ? { ...r, name: editRaceName, city: editRaceCity, country: editRaceCountry, raceDate: new Date(editRaceDate).toISOString(), distanceM: parseFloat(editRaceDist), website: editRaceWeb || null, isTriathlon: editRaceTri } : r));
       setEditingRaceId(null);
+    }
+  }
+
+  async function deletePastRaces() {
+    setDeletingPastRaces(true);
+    const res = await fetch("/api/admin/races", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "deletePastRaces" }) });
+    const d = await res.json();
+    setDeletingPastRaces(false);
+    setConfirmDeletePast(false);
+    if (d.ok) {
+      const now = new Date();
+      setAllRaces(prev => prev.filter(r => r.status !== "active" || new Date(r.raceDate) >= now));
     }
   }
 
@@ -1367,7 +1382,12 @@ export default function AdminPage() {
                     ))}
                   </div>
                   <div className="flex gap-1.5 flex-wrap">
-                    {[["all","Any year"],["2026","2026"],["2027","2027"]].map(([v,l]) => (
+                    {[["upcoming","Upcoming"],["all","All"],["past","Past"]].map(([v,l]) => (
+                      <button key={v} onClick={() => { setRaceDateFilter(v); setConfirmDeletePast(false); }} className={"text-xs px-2.5 py-1 rounded-full border transition-colors " + (raceDateFilter === v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>{l}</button>
+                    ))}
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[["all","Any year"],["2025","2025"],["2026","2026"],["2027","2027"]].map(([v,l]) => (
                       <button key={v} onClick={() => setRaceYearFilter(v)} className={"text-xs px-2.5 py-1 rounded-full border transition-colors " + (raceYearFilter === v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>{l}</button>
                     ))}
                   </div>
@@ -1375,8 +1395,11 @@ export default function AdminPage() {
                 {!allRacesLoaded ? (
                   <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
                 ) : (() => {
+                  const now = new Date();
                   const activeRaces = allRaces.filter(r => {
                     if (r.status !== "active") return false;
+                    if (raceDateFilter === "upcoming" && new Date(r.raceDate) < now) return false;
+                    if (raceDateFilter === "past" && new Date(r.raceDate) >= now) return false;
                     if (raceSearch) {
                       const q = raceSearch.toLowerCase();
                       if (!r.name.toLowerCase().includes(q) && !r.city?.toLowerCase().includes(q)) return false;
@@ -1396,7 +1419,20 @@ export default function AdminPage() {
                   <p className="text-sm text-foreground-dim">No races match these filters.</p>
                 ) : (
                   <>
-                  <p className="text-xs text-foreground-dim mb-2">{activeRaces.length} races</p>
+                  <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                    <p className="text-xs text-foreground-dim">{activeRaces.length} races</p>
+                    {raceDateFilter === "past" && activeRaces.length > 0 && (
+                      confirmDeletePast ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-red-300">Delete all {activeRaces.length} past races?</span>
+                          <button onClick={deletePastRaces} disabled={deletingPastRaces} className="text-xs px-3 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">{deletingPastRaces ? "Deleting…" : "Confirm"}</button>
+                          <button onClick={() => setConfirmDeletePast(false)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmDeletePast(true)} className="text-xs px-3 py-1 rounded-full border border-red-500/40 text-red-400">Delete all past races</button>
+                      )
+                    )}
+                  </div>
                   <div className="space-y-3">
                     {activeRaces.map((race) => (
                       <div key={race.id} className="rounded-2xl border border-border bg-surface p-4">

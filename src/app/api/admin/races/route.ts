@@ -27,6 +27,13 @@ export async function POST(req: NextRequest) {
   const { password, raceId, action, name, city, country, raceDate, distanceM, website, isTriathlon, sport, series } = body;
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (action === "deletePastRaces") {
+    const result = await prisma.majorRace.deleteMany({
+      where: { status: "active", raceDate: { lt: new Date() } },
+    });
+    return NextResponse.json({ ok: true, deleted: result.count });
+  }
+
   if (action === "discover") {
     const result = await discoverRacesFromRunSignup();
     return NextResponse.json({ ok: true, ...result });

@@ -90,18 +90,21 @@ export default function RacesPage() {
   const [reporting, setReporting] = useState(false);
   const [racePage, setRacePage] = useState(1);
   const [reportDone, setReportDone] = useState(false);
+  const [showPast, setShowPast] = useState(false);
 
   useEffect(() => {
     fetch("/api/major-races/register").then(r => r.json()).then(d => setMyRegs(d.registrations || []));
   }, []);
 
   useEffect(() => {
-    if (tab === "events" && events.length === 0 && !eventsLoading) {
+    if (tab === "events") {
       setEventsLoading(true);
-      fetch("/api/major-races").then(r => r.json()).then(d => { setEvents(d.races || []); setEventsLoading(false); });
+      setEvents([]);
+      const url = showPast ? "/api/major-races" : "/api/major-races?upcoming=1";
+      fetch(url).then(r => r.json()).then(d => { setEvents(d.races || []); setEventsLoading(false); });
     }
     if (tab === "submit") { setSubsLoaded(false); loadMySubmissions(); }
-  }, [tab]);
+  }, [tab, showPast]);
 
   async function handleReg(race: any) {
     setReging(true);
@@ -216,7 +219,7 @@ export default function RacesPage() {
     setReportReason("");
   }
 
-  useEffect(() => { setRacePage(1); }, [search, df, yearF, countryF]);
+  useEffect(() => { setRacePage(1); }, [search, df, yearF, countryF, showPast]);
 
   const isReg = (id: string) => myRegs.some((r: any) => r.majorRaceId === id);
   const f = DFILTERS[df] as any;
@@ -267,13 +270,17 @@ export default function RacesPage() {
                 </button>
               ))}
             </div>
-            <div className="flex gap-1.5 flex-wrap mb-2">
-              {["all","2026","2027"].map(y => (
+            <div className="flex gap-1.5 flex-wrap mb-2 items-center">
+              {(showPast ? ["all","2024","2025","2026","2027"] : ["all","2026","2027"]).map(y => (
                 <button key={y} onClick={() => setYearF(y)}
                   className={"text-xs px-3 py-1 rounded-full border transition-colors " + (yearF === y ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
                   {y === "all" ? "Any year" : y}
                 </button>
               ))}
+              <button onClick={() => { setShowPast(p => !p); setYearF("all"); }}
+                className={"text-xs px-3 py-1 rounded-full border transition-colors ml-auto " + (showPast ? "bg-surface-raised border-border" : "border-border hover:bg-surface")}>
+                {showPast ? "Hide past races" : "Show past races"}
+              </button>
             </div>
             <div className="flex gap-1.5 flex-wrap mb-3">
               {[["all","All countries"],["USA","USA"],["international","International"]].map(([v,l]) => (
