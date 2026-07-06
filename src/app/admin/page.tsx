@@ -120,6 +120,8 @@ export default function AdminPage() {
   const [raceViewTab, setRaceViewTab] = useState("pending");
   const [discovering, setDiscovering] = useState(false);
   const [discoverResult, setDiscoverResult] = useState(null);
+  const [bulkConfirm, setBulkConfirm] = useState(null); // "approve" | "reject" | null
+  const [bulkProcessing, setBulkProcessing] = useState(false);
   const [editingRaceId, setEditingRaceId] = useState(null);
   const [editRaceName, setEditRaceName] = useState("");
   const [editRaceDate, setEditRaceDate] = useState("");
@@ -228,6 +230,13 @@ export default function AdminPage() {
   async function deleteMessage(messageId) {
     await fetch("/api/major-races/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId, adminPassword: password }) });
     await refreshData();
+  }
+
+  async function bulkAction(action) {
+    setBulkProcessing(true);
+    setBulkConfirm(null);
+    await Promise.all((data?.pendingRaces || []).map(r => approveRace(r.id, action)));
+    setBulkProcessing(false);
   }
 
   async function discoverRaces() {
@@ -1124,6 +1133,37 @@ export default function AdminPage() {
                   <div className={"mb-3 text-xs rounded-xl px-3 py-2 border " + (discoverResult.errors?.length ? "border-yellow-700/40 bg-yellow-900/10 text-yellow-300" : "border-signal/30 bg-signal/5 text-signal")}>
                     {discoverResult.created > 0 ? `Added ${discoverResult.created} new race${discoverResult.created !== 1 ? "s" : ""}` : "No new races found"} · {discoverResult.skipped} skipped
                     {discoverResult.errors?.length > 0 && <span className="ml-2 text-red-400">· {discoverResult.errors.length} error(s)</span>}
+                  </div>
+                )}
+                {data?.pendingRaces?.length > 0 && (
+                  <div className="mb-3">
+                    {bulkConfirm ? (
+                      <div className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+                        <p className="text-sm text-yellow-200">
+                          {bulkConfirm === "approve"
+                            ? `Approve all ${data.pendingRaces.length} pending race${data.pendingRaces.length !== 1 ? "s" : ""}? This will make them visible to all users.`
+                            : `Reject all ${data.pendingRaces.length} pending race${data.pendingRaces.length !== 1 ? "s" : ""}?`}
+                        </p>
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => bulkAction(bulkConfirm)} disabled={bulkProcessing}
+                            className={"px-3 py-1.5 rounded-full text-xs font-medium disabled:opacity-50 " + (bulkConfirm === "approve" ? "bg-signal text-background" : "bg-red-600 text-white")}>
+                            {bulkProcessing ? "Processing…" : "Confirm"}
+                          </button>
+                          <button onClick={() => setBulkConfirm(null)} className="px-3 py-1.5 rounded-full border border-border text-xs">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={() => setBulkConfirm("approve")}
+                          className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">
+                          Approve All ({data.pendingRaces.length})
+                        </button>
+                        <button onClick={() => setBulkConfirm("reject")}
+                          className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">
+                          Reject All ({data.pendingRaces.length})
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
                 {(!data?.pendingRaces || data.pendingRaces.length === 0) ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
