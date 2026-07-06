@@ -327,6 +327,7 @@ model MajorRace {
   raceDate     DateTime
   distanceM    Float
   isTriathlon  Boolean  @default(false)
+  sport        String?
   series       String?
   website      String?
   status       String   @default("active")

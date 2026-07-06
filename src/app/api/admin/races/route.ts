@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const body = await req.json();
-  const { password, raceId, action, name, city, country, raceDate, distanceM, website, isTriathlon } = body;
+  const { password, raceId, action, name, city, country, raceDate, distanceM, website, isTriathlon, sport, series } = body;
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (action === "discover") {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (!name || !raceDate || !distanceM || !city || !country) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${new Date(raceDate).getFullYear()}-${Date.now()}`;
     const race = await prisma.majorRace.create({
-      data: { name, slug, city, country, raceDate: new Date(raceDate), distanceM: Number(distanceM), isTriathlon: !!isTriathlon, website: website || null, status: "active" },
+      data: { name, slug, city, country, raceDate: new Date(raceDate), distanceM: Number(distanceM), isTriathlon: !!isTriathlon, website: website || null, status: "active", sport: sport || null, series: series || null },
     });
     return NextResponse.json({ race });
   }

@@ -162,6 +162,8 @@ export default function AdminPage() {
   const [newRaceDist, setNewRaceDist] = useState("42195");
   const [newRaceWeb, setNewRaceWeb] = useState("");
   const [newRaceTri, setNewRaceTri] = useState(false);
+  const [newRaceSport, setNewRaceSport] = useState("Running");
+  const [newRaceSeries, setNewRaceSeries] = useState("");
   const [creatingRace, setCreatingRace] = useState(false);
   const [raceSearch, setRaceSearch] = useState("");
   const [raceDistFilter, setRaceDistFilter] = useState("all");
@@ -326,15 +328,27 @@ export default function AdminPage() {
   async function createRaceAdmin() {
     if (!newRaceName || !newRaceDate || !newRaceCity || !newRaceCountry || !newRaceDist) return;
     setCreatingRace(true);
+    const isTri = newRaceSport === "Triathlon" || newRaceTri;
     const res = await fetch("/api/admin/races", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, action: "create", name: newRaceName, city: newRaceCity, country: newRaceCountry, raceDate: newRaceDate, distanceM: parseFloat(newRaceDist), website: newRaceWeb || null, isTriathlon: newRaceTri }),
+      body: JSON.stringify({
+        password, action: "create",
+        name: newRaceName, city: newRaceCity, country: newRaceCountry,
+        raceDate: newRaceDate,
+        distanceM: parseFloat(newRaceDist) * 1609.34,
+        website: newRaceWeb || null,
+        isTriathlon: isTri,
+        sport: newRaceSport,
+        series: newRaceSeries || null,
+      }),
     });
     const d = await res.json();
     setCreatingRace(false);
     if (res.ok && d.race) {
       setAllRaces(prev => [...prev, d.race].sort((a, b) => new Date(a.raceDate).getTime() - new Date(b.raceDate).getTime()));
-      setNewRaceName(""); setNewRaceDate(""); setNewRaceCity(""); setNewRaceCountry("USA"); setNewRaceDist("42195"); setNewRaceWeb(""); setNewRaceTri(false); setShowCreateRace(false);
+      setNewRaceName(""); setNewRaceDate(""); setNewRaceCity(""); setNewRaceCountry("USA");
+      setNewRaceDist("26.2"); setNewRaceWeb(""); setNewRaceTri(false);
+      setNewRaceSport("Running"); setNewRaceSeries(""); setShowCreateRace(false);
     }
   }
 
@@ -1152,16 +1166,20 @@ export default function AdminPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <input value={newRaceName} onChange={e => setNewRaceName(e.target.value)} placeholder="Race name" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input type="date" value={newRaceDate} onChange={e => setNewRaceDate(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                  <input type="number" value={newRaceDist} onChange={e => setNewRaceDist(e.target.value)} placeholder="Distance (meters)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <select value={newRaceSport} onChange={e => { setNewRaceSport(e.target.value); if (e.target.value === "Triathlon") setNewRaceTri(true); }} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                    {["Running","Cycling","Triathlon","Swimming","Trail Running","Ultra Marathon","Duathlon","Other"].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <input type="number" min="0" step="0.1" value={newRaceDist} onChange={e => setNewRaceDist(e.target.value)} placeholder="Distance (miles)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input value={newRaceCity} onChange={e => setNewRaceCity(e.target.value)} placeholder="City" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input value={newRaceCountry} onChange={e => setNewRaceCountry(e.target.value)} placeholder="Country" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                  <input value={newRaceWeb} onChange={e => setNewRaceWeb(e.target.value)} placeholder="Website (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input value={newRaceWeb} onChange={e => setNewRaceWeb(e.target.value)} placeholder="Website URL (optional)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input value={newRaceSeries} onChange={e => setNewRaceSeries(e.target.value)} placeholder="Series name (optional, e.g. World Marathon Majors)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                 </div>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={newRaceTri} onChange={e => setNewRaceTri(e.target.checked)} className="rounded" />
-                  Triathlon
+                  <input type="checkbox" checked={newRaceSport === "Triathlon" || newRaceTri} onChange={e => setNewRaceTri(e.target.checked)} className="rounded" />
+                  Is Triathlon
                 </label>
-                <p className="text-xs text-foreground-dim">Common distances: 5K=5000, 10K=10000, Half=21097, Marathon=42195, 50K=50000, 50M=80467, 100K=100000, 100M=160934</p>
+                <p className="text-xs text-foreground-dim">Common distances (miles): 5K=3.1 · 10K=6.2 · Half=13.1 · Marathon=26.2 · 50K=31.1 · 50mi=50 · 100K=62.1 · 100mi=100</p>
                 <div className="flex gap-2">
                   <button onClick={createRaceAdmin} disabled={creatingRace || !newRaceName || !newRaceDate || !newRaceCity || !newRaceCountry || !newRaceDist} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingRace ? "Creating..." : "Create"}</button>
                   <button onClick={() => setShowCreateRace(false)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
