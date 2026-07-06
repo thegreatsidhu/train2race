@@ -331,6 +331,8 @@ model MajorRace {
   website      String?
   status       String   @default("active")
   submittedBy  String?
+  source       String?
+  externalId   String?  @unique
   createdAt    DateTime @default(now())
   registrations RaceRegistration[]
   teams         Team[]

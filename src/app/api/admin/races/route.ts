@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { discoverRacesFromRunSignup } from "@/lib/raceDiscovery";
 
 function rateLimited(req: NextRequest): boolean {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -25,6 +26,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { password, raceId, action, name, city, country, raceDate, distanceM, website, isTriathlon } = body;
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (action === "discover") {
+    const result = await discoverRacesFromRunSignup();
+    return NextResponse.json({ ok: true, ...result });
+  }
 
   if (action === "create") {
     if (!name || !raceDate || !distanceM || !city || !country) return NextResponse.json({ error: "Missing fields" }, { status: 400 });

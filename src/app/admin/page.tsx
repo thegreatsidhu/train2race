@@ -118,6 +118,8 @@ export default function AdminPage() {
   const [allRaces, setAllRaces] = useState([]);
   const [allRacesLoaded, setAllRacesLoaded] = useState(false);
   const [raceViewTab, setRaceViewTab] = useState("pending");
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState(null);
   const [editingRaceId, setEditingRaceId] = useState(null);
   const [editRaceName, setEditRaceName] = useState("");
   const [editRaceDate, setEditRaceDate] = useState("");
@@ -226,6 +228,16 @@ export default function AdminPage() {
   async function deleteMessage(messageId) {
     await fetch("/api/major-races/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId, adminPassword: password }) });
     await refreshData();
+  }
+
+  async function discoverRaces() {
+    setDiscovering(true);
+    setDiscoverResult(null);
+    const res = await fetch("/api/admin/races", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "discover" }) });
+    const d = await res.json();
+    setDiscoverResult(d);
+    setDiscovering(false);
+    if (d.created > 0) refreshData();
   }
 
   async function approveRace(raceId, action) {
@@ -1101,17 +1113,29 @@ export default function AdminPage() {
 
             {raceViewTab === "pending" && (
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <p className="text-sm text-foreground-dim">{data?.pendingRaces?.length || 0} pending</p>
-                  <button onClick={refreshData} className="text-xs text-signal hover:underline">Refresh</button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={refreshData} className="text-xs text-signal hover:underline">Refresh</button>
+                    <button onClick={discoverRaces} disabled={discovering} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{discovering ? "Discovering…" : "Discover races now"}</button>
+                  </div>
                 </div>
+                {discoverResult && (
+                  <div className={"mb-3 text-xs rounded-xl px-3 py-2 border " + (discoverResult.errors?.length ? "border-yellow-700/40 bg-yellow-900/10 text-yellow-300" : "border-signal/30 bg-signal/5 text-signal")}>
+                    {discoverResult.created > 0 ? `Added ${discoverResult.created} new race${discoverResult.created !== 1 ? "s" : ""}` : "No new races found"} · {discoverResult.skipped} skipped
+                    {discoverResult.errors?.length > 0 && <span className="ml-2 text-red-400">· {discoverResult.errors.length} error(s)</span>}
+                  </div>
+                )}
                 {(!data?.pendingRaces || data.pendingRaces.length === 0) ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
                   <div className="space-y-3">
                     {data.pendingRaces.map((race) => (
                       <div key={race.id} className="rounded-2xl border border-yellow-700/40 bg-surface p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="font-medium">{race.name}</p>
+                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                              <p className="font-medium">{race.name}</p>
+                              {race.source === "runsignup" && <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-900/30 text-blue-300 border border-blue-700/40">Auto-discovered</span>}
+                            </div>
                             <p className="text-sm text-foreground-dim">{race.city}, {race.country} · {(race.distanceM/1609.34).toFixed(1)} mi{race.isTriathlon ? " · Triathlon" : ""}</p>
                             <p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString()}</p>
                             {race.website && <a href={race.website} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline">{race.website}</a>}
