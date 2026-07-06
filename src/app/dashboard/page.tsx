@@ -130,10 +130,18 @@ export default async function TodayPage() {
 
       {/* ── Header ── */}
       <header className="mb-8">
-        <p className="text-xs text-foreground-dim uppercase tracking-[0.16em] mb-2">
-          {today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
-        </p>
-        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4">{greetingText}, {userName}.</h1>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs text-foreground-dim uppercase tracking-[0.16em] mb-2">
+              {today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+            </p>
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4">{greetingText}, {userName}.</h1>
+          </div>
+          <Link href="/dashboard/log-workout"
+            className="hidden md:flex shrink-0 items-center gap-1.5 px-4 py-2 rounded-full bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium transition-colors mt-1">
+            + Log Workout
+          </Link>
+        </div>
         <div className="flex flex-wrap gap-2">
           {streak > 0 && (
             <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-surface border border-border font-medium">
@@ -152,6 +160,7 @@ export default async function TodayPage() {
             </span>
           )}
           <WeatherBadge city={displayCity} timezone={user?.timezone ?? null} />
+        </div>
         </div>
       </header>
 
