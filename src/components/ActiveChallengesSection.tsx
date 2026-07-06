@@ -24,23 +24,32 @@ export function ActiveChallengesSection() {
     setAccepting(null);
   }
 
-  const visible = challenges.filter((c: any) => c.type?.toLowerCase() !== "steps");
-  if (!loaded || visible.length === 0) return null;
+  if (!loaded || challenges.length === 0) return null;
 
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const unaccepted = visible.filter((c: any) => !c.userAccepted);
-  const accepted = visible.filter((c: any) => c.userAccepted);
+  // Show accept banner for unaccepted upcoming/active; don't show for ended
+  const unaccepted = challenges.filter((c: any) => !c.userAccepted && !c.isEnded);
+  const accepted   = challenges.filter((c: any) => c.userAccepted);
+
+  if (unaccepted.length === 0 && accepted.length === 0) return null;
 
   return (
     <section className="mb-6">
       {/* Pending-acceptance banners */}
       {unaccepted.map((c: any) => {
-        const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
+        const daysLeft = Math.ceil((new Date(c.endDate).getTime() - Date.now()) / 86400000);
         return (
           <div key={c.id} className="mb-3 rounded-2xl border border-signal/30 bg-signal/5 px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium">🏆 New challenge: {c.title}</p>
-              <p className="text-xs text-foreground-dim mt-0.5">{c.team.name} · {daysLeft}d left · {c.goal} {c.unit}{c.goalPerDay ? "/day" : ""}</p>
+              <p className="text-sm font-medium">
+                {c.isUpcoming ? "🏆 Upcoming challenge:" : "🏆 New challenge:"} {c.title}
+              </p>
+              <p className="text-xs text-foreground-dim mt-0.5">
+                {c.team.name}
+                {c.isUpcoming
+                  ? ` · Starts ${new Date(c.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                  : ` · ${daysLeft}d left`}
+                {" "}· {c.goal} {c.unit}{c.goalPerDay ? "/day" : ""}
+              </p>
             </div>
             <button
               onClick={() => accept(c.id, c.team.id)}
@@ -57,15 +66,86 @@ export function ActiveChallengesSection() {
       {accepted.length > 0 && (
         <details open className="group">
           <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
-            <h2 className="text-sm font-medium text-foreground-dim select-none">Active challenges ({accepted.length})</h2>
+            <h2 className="text-sm font-medium text-foreground-dim select-none">My challenges ({accepted.length})</h2>
             <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
           </summary>
           <div className="pt-1 space-y-3">
             {accepted.map((c: any) => {
-              const myTotal = c.entries.reduce((s: number, e: any) => s + e.value, 0);
-              const cpct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
-              const daysLeft = Math.ceil((new Date(c.endDate).getTime() - today.getTime()) / 86400000);
               const isOpen = expanded === c.id;
+
+              // ── Upcoming ──
+              if (c.isUpcoming) {
+                return (
+                  <div key={c.id} className="rounded-2xl border border-border bg-surface px-4 py-3">
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <p className="text-sm font-medium">{c.title}</p>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-900/30 text-blue-300 border border-blue-700/40">Upcoming</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-teal-900/30 text-teal-300 border border-teal-700/40">Joined ✓</span>
+                        </div>
+                        <p className="text-xs text-foreground-dim capitalize">{c.team.name} · {c.type} · {c.unit}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-foreground-dim">
+                      Starts {new Date(c.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                      {" · "}Ends {new Date(c.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                    </p>
+                    {c.goal && (
+                      <p className="text-xs text-foreground-dim mt-0.5">
+                        Goal: {c.goal} {c.unit}{c.goalPerDay ? " / day" : " total"}
+                      </p>
+                    )}
+                  </div>
+                );
+              }
+
+              // ── Ended ──
+              if (c.isEnded) {
+                const standingsByUser: Record<string, { name: string; total: number }> = {};
+                (c.entries ?? []).forEach((e: any) => {
+                  if (!standingsByUser[e.userId]) standingsByUser[e.userId] = { name: e.user?.name || "?", total: 0 };
+                  standingsByUser[e.userId].total += e.value;
+                });
+                const standings = Object.entries(standingsByUser)
+                  .map(([uid, s]) => ({ uid, ...s }))
+                  .sort((a, b) => b.total - a.total)
+                  .slice(0, 5);
+
+                return (
+                  <div key={c.id} className="rounded-2xl border border-border bg-surface px-4 py-3 opacity-80">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <p className="text-sm font-medium">{c.title}</p>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-300 border border-yellow-700/40">🏆 Complete</span>
+                        </div>
+                        <p className="text-xs text-foreground-dim capitalize">
+                          {c.team.name} · Ended {new Date(c.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
+                    {standings.length > 0 && (
+                      <div className="space-y-1 mt-1">
+                        <p className="text-xs text-foreground-dim font-medium mb-1">Final standings</p>
+                        {standings.map((s, i) => (
+                          <div key={s.uid} className="flex items-center justify-between text-xs">
+                            <span className="text-foreground-dim">
+                              {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`} {s.name}
+                            </span>
+                            <span className="font-medium">{s.total} {c.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // ── Active ──
+              const myTotal = (c.myEntries ?? []).reduce((s: number, e: any) => s + e.value, 0);
+              const cpct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
+              const daysLeft = Math.ceil((new Date(c.endDate).getTime() - Date.now()) / 86400000);
               const isSteps = c.unit === "steps";
 
               return (
