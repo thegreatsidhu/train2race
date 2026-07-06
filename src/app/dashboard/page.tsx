@@ -378,10 +378,7 @@ export default async function TodayPage() {
       <details className="mb-6 group">
         <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden mb-3 py-0.5 border-b border-border">
           <h2 className="text-sm font-medium text-foreground-dim select-none">Recent activity</h2>
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard/log-workout" className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">+ Log a workout 💪</Link>
-            <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
-          </div>
+          <span className="text-foreground-dim text-xs select-none transition-transform group-open:rotate-180 inline-block mr-0.5">▾</span>
         </summary>
         <div className="pt-1">
           {mergedActivities.length > 0
