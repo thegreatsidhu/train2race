@@ -314,7 +314,7 @@ export default async function TodayPage() {
             <h2 className="text-xs font-medium text-foreground-dim uppercase tracking-wide">Your crew</h2>
           </div>
           <div className="space-y-2">
-            {teamsWithActivity.map((t: any) => (
+            {teamsWithActivity.slice(0, 5).map((t: any) => (
               <Link key={t.id} href={`/dashboard/teams/${t.id}`}
                 className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 hover:border-signal/30 transition-colors group">
                 <div className="w-9 h-9 rounded-full bg-signal/10 border border-signal/20 flex items-center justify-center shrink-0">
@@ -330,6 +330,11 @@ export default async function TodayPage() {
               </Link>
             ))}
           </div>
+          {teamsWithActivity.length > 5 && (
+            <Link href="/dashboard/teams" className="inline-block mt-2 text-xs text-foreground-dim hover:text-signal transition-colors">
+              See all {teamsWithActivity.length} teams →
+            </Link>
+          )}
         </section>
       ) : !isNewUser && (
         <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-5 mb-6 flex items-center justify-between">
