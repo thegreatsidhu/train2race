@@ -129,19 +129,11 @@ export default async function TodayPage() {
     <div className="max-w-2xl px-4 md:px-8 py-6 md:py-10">
 
       {/* ── Header ── */}
-      <header className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs text-foreground-dim uppercase tracking-[0.16em] mb-2">
-              {today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
-            </p>
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4">{greetingText}, {userName}.</h1>
-          </div>
-          <Link href="/dashboard/log-workout"
-            className="hidden md:flex shrink-0 items-center gap-1.5 px-4 py-2 rounded-full bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium transition-colors mt-1">
-            + Log Workout
-          </Link>
-        </div>
+      <header className="mb-4">
+        <p className="text-xs text-foreground-dim uppercase tracking-[0.16em] mb-2">
+          {today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+        </p>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4">{greetingText}, {userName}.</h1>
         <div className="flex flex-wrap gap-2">
           {streak > 0 && (
             <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-surface border border-border font-medium">
@@ -161,8 +153,15 @@ export default async function TodayPage() {
           )}
           <WeatherBadge city={displayCity} timezone={user?.timezone ?? null} />
         </div>
-        </div>
       </header>
+
+      {/* ── Log Workout CTA — desktop only ── */}
+      <Link
+        href="/dashboard/log-workout"
+        className="hidden md:flex items-center justify-center gap-2 w-full mb-8 py-3 rounded-2xl bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors"
+      >
+        + Log Workout
+      </Link>
 
       {/* ── AI daily message ── */}
       <DailyAIMessage />
