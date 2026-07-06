@@ -165,6 +165,9 @@ export default function AdminPage() {
   const [newRaceSport, setNewRaceSport] = useState("Running");
   const [newRaceSeries, setNewRaceSeries] = useState("");
   const [creatingRace, setCreatingRace] = useState(false);
+  const [expandedConnections, setExpandedConnections] = useState({});
+  const [syncingConnection, setSyncingConnection] = useState({});
+  const [syncResults, setSyncResults] = useState({});
   const [raceSearch, setRaceSearch] = useState("");
   const [raceDistFilter, setRaceDistFilter] = useState("all");
   const [raceYearFilter, setRaceYearFilter] = useState("all");
@@ -365,6 +368,15 @@ export default function AdminPage() {
   function setUserMsg(userId, msg, ok) {
     setUserMsgs(prev => ({ ...prev, [userId]: { msg, ok } }));
     setTimeout(() => setUserMsgs(prev => { const n = { ...prev }; delete n[userId]; return n; }), 4000);
+  }
+
+  async function triggerSync(connectionId) {
+    setSyncingConnection(prev => ({ ...prev, [connectionId]: true }));
+    setSyncResults(prev => { const n = { ...prev }; delete n[connectionId]; return n; });
+    const res = await fetch("/api/admin/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, connectionId }) });
+    const d = await res.json();
+    setSyncingConnection(prev => ({ ...prev, [connectionId]: false }));
+    setSyncResults(prev => ({ ...prev, [connectionId]: d }));
   }
 
   async function resetPlanGenerations(userId) {
@@ -953,10 +965,21 @@ export default function AdminPage() {
                         <button onClick={() => resetPlanGenerations(user.id)} className="ml-2 text-signal hover:underline">Reset</button>
                       )}
                     </p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {user.connections?.map((c) => (
-                        <span key={c.source} className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border">{c.source}</span>
-                      ))}
+                    <div className="mt-2">
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        {user.connections?.length > 0 ? user.connections.map((c) => (
+                          <span key={c.source} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border">
+                            <span className={"w-1.5 h-1.5 rounded-full inline-block " + (c.status === "active" ? "bg-green-400" : "bg-foreground-dim")} />
+                            {c.source === "APPLE_HEALTH" ? "Apple Health" : c.source.charAt(0) + c.source.slice(1).toLowerCase()}
+                          </span>
+                        )) : <span className="text-xs text-foreground-dim">No integrations</span>}
+                        {user.connections?.length > 0 && (
+                          <button onClick={() => setExpandedConnections(prev => ({ ...prev, [user.id]: !prev[user.id] }))}
+                            className="text-xs text-signal hover:underline ml-1">
+                            {expandedConnections[user.id] ? "Hide connections ▲" : "View connections ▼"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
@@ -1005,6 +1028,40 @@ export default function AdminPage() {
                       <button onClick={() => setTempPw(user.id)} disabled={tempPassword.length < 6} className="px-4 py-2 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-50">Save</button>
                       <button onClick={() => { setSettingPwFor(null); setTempPassword(""); }} className="px-3 py-2 rounded-full border border-border text-xs">Cancel</button>
                     </div>
+                  </div>
+                )}
+                {expandedConnections[user.id] && user.connections?.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-border bg-background p-3 space-y-2">
+                    <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-1">Integrations</p>
+                    {user.connections.map((c) => {
+                      const label = c.source === "APPLE_HEALTH" ? "Apple Health" : c.source.charAt(0) + c.source.slice(1).toLowerCase();
+                      const isPushOnly = c.source === "APPLE_HEALTH" || c.source === "MANUAL";
+                      const result = syncResults[c.id];
+                      return (
+                        <div key={c.id} className="flex items-start justify-between gap-3 flex-wrap">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className={"w-2 h-2 rounded-full " + (c.status === "active" ? "bg-green-400" : "bg-foreground-dim")} />
+                              <span className="text-sm font-medium">{label}</span>
+                              {c.status !== "active" && <span className="text-xs text-red-400">({c.status})</span>}
+                            </div>
+                            <p className="text-xs text-foreground-dim">
+                              {c.lastSyncedAt ? `Last synced ${new Date(c.lastSyncedAt).toLocaleString()}` : "Never synced"}
+                            </p>
+                            {c.lastError && <p className="text-xs text-red-400 mt-0.5 max-w-xs truncate" title={c.lastError}>{c.lastError}</p>}
+                            {result && <p className={"text-xs mt-0.5 " + (result.ok ? "text-signal" : "text-red-400")}>{result.ok ? "Sync complete" : (result.error || "Sync failed")}</p>}
+                          </div>
+                          {!isPushOnly ? (
+                            <button onClick={() => triggerSync(c.id)} disabled={!!syncingConnection[c.id]}
+                              className="text-xs px-3 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-50 shrink-0">
+                              {syncingConnection[c.id] ? "Syncing…" : "Trigger sync"}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-foreground-dim shrink-0">Push-only</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {userMsgs[user.id] && (
