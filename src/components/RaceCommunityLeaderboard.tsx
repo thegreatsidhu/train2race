@@ -53,7 +53,7 @@ export function RaceCommunityLeaderboard({
                   <span className="text-xs text-foreground-dim w-8 text-right tabular-nums">{athlete.pct}%</span>
                 </div>
               ) : (
-                <span className="text-xs text-foreground-dim/50 shrink-0">No plan</span>
+                <span className="text-xs text-foreground-dim/50 shrink-0">–</span>
               )}
             </div>
           ))}

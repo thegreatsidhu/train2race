@@ -158,7 +158,7 @@ export default async function TodayPage() {
       {/* ── Log Workout CTA — desktop only ── */}
       <Link
         href="/dashboard/log-workout"
-        className="hidden md:flex items-center justify-center gap-2 w-full mb-8 py-3 rounded-2xl bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors"
+        className="hidden md:flex items-center justify-center gap-2 w-full max-w-[280px] mb-8 py-3 rounded-2xl bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors"
       >
         + Log Workout
       </Link>
