@@ -12,6 +12,7 @@ import { ActiveChallengesSection } from "@/components/ActiveChallengesSection";
 import { RaceCommunityLeaderboard } from "@/components/RaceCommunityLeaderboard";
 import { KudosBanner } from "@/components/KudosBanner";
 import { DailyAIMessage } from "@/components/DailyAIMessage";
+import { HighFiveStrip } from "@/components/HighFiveStrip";
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run:"bg-green-900/50 text-green-300 border-green-700",
@@ -155,13 +156,16 @@ export default async function TodayPage() {
         </div>
       </header>
 
-      {/* ── Log Workout CTA — desktop only ── */}
-      <Link
-        href="/dashboard/log-workout"
-        className="hidden md:flex items-center justify-center gap-2 w-full max-w-[280px] mb-8 py-3 rounded-2xl bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors"
-      >
-        + Log Workout
-      </Link>
+      {/* ── Log Workout CTA + High Five strip — desktop only ── */}
+      <div className="hidden md:block w-full max-w-[280px] mb-8">
+        <Link
+          href="/dashboard/log-workout"
+          className="flex items-center justify-center gap-2 w-full mb-3 py-3 rounded-2xl bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors"
+        >
+          + Log Workout
+        </Link>
+        <HighFiveStrip />
+      </div>
 
       {/* ── AI daily message ── */}
       <DailyAIMessage />
