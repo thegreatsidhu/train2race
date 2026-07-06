@@ -1,16 +1,16 @@
 import { prisma } from "@/lib/prisma";
 
 const DISTANCE_BUCKETS = [
-  { label: "5K",           slug: "5k",       minMi: 3,  maxMi: 3.2,  distanceM: 5000  },
-  { label: "10K",          slug: "10k",      minMi: 6,  maxMi: 6.3,  distanceM: 10000 },
-  { label: "Half Marathon",slug: "half",     minMi: 13, maxMi: 13.2, distanceM: 21097 },
-  { label: "Marathon",     slug: "marathon", minMi: 26, maxMi: 26.3, distanceM: 42195 },
-  { label: "Ultra",        slug: "ultra",    minMi: 30, maxMi: 200,  distanceM: 80467 },
+  { label: "5K",           slug: "5k",       minMi: 3,  maxMi: 3.2,  fallbackM: 5000,  minM: 4000,  maxM: 6000     },
+  { label: "10K",          slug: "10k",      minMi: 6,  maxMi: 6.3,  fallbackM: 10000, minM: 9000,  maxM: 11500    },
+  { label: "Half Marathon",slug: "half",     minMi: 13, maxMi: 13.2, fallbackM: 21097, minM: 19000, maxM: 23000    },
+  { label: "Marathon",     slug: "marathon", minMi: 26, maxMi: 26.3, fallbackM: 42195, minM: 41000, maxM: 43500    },
+  { label: "Ultra",        slug: "ultra",    minMi: 30, maxMi: 200,  fallbackM: 80467, minM: 43500, maxM: Infinity },
 ];
 
 function parseRunSignupDate(s: string | null | undefined): Date | null {
   if (!s) return null;
-  const datePart = String(s).trim().split(" ")[0]; // handles "6/1/2026 00:00" and "06/01/2026"
+  const datePart = String(s).trim().split(" ")[0];
   const parts = datePart.split("/").map(Number);
   if (parts.length !== 3 || parts.some(isNaN)) return null;
   const [m, d, y] = parts;
@@ -28,6 +28,35 @@ function getBestDate(race: any, after: Date): Date | null {
   return null;
 }
 
+// Parse RunSignup event.distance strings (e.g. "26.2 Miles", "Marathon", "5K", "42.195 Kilometers")
+function parseEventDistanceM(distance: string | null | undefined): number | null {
+  if (!distance) return null;
+  const s = String(distance).trim().toLowerCase();
+
+  if (s === "marathon") return 42195;
+  if (s === "half marathon" || s === "half") return 21097;
+  if (s === "5k") return 5000;
+  if (s === "10k") return 10000;
+  if (s === "15k") return 15000;
+  if (s === "20k") return 20000;
+  if (s === "25k") return 25000;
+  if (s === "50k") return 50000;
+  if (s === "100k") return 100000;
+  if (/^50\s*mi(?:les?)?$/.test(s)) return 80467;
+  if (/^100\s*mi(?:les?)?$/.test(s)) return 160934;
+
+  const m = s.match(/^([\d.]+)\s*(mi(?:les?)?|km|k(?:ilo)?m(?:eters?)?|m(?:eters?)?)?$/);
+  if (!m) return null;
+  const num = parseFloat(m[1]);
+  if (isNaN(num) || num <= 0) return null;
+  const unit = (m[2] || "").toLowerCase();
+
+  if (unit.startsWith("km") || unit === "k") return Math.round(num * 1000);
+  if (unit === "m" || unit.startsWith("meter")) return Math.round(num);
+  // Default: miles (RunSignup is US-centric; numeric-only distances are in miles)
+  return Math.round(num * 1609.34);
+}
+
 export async function discoverRacesFromRunSignup(): Promise<{
   created: number;
   skipped: number;
@@ -37,7 +66,6 @@ export async function discoverRacesFromRunSignup(): Promise<{
   const startDate = now.toISOString().split("T")[0];
   const endDate = new Date(now.getTime() + 180 * 86400000).toISOString().split("T")[0];
 
-  // Bulk-load existing RunSignup externalIds to avoid per-row DB lookups
   const existing = await (prisma as any).majorRace.findMany({
     where: { externalId: { startsWith: "runsignup-" } },
     select: { externalId: true },
@@ -61,11 +89,11 @@ export async function discoverRacesFromRunSignup(): Promise<{
         distance_units: "M",
         country: "US",
         sort: "date ASC",
-        include_event_days: "T",
+        events: "T",
       });
       const res = await fetch(`https://api.runsignup.com/rest/races?${params}`, {
         headers: { Accept: "application/json", "User-Agent": "Train2Race/1.0" },
-        // @ts-ignore — AbortSignal.timeout is available in Node 18+
+        // @ts-ignore
         signal: AbortSignal.timeout(30000),
       });
       if (!res.ok) { errors.push(`${bucket.label}: HTTP ${res.status}`); continue; }
@@ -89,6 +117,16 @@ export async function discoverRacesFromRunSignup(): Promise<{
       const name = String(race.name ?? "").trim();
       if (!name) { skipped++; continue; }
 
+      // Use the actual event distance when available; fall back to the bucket's canonical value.
+      let distanceM = bucket.fallbackM;
+      for (const event of race.events ?? []) {
+        const parsed = parseEventDistanceM(event.distance);
+        if (parsed !== null && parsed >= bucket.minM && parsed <= bucket.maxM) {
+          distanceM = parsed;
+          break;
+        }
+      }
+
       const slugBase = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50)}-${raceDate.getFullYear()}-${race.race_id}-${bucket.slug}`;
 
       try {
@@ -99,7 +137,7 @@ export async function discoverRacesFromRunSignup(): Promise<{
             city: String(race.address?.city ?? "Unknown").trim(),
             country: String(race.address?.country_code ?? "US"),
             raceDate,
-            distanceM: bucket.distanceM,
+            distanceM,
             isTriathlon: false,
             website: race.url ?? null,
             status: "pending",
@@ -111,7 +149,7 @@ export async function discoverRacesFromRunSignup(): Promise<{
         created++;
       } catch (e: any) {
         if (e?.code === "P2002") {
-          skipped++; // unique constraint (slug or externalId collision)
+          skipped++;
         } else {
           errors.push(`${name.slice(0, 60)}: ${String(e?.message ?? e).slice(0, 80)}`);
         }
@@ -120,4 +158,12 @@ export async function discoverRacesFromRunSignup(): Promise<{
   }
 
   return { created, skipped, errors };
+}
+
+// Delete all pending RunSignup races so a fresh re-discovery can correct any bad data.
+export async function clearPendingRunSignupRaces(): Promise<number> {
+  const result = await (prisma as any).majorRace.deleteMany({
+    where: { status: "pending", source: "runsignup" },
+  });
+  return result.count;
 }

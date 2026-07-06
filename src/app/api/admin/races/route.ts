@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
-import { discoverRacesFromRunSignup } from "@/lib/raceDiscovery";
+import { discoverRacesFromRunSignup, clearPendingRunSignupRaces } from "@/lib/raceDiscovery";
 
 function rateLimited(req: NextRequest): boolean {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
   if (action === "discover") {
     const result = await discoverRacesFromRunSignup();
     return NextResponse.json({ ok: true, ...result });
+  }
+
+  if (action === "rediscover") {
+    const cleared = await clearPendingRunSignupRaces();
+    const result = await discoverRacesFromRunSignup();
+    return NextResponse.json({ ok: true, cleared, ...result });
   }
 
   if (action === "create") {

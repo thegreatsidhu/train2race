@@ -1,6 +1,23 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 
+const MAJOR_CITIES = new Set([
+  "new york","los angeles","chicago","houston","phoenix","philadelphia","san antonio",
+  "san diego","dallas","san jose","austin","jacksonville","fort worth","columbus",
+  "charlotte","indianapolis","san francisco","seattle","denver","nashville",
+  "oklahoma city","el paso","washington","boston","las vegas","portland","louisville",
+  "baltimore","milwaukee","albuquerque","tucson","fresno","sacramento","mesa",
+  "kansas city","atlanta","omaha","colorado springs","raleigh","miami","minneapolis",
+  "tulsa","cleveland","wichita","arlington","new orleans","bakersfield","tampa",
+  "honolulu","anaheim","santa ana","corpus christi","riverside","st. louis",
+  "pittsburgh","cincinnati","anchorage","greensboro","plano","newark","henderson",
+  "lincoln","buffalo","fort wayne","orlando","st. paul","norfolk","chandler",
+  "madison","durham","lubbock","scottsdale","irving","chesapeake","fremont",
+  "gilbert","san bernardino","baton rouge","birmingham","richmond","spokane",
+  "des moines","montgomery","little rock","salt lake city","portland","tacoma",
+  "aurora","glendale","hialeah","north las vegas","jersey city","chula vista",
+]);
+
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -122,6 +139,10 @@ export default function AdminPage() {
   const [discoverResult, setDiscoverResult] = useState(null);
   const [bulkConfirm, setBulkConfirm] = useState(null); // "approve" | "reject" | null
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkTargetRaces, setBulkTargetRaces] = useState([]);
+  const [pendingSort, setPendingSort] = useState("date_asc"); // date_asc | date_desc
+  const [pendingFilter, setPendingFilter] = useState("all"); // all | major_city
+  const [rediscovering, setRediscovering] = useState(false);
   const [editingRaceId, setEditingRaceId] = useState(null);
   const [editRaceName, setEditRaceName] = useState("");
   const [editRaceDate, setEditRaceDate] = useState("");
@@ -232,11 +253,27 @@ export default function AdminPage() {
     await refreshData();
   }
 
+  function initBulkConfirm(action, races) {
+    setBulkTargetRaces(races);
+    setBulkConfirm(action);
+  }
+
   async function bulkAction(action) {
     setBulkProcessing(true);
     setBulkConfirm(null);
-    await Promise.all((data?.pendingRaces || []).map(r => approveRace(r.id, action)));
+    await Promise.all(bulkTargetRaces.map(r => approveRace(r.id, action)));
     setBulkProcessing(false);
+    setBulkTargetRaces([]);
+  }
+
+  async function rediscoverRaces() {
+    setRediscovering(true);
+    setDiscoverResult(null);
+    const res = await fetch("\api\admin\races", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "rediscover" }) });
+    const d = await res.json();
+    setDiscoverResult({ ...d, cleared: d.cleared });
+    setRediscovering(false);
+    refreshData();
   }
 
   async function discoverRaces() {
@@ -782,6 +819,18 @@ export default function AdminPage() {
       return 0;
     });
 
+  const displayedPending = (() => {
+    const races = [...(data?.pendingRaces || [])];
+    const filtered = pendingFilter === "major_city"
+      ? races.filter(r => MAJOR_CITIES.has((r.city || "").toLowerCase()))
+      : races;
+    return filtered.sort((a, b) => {
+      const da = new Date(a.raceDate).getTime();
+      const db = new Date(b.raceDate).getTime();
+      return pendingSort === "date_asc" ? da - db : db - da;
+    });
+  })();
+
   const filteredChallenges = allChallenges.filter(c => {
     if (challengeStatusFilter === "all") return true;
     if (challengeStatusFilter === "pending") return c.status === "pending";
@@ -1123,52 +1172,81 @@ export default function AdminPage() {
             {raceViewTab === "pending" && (
               <div>
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <p className="text-sm text-foreground-dim">{data?.pendingRaces?.length || 0} pending</p>
-                  <div className="flex items-center gap-3">
+                  <p className="text-sm text-foreground-dim">
+                    {pendingFilter !== "all"
+                      ? `${displayedPending.length} / ${data?.pendingRaces?.length || 0} pending`
+                      : `${data?.pendingRaces?.length || 0} pending`}
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     <button onClick={refreshData} className="text-xs text-signal hover:underline">Refresh</button>
-                    <button onClick={discoverRaces} disabled={discovering} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{discovering ? "Discovering…" : "Discover races now"}</button>
+                    <button onClick={discoverRaces} disabled={discovering || rediscovering} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{discovering ? "Discovering…" : "Discover races now"}</button>
+                    <button onClick={rediscoverRaces} disabled={rediscovering || discovering} className="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 disabled:opacity-50" title="Clears all pending auto-discovered races and re-runs discovery with corrected distance parsing">{rediscovering ? "Re-running…" : "Fix & Rediscover ↺"}</button>
                   </div>
                 </div>
                 {discoverResult && (
                   <div className={"mb-3 text-xs rounded-xl px-3 py-2 border " + (discoverResult.errors?.length ? "border-yellow-700/40 bg-yellow-900/10 text-yellow-300" : "border-signal/30 bg-signal/5 text-signal")}>
+                    {discoverResult.cleared != null && <span className="mr-2 opacity-70">Cleared {discoverResult.cleared} · </span>}
                     {discoverResult.created > 0 ? `Added ${discoverResult.created} new race${discoverResult.created !== 1 ? "s" : ""}` : "No new races found"} · {discoverResult.skipped} skipped
                     {discoverResult.errors?.length > 0 && <span className="ml-2 text-red-400">· {discoverResult.errors.length} error(s)</span>}
                   </div>
                 )}
                 {data?.pendingRaces?.length > 0 && (
-                  <div className="mb-3">
-                    {bulkConfirm ? (
-                      <div className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
-                        <p className="text-sm text-yellow-200">
-                          {bulkConfirm === "approve"
-                            ? `Approve all ${data.pendingRaces.length} pending race${data.pendingRaces.length !== 1 ? "s" : ""}? This will make them visible to all users.`
-                            : `Reject all ${data.pendingRaces.length} pending race${data.pendingRaces.length !== 1 ? "s" : ""}?`}
-                        </p>
-                        <div className="flex gap-2 shrink-0">
-                          <button onClick={() => bulkAction(bulkConfirm)} disabled={bulkProcessing}
-                            className={"px-3 py-1.5 rounded-full text-xs font-medium disabled:opacity-50 " + (bulkConfirm === "approve" ? "bg-signal text-background" : "bg-red-600 text-white")}>
-                            {bulkProcessing ? "Processing…" : "Confirm"}
-                          </button>
-                          <button onClick={() => setBulkConfirm(null)} className="px-3 py-1.5 rounded-full border border-border text-xs">Cancel</button>
+                  <>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      <div className="flex gap-1">
+                        <button onClick={() => setPendingFilter("all")}
+                          className={"text-xs px-2.5 py-1 rounded-full border " + (pendingFilter === "all" ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                          All
+                        </button>
+                        <button onClick={() => setPendingFilter("major_city")}
+                          className={"text-xs px-2.5 py-1 rounded-full border " + (pendingFilter === "major_city" ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                          Major cities
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setPendingSort(s => s === "date_asc" ? "date_desc" : "date_asc")}
+                        className="text-xs px-2.5 py-1 rounded-full border border-border hover:bg-surface ml-auto">
+                        Date {pendingSort === "date_asc" ? "↑ Soonest first" : "↓ Latest first"}
+                      </button>
+                    </div>
+                    <div className="mb-3">
+                      {bulkConfirm ? (
+                        <div className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+                          <p className="text-sm text-yellow-200">
+                            {bulkConfirm === "approve"
+                              ? `Approve ${bulkTargetRaces.length} race${bulkTargetRaces.length !== 1 ? "s" : ""}? This will make them visible to all users.`
+                              : `Reject ${bulkTargetRaces.length} race${bulkTargetRaces.length !== 1 ? "s" : ""}?`}
+                          </p>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={() => bulkAction(bulkConfirm)} disabled={bulkProcessing}
+                              className={"px-3 py-1.5 rounded-full text-xs font-medium disabled:opacity-50 " + (bulkConfirm === "approve" ? "bg-signal text-background" : "bg-red-600 text-white")}>
+                              {bulkProcessing ? "Processing…" : "Confirm"}
+                            </button>
+                            <button onClick={() => { setBulkConfirm(null); setBulkTargetRaces([]); }} className="px-3 py-1.5 rounded-full border border-border text-xs">Cancel</button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button onClick={() => setBulkConfirm("approve")}
-                          className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">
-                          Approve All ({data.pendingRaces.length})
-                        </button>
-                        <button onClick={() => setBulkConfirm("reject")}
-                          className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">
-                          Reject All ({data.pendingRaces.length})
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button onClick={() => initBulkConfirm("approve", displayedPending)}
+                            className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">
+                            Approve All ({displayedPending.length})
+                          </button>
+                          <button onClick={() => initBulkConfirm("reject", displayedPending)}
+                            className="px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 text-xs">
+                            Reject All ({displayedPending.length})
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
-                {(!data?.pendingRaces || data.pendingRaces.length === 0) ? <p className="text-sm text-foreground-dim">No pending submissions.</p> : (
+                {displayedPending.length === 0 ? (
+                  <p className="text-sm text-foreground-dim">
+                    {data?.pendingRaces?.length ? "No races match the current filter." : "No pending submissions."}
+                  </p>
+                ) : (
                   <div className="space-y-3">
-                    {data.pendingRaces.map((race) => (
+                    {displayedPending.map((race) => (
                       <div key={race.id} className="rounded-2xl border border-yellow-700/40 bg-surface p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div>
