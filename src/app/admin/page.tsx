@@ -211,6 +211,13 @@ export default function AdminPage() {
   const [platformChLeaderboard, setPlatformChLeaderboard] = useState({});
   const [loadingPChLb, setLoadingPChLb] = useState(null);
   const [confirmDeletePlatformCh, setConfirmDeletePlatformCh] = useState(null);
+  const [editingPlatformCh, setEditingPlatformCh] = useState(null);
+  const [editPChForm, setEditPChForm] = useState({title:"",description:"",startDate:"",endDate:"",badgeName:"",activityFilter:"",enrollmentLocked:false});
+  const [savingPCh, setSavingPCh] = useState(false);
+  const [editPChError, setEditPChError] = useState("");
+  const [confirmShortenPCh, setConfirmShortenPCh] = useState(null);
+  const [platformChLogs, setPlatformChLogs] = useState({});
+  const [loadingPChLogs, setLoadingPChLogs] = useState(null);
 
   const [stats, setStats] = useState(null);
   const [statsLoaded, setStatsLoaded] = useState(false);
@@ -614,6 +621,38 @@ export default function AdminPage() {
     await fetch("/api/admin/platform-challenges", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, challengeId }) });
     setPlatformChallenges(prev => prev.filter(c => c.id !== challengeId));
     if (expandedPlatformCh === challengeId) setExpandedPlatformCh(null);
+    if (editingPlatformCh === challengeId) setEditingPlatformCh(null);
+  }
+
+  async function savePlatformChallengeEdit(challengeId, force = false) {
+    setSavingPCh(true); setEditPChError("");
+    const res = await fetch(`/api/admin/platform-challenges/${challengeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, ...editPChForm, force }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSavingPCh(false);
+    if (res.ok) {
+      setPlatformChallenges(prev => prev.map(c => c.id === challengeId ? { ...c, ...d.challenge } : c));
+      setEditingPlatformCh(null);
+      setConfirmShortenPCh(null);
+      // Reload logs
+      loadPlatformChallengeLogs(challengeId);
+    } else if (res.status === 409 && d.requiresForce) {
+      setConfirmShortenPCh(challengeId);
+    } else {
+      setEditPChError(d.error || "Failed to save.");
+    }
+  }
+
+  async function loadPlatformChallengeLogs(challengeId) {
+    if (loadingPChLogs === challengeId) return;
+    setLoadingPChLogs(challengeId);
+    const res = await fetch(`/api/admin/platform-challenges/${challengeId}?password=${encodeURIComponent(password)}`);
+    const d = await res.json().catch(() => ({}));
+    setPlatformChLogs(prev => ({ ...prev, [challengeId]: d.logs || [] }));
+    setLoadingPChLogs(null);
   }
   async function loadTeams() {
     if (teamsLoaded) return;
@@ -1778,8 +1817,12 @@ export default function AdminPage() {
               ) : (
                 <div className="space-y-3">
                   {platformChallenges.map(c => {
-                    const isActive = c.status === "active" && new Date() < new Date(c.endDate);
+                    const now = new Date();
+                    const hasStarted = new Date(c.startDate) <= now;
+                    const isActive = c.status === "active" && hasStarted && new Date(c.endDate) > now;
                     const isExpanded = expandedPlatformCh === c.id;
+                    const isEditing = editingPlatformCh === c.id;
+                    const logs = platformChLogs[c.id] || [];
                     const lb = platformChLeaderboard[c.id] || [];
                     return (
                       <div key={c.id} className="rounded-2xl border border-border bg-surface">
@@ -1806,15 +1849,30 @@ export default function AdminPage() {
                                 onClick={async () => {
                                   const next = isExpanded ? null : c.id;
                                   setExpandedPlatformCh(next);
-                                  if (next) await loadPlatformLeaderboard(next);
+                                  if (next) { await loadPlatformLeaderboard(next); loadPlatformChallengeLogs(next); }
                                 }}
                                 className="text-xs px-2.5 py-1 rounded-full border border-border hover:bg-surface-raised transition-colors"
                               >
                                 {isExpanded ? "Collapse" : "Leaderboard"}
                               </button>
+                              {!isEditing && (
+                                <button onClick={() => {
+                                  setEditingPlatformCh(c.id);
+                                  setEditPChError(""); setConfirmShortenPCh(null);
+                                  setEditPChForm({
+                                    title: c.title,
+                                    description: c.description || "",
+                                    startDate: new Date(c.startDate).toISOString().split("T")[0],
+                                    endDate: new Date(c.endDate).toISOString().split("T")[0],
+                                    badgeName: c.badgeName || "",
+                                    activityFilter: c.activityFilter || "",
+                                    enrollmentLocked: !!c.enrollmentLocked,
+                                  });
+                                }} className="text-xs px-2.5 py-1 rounded-full border border-signal/40 text-signal hover:bg-signal/10 transition-colors">Edit</button>
+                              )}
                               {confirmDeletePlatformCh === c.id ? (
                                 <>
-                                  <button onClick={() => deletePlatformChallenge(c.id)} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white">Confirm</button>
+                                  <button onClick={() => deletePlatformChallenge(c.id)} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white">Confirm delete</button>
                                   <button onClick={() => setConfirmDeletePlatformCh(null)} className="text-xs px-2.5 py-1 rounded-full border border-border">Cancel</button>
                                 </>
                               ) : (
@@ -1831,6 +1889,55 @@ export default function AdminPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Edit form */}
+                        {isEditing && (
+                          <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+                            <p className="text-xs font-medium text-foreground-dim">Edit challenge — type cannot be changed</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input value={editPChForm.title} onChange={e => setEditPChForm(f => ({...f, title: e.target.value}))} placeholder="Title *" className="col-span-2 px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <textarea value={editPChForm.description} onChange={e => setEditPChForm(f => ({...f, description: e.target.value}))} placeholder="Description" rows={2} className="col-span-2 px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none resize-none" />
+                              <div>
+                                <label className="text-xs text-foreground-dim mb-1 block">Start date{hasStarted ? " (locked)" : ""}</label>
+                                <input type="date" disabled={hasStarted} value={editPChForm.startDate} onChange={e => setEditPChForm(f => ({...f, startDate: e.target.value}))} className={"px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none w-full " + (hasStarted ? "opacity-50 cursor-not-allowed" : "focus:border-signal")} />
+                              </div>
+                              <div>
+                                <label className="text-xs text-foreground-dim mb-1 block">End date</label>
+                                <input type="date" value={editPChForm.endDate} onChange={e => { setEditPChForm(f => ({...f, endDate: e.target.value})); setConfirmShortenPCh(null); }} className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none w-full" />
+                                {isActive && editPChForm.endDate && new Date(editPChForm.endDate + "T23:59:59") < new Date(c.endDate) && (
+                                  <p className="text-xs text-amber-400 mt-0.5">⚠️ Shortening an active challenge will affect participant progress</p>
+                                )}
+                              </div>
+                              <input value={editPChForm.badgeName} onChange={e => setEditPChForm(f => ({...f, badgeName: e.target.value}))} placeholder="Badge name (optional)" className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <select value={editPChForm.activityFilter} onChange={e => setEditPChForm(f => ({...f, activityFilter: e.target.value}))} className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none">
+                                <option value="">All activity types</option>
+                                <option value="run">Running only</option>
+                                <option value="walk">Walking only</option>
+                                <option value="swim">Swimming only</option>
+                                <option value="ride">Cycling only</option>
+                                <option value="strength">Strength only</option>
+                              </select>
+                              <label className="col-span-2 flex items-center gap-2 cursor-pointer text-xs text-foreground-dim">
+                                <input type="checkbox" checked={editPChForm.enrollmentLocked} onChange={e => setEditPChForm(f => ({...f, enrollmentLocked: e.target.checked}))} className="accent-signal" />
+                                Enrollment locked (no new participants)
+                              </label>
+                            </div>
+                            {editPChError && <p className="text-xs text-red-400">{editPChError}</p>}
+                            {confirmShortenPCh === c.id ? (
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-amber-400 flex-1">This shortens an active challenge. Confirm?</p>
+                                <button onClick={() => savePlatformChallengeEdit(c.id, true)} disabled={savingPCh} className="text-xs px-3 py-1.5 rounded-lg bg-amber-600 text-white disabled:opacity-50">{savingPCh ? "Saving…" : "Yes, shorten"}</button>
+                                <button onClick={() => setConfirmShortenPCh(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border">Cancel</button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <button onClick={() => savePlatformChallengeEdit(c.id)} disabled={savingPCh || !editPChForm.title} className="text-xs px-3 py-1.5 rounded-lg bg-signal text-background font-medium disabled:opacity-50">{savingPCh ? "Saving…" : "Save changes"}</button>
+                                <button onClick={() => { setEditingPlatformCh(null); setEditPChError(""); setConfirmShortenPCh(null); }} className="text-xs px-3 py-1.5 rounded-lg border border-border">Cancel</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {isExpanded && (
                           <div className="border-t border-border px-4 pb-4 pt-3">
                             <p className="text-xs font-medium text-foreground-dim mb-2">Live leaderboard ({lb.length} athletes)</p>
@@ -1839,11 +1946,37 @@ export default function AdminPage() {
                             ) : lb.length === 0 ? (
                               <p className="text-xs text-foreground-dim">No data yet.</p>
                             ) : (
-                              <div className="space-y-1.5">
+                              <div className="space-y-1.5 mb-4">
                                 {lb.slice(0, 15).map((e, i) => (
                                   <div key={e.userId} className="flex items-center justify-between rounded-xl bg-background border border-border px-3 py-2">
                                     <p className="text-sm">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`} <span className="font-medium">{e.name}</span></p>
                                     <p className="text-xs text-foreground-dim">{e.stat}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Audit trail */}
+                            <p className="text-xs font-medium text-foreground-dim mb-2 mt-4 border-t border-border pt-3">Edit history</p>
+                            {loadingPChLogs === c.id ? (
+                              <p className="text-xs text-foreground-dim animate-pulse">Loading history…</p>
+                            ) : logs.length === 0 ? (
+                              <p className="text-xs text-foreground-dim italic">No edits recorded.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {logs.map((log: any) => (
+                                  <div key={log.id} className="rounded-lg border border-border bg-background px-3 py-2 text-xs">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="font-medium">{log.editedByName}</span>
+                                      <span className="text-foreground-dim">{new Date(log.createdAt).toLocaleString()}</span>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                      {(log.changes as any[]).map((ch: any, ci: number) => (
+                                        <p key={ci} className="text-foreground-dim">
+                                          <span className="capitalize">{ch.field}</span>: <span className="line-through opacity-60">{String(ch.from)}</span> → <span className="text-signal">{String(ch.to)}</span>
+                                        </p>
+                                      ))}
+                                    </div>
                                   </div>
                                 ))}
                               </div>

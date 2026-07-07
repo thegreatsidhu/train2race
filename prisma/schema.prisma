@@ -700,3 +700,18 @@ model EventMessage {
   @@index([majorRaceId, createdAt])
   @@map("event_messages")
 }
+
+model ChallengeEditLog {
+  id             String   @id @default(cuid())
+  challengeType  String   // "platform" | "team"
+  challengeId    String
+  challengeTitle String
+  editedBy       String   // userId
+  editedByName   String
+  changes        Json     // Array of { field, from, to }
+  notified       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  @@index([challengeId])
+  @@index([notified, createdAt])
+  @@map("challenge_edit_logs")
+}

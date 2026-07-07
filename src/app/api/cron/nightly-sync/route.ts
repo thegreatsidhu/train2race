@@ -157,6 +157,86 @@ export async function GET(req: NextRequest) {
     data: { enrollmentLocked: true },
   });
 
+  // Challenge edit notifications — one digest per participant per batch of edits
+  let editNotifs = 0;
+  if (process.env.RESEND_API_KEY) {
+    const unnotifiedEdits = await (prisma as any).challengeEditLog.findMany({
+      where: { notified: false },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+    });
+
+    if (unnotifiedEdits.length > 0) {
+      // Group by challengeId
+      const byChallengeId = new Map<string, typeof unnotifiedEdits>();
+      for (const log of unnotifiedEdits as any[]) {
+        if (!byChallengeId.has(log.challengeId)) byChallengeId.set(log.challengeId, []);
+        byChallengeId.get(log.challengeId)!.push(log);
+      }
+
+      for (const [challengeId, logs] of byChallengeId.entries()) {
+        const firstLog = logs[0] as any;
+        const latestLog = logs[logs.length - 1] as any;
+
+        // Get participants to notify
+        let participantEmails: { email: string; name: string }[] = [];
+        if (firstLog.challengeType === "platform") {
+          const parts = await (prisma as any).platformChallengeParticipant.findMany({
+            where: { challengeId, optedOut: false },
+            select: { user: { select: { email: true, name: true, emailOptOut: true } } },
+          });
+          participantEmails = parts
+            .filter((p: any) => p.user.email && !p.user.emailOptOut)
+            .map((p: any) => ({ email: p.user.email, name: p.user.name || "Athlete" }));
+        } else if (firstLog.challengeType === "team") {
+          const entries = await (prisma as any).teamChallengeEntry.findMany({
+            where: { challengeId },
+            distinct: ["userId"],
+            select: { user: { select: { email: true, name: true, emailOptOut: true } } },
+          });
+          participantEmails = entries
+            .filter((e: any) => e.user.email && !e.user.emailOptOut)
+            .map((e: any) => ({ email: e.user.email, name: e.user.name || "Athlete" }));
+        }
+
+        // Build change summary
+        const allChanges = (logs as any[]).flatMap(l => l.changes as any[]);
+        const endDateChange = allChanges.find(ch => ch.field === "endDate");
+        const editorName = latestLog.editedByName;
+        const challengeTitle = latestLog.challengeTitle;
+
+        const changeLines = allChanges.map((ch: any) => {
+          const label = ch.field === "endDate" ? "End date" : ch.field === "startDate" ? "Start date" : ch.field === "title" ? "Title" : ch.field === "badgeName" ? "Badge" : ch.field.replace(/([A-Z])/g, " $1");
+          return `<p style="margin:0 0 4px;color:#9aa3ab;font-size:13px;">• <strong style="color:#ede9e2;">${label}:</strong> ${ch.from} → ${ch.to}</p>`;
+        }).join("");
+
+        const heading = endDateChange
+          ? `Great news! ${challengeTitle} has been extended`
+          : `${challengeTitle} has been updated`;
+        const preheader = endDateChange
+          ? `${challengeTitle} has been extended to ${endDateChange.to}`
+          : `${challengeTitle} was updated by ${editorName}`;
+        const body = `<p style="margin:0 0 12px;color:#9aa3ab;">${endDateChange ? `<strong style="color:#ede9e2;">${challengeTitle}</strong> has been extended to <strong style="color:#ede9e2;">${endDateChange.to}</strong> by ${editorName}.` : `<strong style="color:#ede9e2;">${challengeTitle}</strong> was updated by <strong style="color:#ede9e2;">${editorName}</strong>:`}</p>${changeLines}`;
+
+        for (const p of participantEmails) {
+          try {
+            await resend.emails.send({
+              from: FROM,
+              to: p.email,
+              subject: heading,
+              html: groupEmailHtml({ preheader, heading, body, cta: "View challenge", ctaUrl: "https://train2race.com/dashboard" }),
+            });
+            editNotifs++;
+          } catch {}
+        }
+      }
+
+      // Mark all as notified
+      const allIds = (unnotifiedEdits as any[]).map(l => l.id);
+      await (prisma as any).challengeEditLog.updateMany({ where: { id: { in: allIds } }, data: { notified: true } });
+    }
+  }
+
   // Platform challenge invite notifications — delivered once per invite for Train2Race members
   let inviteNotifs = 0;
   if (process.env.RESEND_API_KEY) {
@@ -360,5 +440,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, inviteNotifs, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
+  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, editNotifs, inviteNotifs, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
 }
