@@ -60,8 +60,9 @@ model User {
   teamBulletins            TeamBulletin[]
   teamEvents               TeamEvent[]
   communityRequests        CommunityRequest[]
-  highFivesGiven  HighFive[]  @relation("HighFivesGiven")
-  fitnessPlans    FitnessPlan[]
+  highFivesGiven   HighFive[]       @relation("HighFivesGiven")
+  activityComments ActivityComment[]
+  fitnessPlans     FitnessPlan[]
   @@map("users")
 }
 
@@ -182,6 +183,7 @@ model Activity {
   createdAt     DateTime   @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   highFives   HighFive[]
+  comments    ActivityComment[]
   @@unique([source, externalId])
   @@index([userId, startTime])
   @@map("activities")
@@ -198,6 +200,21 @@ model HighFive {
   @@index([activityId])
   @@index([fromUserId])
   @@map("kudos")
+}
+
+model ActivityComment {
+  id          String   @id @default(cuid())
+  activityId  String
+  userId      String
+  content     String
+  isDeleted   Boolean  @default(false)
+  deletedBy   String?
+  createdAt   DateTime @default(now())
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([activityId, createdAt])
+  @@index([userId])
+  @@map("activity_comments")
 }
 
 model Goal {

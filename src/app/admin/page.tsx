@@ -2224,26 +2224,55 @@ export default function AdminPage() {
         )}
 
         {activeTab === "chat" && (
-          <div>
-            <h2 className="font-medium mb-3">Event Messages</h2>
-            {(!data?.recentMessages || data.recentMessages.length === 0) ? <p className="text-sm text-foreground-dim">No messages yet.</p> : (
-              <div className="space-y-2">
-                {data.recentMessages.map((msg) => (
-                  <div key={msg.id} className="rounded-xl border border-border bg-surface p-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium">{msg.user?.name || "Unknown"}</span>
-                          <span className="text-xs text-foreground-dim">in {msg.majorRace?.name}</span>
+          <div className="space-y-8">
+            <div>
+              <h2 className="font-medium mb-3">Event Messages</h2>
+              {(!data?.recentMessages || data.recentMessages.length === 0) ? <p className="text-sm text-foreground-dim">No messages yet.</p> : (
+                <div className="space-y-2">
+                  {data.recentMessages.map((msg) => (
+                    <div key={msg.id} className="rounded-xl border border-border bg-surface p-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium">{msg.user?.name || "Unknown"}</span>
+                            <span className="text-xs text-foreground-dim">in {msg.majorRace?.name}</span>
+                          </div>
+                          <p className="text-sm text-foreground-dim">{msg.content}</p>
                         </div>
-                        <p className="text-sm text-foreground-dim">{msg.content}</p>
+                        <button onClick={() => deleteMessage(msg.id)} className="text-xs text-red-400">Delete</button>
                       </div>
-                      <button onClick={() => deleteMessage(msg.id)} className="text-xs text-red-400">Delete</button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h2 className="font-medium mb-3">Activity Comments</h2>
+              {(!data?.recentActivityComments || data.recentActivityComments.length === 0) ? <p className="text-sm text-foreground-dim">No comments yet.</p> : (
+                <div className="space-y-2">
+                  {data.recentActivityComments.map((c) => (
+                    <div key={c.id} className="rounded-xl border border-border bg-surface p-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-xs font-medium">{c.user?.name || "Unknown"}</span>
+                            <span className="text-xs text-foreground-dim">on {c.activity?.title || c.activity?.type || "activity"}</span>
+                            <span className="text-xs text-foreground-dim">{new Date(c.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="text-sm text-foreground-dim">{c.content}</p>
+                        </div>
+                        <button
+                          onClick={async()=>{
+                            await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password,action:"deleteActivityComment",commentId:c.id})});
+                            setData(prev=>({...prev,recentActivityComments:prev.recentActivityComments.filter(x=>x.id!==c.id)}));
+                          }}
+                          className="text-xs text-red-400 hover:underline shrink-0">Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

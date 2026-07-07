@@ -29,6 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       distanceM: true, durationSec: true, userId: true, raw: true, photos: true,
       user: { select: { id: true, name: true, email: true } },
       highFives: { select: { fromUserId: true } },
+      comments: { where: { isDeleted: false }, select: { id: true } },
     },
     orderBy: { startTime: "desc" },
     take: 40,
@@ -47,6 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     isMe: a.userId === userId,
     highFiveCount: a.highFives.length,
     iHighFived: a.highFives.some(k => k.fromUserId === userId),
+    commentCount: a.comments.length,
     photos: a.photos ?? [],
   }));
 

@@ -51,7 +51,8 @@ export async function POST(req: Request) {
       ]);
       const pendingRaces = await prisma.majorRace.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" } });
       const recentMessages = await prisma.eventMessage.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" }, take: 50, include: { user: { select: { name: true } }, majorRace: { select: { name: true } } } });
-      return NextResponse.json({ users, inviteCodes: inviteCodesWithUser, activityCount, raceCount, teamCount, pendingRaces, recentMessages });
+      const recentActivityComments = await (prisma as any).activityComment.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, content: true, createdAt: true, userId: true, activityId: true, user: { select: { name: true } }, activity: { select: { title: true, type: true } } } });
+      return NextResponse.json({ users, inviteCodes: inviteCodesWithUser, activityCount, raceCount, teamCount, pendingRaces, recentMessages, recentActivityComments });
     } catch (e) { return NextResponse.json({ error: e.message }, { status: 500 }); }
   }
   if (action === "createInviteCode") { const code = Math.random().toString(36).substring(2,10).toUpperCase(); const invite = await prisma.inviteCode.create({ data: { code } }); return NextResponse.json({ invite }); }
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
   if (action === "approveRace") { await prisma.majorRace.update({ where: { id: body.raceId }, data: { status: "active" } }); return NextResponse.json({ ok: true }); }
   if (action === "rejectRace") { await prisma.majorRace.delete({ where: { id: body.raceId } }); return NextResponse.json({ ok: true }); }
   if (action === "deleteMessage") { await prisma.eventMessage.update({ where: { id: body.messageId }, data: { isDeleted: true, deletedBy: "admin" } }); return NextResponse.json({ ok: true }); }
+  if (action === "deleteActivityComment") { const { commentId } = body; if (!commentId) return NextResponse.json({ error: "commentId required" }, { status: 400 }); await (prisma as any).activityComment.update({ where: { id: commentId }, data: { isDeleted: true, deletedBy: "admin" } }); return NextResponse.json({ ok: true }); }
 
   if (action === "setUserPassword") {
     const { userId, newPassword } = body;
