@@ -148,7 +148,8 @@ export default function AdminPage() {
   const [editRaceDate, setEditRaceDate] = useState("");
   const [editRaceCity, setEditRaceCity] = useState("");
   const [editRaceCountry, setEditRaceCountry] = useState("");
-  const [editRaceDist, setEditRaceDist] = useState("");
+  const [editRaceDist, setEditRaceDist] = useState(""); // custom miles when editRaceDistType === "other"
+  const [editRaceDistType, setEditRaceDistType] = useState("marathon"); // 5k | 10k | half | marathon | ultra | other
   const [editRaceWeb, setEditRaceWeb] = useState("");
   const [editRaceTri, setEditRaceTri] = useState(false);
   const [savingRaceEdit, setSavingRaceEdit] = useState(false);
@@ -314,14 +315,16 @@ export default function AdminPage() {
   }
 
   async function saveRaceEdit(raceId) {
+    const DIST_MAP = { "5k": 5000, "10k": 10000, "half": 21097, "marathon": 42195, "ultra": 80467 };
+    const distanceM = editRaceDistType === "other" ? parseFloat(editRaceDist) * 1609.34 : DIST_MAP[editRaceDistType] || 0;
     setSavingRaceEdit(true);
     const res = await fetch("/api/admin/races", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, raceId, name: editRaceName, city: editRaceCity, country: editRaceCountry, raceDate: editRaceDate, distanceM: parseFloat(editRaceDist), website: editRaceWeb || null, isTriathlon: editRaceTri }),
+      body: JSON.stringify({ password, raceId, name: editRaceName, city: editRaceCity, country: editRaceCountry, raceDate: editRaceDate, distanceM, website: editRaceWeb || null, isTriathlon: editRaceTri }),
     });
     setSavingRaceEdit(false);
     if (res.ok) {
-      setAllRaces(prev => prev.map(r => r.id === raceId ? { ...r, name: editRaceName, city: editRaceCity, country: editRaceCountry, raceDate: new Date(editRaceDate).toISOString(), distanceM: parseFloat(editRaceDist), website: editRaceWeb || null, isTriathlon: editRaceTri } : r));
+      setAllRaces(prev => prev.map(r => r.id === raceId ? { ...r, name: editRaceName, city: editRaceCity, country: editRaceCountry, raceDate: new Date(editRaceDate + "T12:00:00").toISOString(), distanceM, website: editRaceWeb || null, isTriathlon: editRaceTri } : r));
       setEditingRaceId(null);
     }
   }
@@ -1595,7 +1598,17 @@ export default function AdminPage() {
                             <div className="grid grid-cols-2 gap-2">
                               <input value={editRaceName} onChange={e => setEditRaceName(e.target.value)} placeholder="Race name" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                               <input type="date" value={editRaceDate} onChange={e => setEditRaceDate(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                              <input type="number" value={editRaceDist} onChange={e => setEditRaceDist(e.target.value)} placeholder="Distance (meters)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                              <select value={editRaceDistType} onChange={e => setEditRaceDistType(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                                <option value="5k">5K (3.1 mi)</option>
+                                <option value="10k">10K (6.2 mi)</option>
+                                <option value="half">Half Marathon (13.1 mi)</option>
+                                <option value="marathon">Marathon (26.2 mi)</option>
+                                <option value="ultra">Ultra (50 mi)</option>
+                                <option value="other">Other (enter miles)</option>
+                              </select>
+                              {editRaceDistType === "other" && (
+                                <input type="number" step="0.1" value={editRaceDist} onChange={e => setEditRaceDist(e.target.value)} placeholder="Distance in miles" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                              )}
                               <input value={editRaceCity} onChange={e => setEditRaceCity(e.target.value)} placeholder="City" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                               <input value={editRaceCountry} onChange={e => setEditRaceCountry(e.target.value)} placeholder="Country" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                               <input value={editRaceWeb} onChange={e => setEditRaceWeb(e.target.value)} placeholder="Website" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
@@ -1618,7 +1631,13 @@ export default function AdminPage() {
                               {race.website && <a href={race.website} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline">{race.website}</a>}
                             </div>
                             <div className="flex gap-2 flex-wrap justify-end shrink-0">
-                              <button onClick={() => { setEditingRaceId(race.id); setEditRaceName(race.name); setEditRaceDate(new Date(race.raceDate).toISOString().split("T")[0]); setEditRaceCity(race.city); setEditRaceCountry(race.country); setEditRaceDist(String(race.distanceM)); setEditRaceWeb(race.website || ""); setEditRaceTri(race.isTriathlon); }} className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors">Edit</button>
+                              <button onClick={() => {
+                                const dm = race.distanceM;
+                                const dtype = Math.abs(dm-5000)<500?"5k":Math.abs(dm-10000)<800?"10k":Math.abs(dm-21097)<1500?"half":Math.abs(dm-42195)<1500?"marathon":dm>43500?"ultra":"other";
+                                setEditingRaceId(race.id); setEditRaceName(race.name); setEditRaceDate(new Date(race.raceDate).toISOString().split("T")[0]); setEditRaceCity(race.city); setEditRaceCountry(race.country);
+                                setEditRaceDistType(dtype); setEditRaceDist(dtype==="other"?String((dm/1609.34).toFixed(2)):"");
+                                setEditRaceWeb(race.website || ""); setEditRaceTri(race.isTriathlon);
+                              }} className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors">Edit</button>
                               {confirmDeleteRaceId === race.id ? (
                                 <>
                                   <button onClick={() => deleteRace(race.id)} disabled={deletingRaceId === race.id} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">{deletingRaceId === race.id ? "..." : "Confirm delete"}</button>
