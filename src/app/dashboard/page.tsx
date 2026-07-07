@@ -9,6 +9,7 @@ import { DashboardAnnouncement } from "@/components/DashboardAnnouncement";
 import { WeatherBadge } from "@/components/WeatherBadge";
 import Link from "next/link";
 import { ActiveChallengesSection } from "@/components/ActiveChallengesSection";
+import { PlatformChallengeSection } from "@/components/PlatformChallengeSection";
 import { RaceCommunityLeaderboard } from "@/components/RaceCommunityLeaderboard";
 import { KudosBanner } from "@/components/KudosBanner";
 import { DailyAIMessage } from "@/components/DailyAIMessage";
@@ -219,6 +220,9 @@ export default async function TodayPage() {
           </div>
         </section>
       )}
+
+      {/* ── Platform challenges ── */}
+      <PlatformChallengeSection />
 
       {/* ── Active challenges ── */}
       <ActiveChallengesSection />

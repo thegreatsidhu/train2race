@@ -63,6 +63,7 @@ model User {
   highFivesGiven   HighFive[]       @relation("HighFivesGiven")
   activityComments ActivityComment[]
   fitnessPlans     FitnessPlan[]
+  platformParticipants PlatformChallengeParticipant[]
   @@map("users")
 }
 
@@ -616,6 +617,39 @@ model FitnessPlan {
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
   @@map("fitness_plans")
+}
+
+model PlatformChallenge {
+  id                String   @id @default(cuid())
+  createdBy         String
+  title             String
+  description       String?
+  type              String   // most_workouts, most_miles, most_active_days, most_steps
+  activityFilter    String?  // run, walk, swim, ride, strength (null = all)
+  badgeName         String?
+  startDate         DateTime
+  endDate           DateTime
+  status            String   @default("active")
+  dailyAwards       Json?
+  dailyAwardsDate   String?
+  finalAnnouncement Json?
+  finalAnnouncedAt  DateTime?
+  createdAt         DateTime @default(now())
+  participants      PlatformChallengeParticipant[]
+  @@map("platform_challenges")
+}
+
+model PlatformChallengeParticipant {
+  id          String   @id @default(cuid())
+  challengeId String
+  userId      String
+  optedOut    Boolean  @default(false)
+  joinedAt    DateTime @default(now())
+  challenge   PlatformChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([challengeId, userId])
+  @@index([userId])
+  @@map("platform_challenge_participants")
 }
 
 model EventMessage {

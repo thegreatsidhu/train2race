@@ -4,6 +4,8 @@ import { syncAllConnections } from "@/lib/sync/engine";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { groupEmailHtml } from "@/lib/email";
+import Anthropic from "@anthropic-ai/sdk";
+import { computeLeaderboard, formatStat } from "@/lib/platformChallenge";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "Train2Race <support@train2race.com>";
@@ -149,5 +151,136 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, ranAt: new Date().toISOString() });
+  // Platform challenge daily awards + final announcements
+  let awardsGenerated = 0;
+  let announcementsGenerated = 0;
+  if (process.env.ANTHROPIC_API_KEY) {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const todayStr = new Date().toISOString().split("T")[0];
+    const now2 = new Date();
+
+    // Daily awards for active challenges
+    const activeGlobal = await (prisma as any).platformChallenge.findMany({
+      where: { status: "active", startDate: { lte: now2 }, endDate: { gte: now2 } },
+      select: { id: true, title: true, type: true, activityFilter: true, startDate: true, endDate: true, dailyAwardsDate: true },
+    });
+
+    for (const ch of activeGlobal) {
+      if (ch.dailyAwardsDate === todayStr) continue;
+      try {
+        const parts = await (prisma as any).platformChallengeParticipant.findMany({
+          where: { challengeId: ch.id, optedOut: false }, select: { userId: true },
+        });
+        if (parts.length < 2) continue;
+        const lb = await computeLeaderboard(ch, parts.map(p => p.userId));
+        const top3 = lb.slice(0, 3).filter(e => e.score > 0);
+        if (top3.length < 1) continue;
+
+        const prompt = `Generate fun, punchy daily leaderboard awards for a fitness challenge called "${ch.title}" (tracking: ${ch.type.replace(/_/g," ")}). Top athletes today:\n${top3.map((e,i)=>`${i+1}. ${e.name} — ${e.stat}`).join("\n")}\n\nGenerate one playful award per person under 20 words, sports-announcer energy. Return ONLY a JSON array: [{"rank":1,"text":"..."},{"rank":2,"text":"..."},...]`;
+
+        const resp = await anthropic.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 400,
+          messages: [{ role: "user", content: prompt }],
+        });
+        let awards: any[] = [];
+        try {
+          const raw = resp.content[0]?.type === "text" ? resp.content[0].text : "";
+          awards = JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0] ?? "[]");
+        } catch {}
+
+        const dailyAwards = {
+          date: todayStr,
+          awards: top3.map((e, i) => ({
+            rank: i + 1,
+            userId: e.userId,
+            name: e.name,
+            stat: e.stat,
+            text: awards.find((a: any) => a.rank === i + 1)?.text ?? `${e.name} is crushing it!`,
+          })),
+        };
+
+        await (prisma as any).platformChallenge.update({
+          where: { id: ch.id },
+          data: { dailyAwards, dailyAwardsDate: todayStr },
+        });
+        awardsGenerated++;
+      } catch {}
+    }
+
+    // Final announcements for newly ended challenges
+    const justEnded = await (prisma as any).platformChallenge.findMany({
+      where: { status: "active", endDate: { lt: now2 }, finalAnnouncement: null },
+      select: { id: true, title: true, type: true, activityFilter: true, startDate: true, endDate: true },
+    });
+
+    for (const ch of justEnded) {
+      try {
+        const parts = await (prisma as any).platformChallengeParticipant.findMany({
+          where: { challengeId: ch.id, optedOut: false },
+          select: { userId: true, user: { select: { name: true, email: true, emailOptOut: true } } },
+        });
+        const ids = parts.map(p => p.userId);
+        const lb = await computeLeaderboard(ch, ids);
+        const top5 = lb.slice(0, 5);
+
+        const prompt = `Generate a fun final announcement for a fitness challenge called "${ch.title}" (${parts.length} athletes competed, tracking: ${ch.type.replace(/_/g," ")}). Top 5 finishers:\n${top5.map((e,i)=>`${i+1}. ${e.name} — ${e.stat}`).join("\n")}\n\nReturn ONLY JSON: {"intro":"1-2 sentence energetic intro celebrating the challenge ending","tributes":[{"rank":1,"text":"under 20 word tribute"},...]}`
+
+        const resp = await anthropic.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 600,
+          messages: [{ role: "user", content: prompt }],
+        });
+        let ann: any = null;
+        try {
+          const raw = resp.content[0]?.type === "text" ? resp.content[0].text : "";
+          ann = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? "null");
+        } catch {}
+
+        const finalAnnouncement = {
+          intro: ann?.intro ?? `The ${ch.title} challenge is over! ${parts.length} athletes competed.`,
+          top5: top5.map((e, i) => ({
+            rank: i + 1,
+            userId: e.userId,
+            name: e.name,
+            stat: e.stat,
+            tribute: ann?.tributes?.find((t: any) => t.rank === i + 1)?.text ?? `${e.name} gave it everything!`,
+          })),
+        };
+
+        await (prisma as any).platformChallenge.update({
+          where: { id: ch.id },
+          data: { finalAnnouncement, finalAnnouncedAt: now2, status: "ended" },
+        });
+        announcementsGenerated++;
+
+        // Send final announcement email to all opted-in participants
+        if (process.env.RESEND_API_KEY) {
+          const medalsHtml = finalAnnouncement.top5.map(e => {
+            const medal = e.rank===1?"🥇":e.rank===2?"🥈":e.rank===3?"🥉":`#${e.rank}`;
+            return `<p style="margin:0 0 10px;"><strong style="color:#ede9e2;">${medal} ${e.name}</strong> — ${e.stat}<br/><span style="color:#9aa3ab;font-size:13px;">${e.tribute}</span></p>`;
+          }).join("");
+          for (const p of parts) {
+            if (!p.user.email || p.user.emailOptOut) continue;
+            try {
+              await resend.emails.send({
+                from: FROM,
+                to: p.user.email,
+                subject: `🏆 ${ch.title} — Final Results!`,
+                html: groupEmailHtml({
+                  preheader: `See who won the ${ch.title} challenge!`,
+                  heading: `🏆 ${ch.title} — It's a wrap!`,
+                  body: `<p style="margin:0 0 16px;color:#9aa3ab;">${finalAnnouncement.intro}</p>${medalsHtml}<p style="margin:16px 0 0;color:#4a5260;font-size:12px;">To stop receiving these emails, <a href="https://train2race.com/dashboard/settings" style="color:#5ec9b5;text-decoration:none;">unsubscribe in your settings</a>.</p>`,
+                  cta: "See your dashboard",
+                  ctaUrl: "https://train2race.com/dashboard",
+                }),
+              });
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+  }
+
+  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
 }

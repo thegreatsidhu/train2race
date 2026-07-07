@@ -193,6 +193,24 @@ export default function AdminPage() {
   const [creatingCh, setCreatingCh] = useState(false);
   const [createChMsg, setCreateChMsg] = useState("");
 
+  // Platform challenges
+  const [platformChallenges, setPlatformChallenges] = useState([]);
+  const [loadingPlatformCh, setLoadingPlatformCh] = useState(false);
+  const [showCreatePlatformCh, setShowCreatePlatformCh] = useState(false);
+  const [newPChTitle, setNewPChTitle] = useState("");
+  const [newPChDesc, setNewPChDesc] = useState("");
+  const [newPChType, setNewPChType] = useState("most_workouts");
+  const [newPChFilter, setNewPChFilter] = useState("");
+  const [newPChBadge, setNewPChBadge] = useState("");
+  const [newPChStart, setNewPChStart] = useState("");
+  const [newPChEnd, setNewPChEnd] = useState("");
+  const [creatingPCh, setCreatingPCh] = useState(false);
+  const [createPChMsg, setCreatePChMsg] = useState("");
+  const [expandedPlatformCh, setExpandedPlatformCh] = useState(null);
+  const [platformChLeaderboard, setPlatformChLeaderboard] = useState({});
+  const [loadingPChLb, setLoadingPChLb] = useState(null);
+  const [confirmDeletePlatformCh, setConfirmDeletePlatformCh] = useState(null);
+
   const [stats, setStats] = useState(null);
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -553,6 +571,48 @@ export default function AdminPage() {
     if (res.ok) { setAllChallenges(prev => [d.challenge, ...prev]); setShowCreateChallenge(false); setNewChTitle(""); setNewChGoal(""); setNewChGoalPerDay(false); setNewChStart(""); setNewChEnd(""); setNewChDesc(""); setCreateChMsg(""); }
     else setCreateChMsg(d.error || "Failed to create challenge.");
   }
+
+  async function loadPlatformChallenges() {
+    if (loadingPlatformCh) return;
+    setLoadingPlatformCh(true);
+    const res = await fetch(`/api/admin/platform-challenges?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setPlatformChallenges(d.challenges || []);
+    setLoadingPlatformCh(false);
+  }
+
+  async function createPlatformChallenge() {
+    if (!newPChTitle || !newPChStart || !newPChEnd) return;
+    setCreatingPCh(true); setCreatePChMsg("");
+    const res = await fetch("/api/admin/platform-challenges", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, title: newPChTitle, description: newPChDesc || null, type: newPChType, activityFilter: newPChFilter || null, badgeName: newPChBadge || null, startDate: newPChStart, endDate: newPChEnd }),
+    });
+    const d = await res.json();
+    setCreatingPCh(false);
+    if (res.ok) {
+      setPlatformChallenges(prev => [d.challenge, ...prev]);
+      setShowCreatePlatformCh(false);
+      setNewPChTitle(""); setNewPChDesc(""); setNewPChBadge(""); setNewPChFilter(""); setNewPChStart(""); setNewPChEnd(""); setCreatePChMsg("");
+    } else setCreatePChMsg(d.error || "Failed.");
+  }
+
+  async function loadPlatformLeaderboard(challengeId) {
+    if (platformChLeaderboard[challengeId] || loadingPChLb === challengeId) return;
+    setLoadingPChLb(challengeId);
+    const res = await fetch(`/api/platform-challenges/${challengeId}/leaderboard`);
+    const d = await res.json();
+    setPlatformChLeaderboard(prev => ({ ...prev, [challengeId]: d.entries || [] }));
+    setLoadingPChLb(null);
+  }
+
+  async function deletePlatformChallenge(challengeId) {
+    setConfirmDeletePlatformCh(null);
+    await fetch("/api/admin/platform-challenges", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, challengeId }) });
+    setPlatformChallenges(prev => prev.filter(c => c.id !== challengeId));
+    if (expandedPlatformCh === challengeId) setExpandedPlatformCh(null);
+  }
   async function loadTeams() {
     if (teamsLoaded) return;
     const res = await fetch(`/api/admin/teams?password=${encodeURIComponent(password)}`);
@@ -819,7 +879,7 @@ export default function AdminPage() {
 
   function switchTab(id) {
     setActiveTab(id);
-    if (id === "challenges") { loadChallenges(); loadTeams(); }
+    if (id === "challenges") { loadChallenges(); loadTeams(); loadPlatformChallenges(); }
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
     if (id === "invites") loadTeams();
@@ -1662,6 +1722,125 @@ export default function AdminPage() {
 
         {activeTab === "challenges" && (
           <div>
+            {/* Platform Challenges */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <h2 className="font-medium">Platform Challenges 🌍 ({platformChallenges.length})</h2>
+                <button onClick={() => { setShowCreatePlatformCh(v => !v); setCreatePChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full bg-teal-600 text-white font-medium">+ Create platform challenge</button>
+              </div>
+              {showCreatePlatformCh && (
+                <div className="rounded-2xl border border-teal-500/30 bg-surface p-4 mb-4 space-y-3">
+                  <p className="text-sm font-medium">New platform-wide challenge (visible to all users)</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={newPChTitle} onChange={e => setNewPChTitle(e.target.value)} placeholder="Challenge title *" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                    <select value={newPChType} onChange={e => setNewPChType(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                      <option value="most_workouts">Most Workouts</option>
+                      <option value="most_miles">Most Miles</option>
+                      <option value="most_active_days">Most Active Days</option>
+                      <option value="most_steps">Most Steps</option>
+                    </select>
+                    <select value={newPChFilter} onChange={e => setNewPChFilter(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
+                      <option value="">All activity types</option>
+                      <option value="run">Run only</option>
+                      <option value="walk">Walk only</option>
+                      <option value="ride">Ride only</option>
+                      <option value="swim">Swim only</option>
+                      <option value="strength">Strength only</option>
+                    </select>
+                    <input type="date" value={newPChStart} onChange={e => setNewPChStart(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                    <input type="date" value={newPChEnd} onChange={e => setNewPChEnd(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                    <input value={newPChBadge} onChange={e => setNewPChBadge(e.target.value)} placeholder="Badge name (e.g. Summer Warrior 🏆)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                    <input value={newPChDesc} onChange={e => setNewPChDesc(e.target.value)} placeholder="Description (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  </div>
+                  {createPChMsg && <p className="text-xs text-red-400">{createPChMsg}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={createPlatformChallenge} disabled={creatingPCh || !newPChTitle || !newPChStart || !newPChEnd} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingPCh ? "Creating..." : "Create"}</button>
+                    <button onClick={() => { setShowCreatePlatformCh(false); setCreatePChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                  </div>
+                </div>
+              )}
+              {loadingPlatformCh ? (
+                <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
+              ) : platformChallenges.length === 0 ? (
+                <p className="text-sm text-foreground-dim">No platform challenges yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {platformChallenges.map(c => {
+                    const isActive = c.status === "active" && new Date() < new Date(c.endDate);
+                    const isExpanded = expandedPlatformCh === c.id;
+                    const lb = platformChLeaderboard[c.id] || [];
+                    return (
+                      <div key={c.id} className="rounded-2xl border border-border bg-surface">
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                <p className="font-medium text-sm">🌍 {c.title}</p>
+                                {isActive && <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-900/30 text-green-300 border border-green-700/40">Active</span>}
+                                {c.status === "ended" && <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface-raised text-foreground-dim border border-border">Ended</span>}
+                              </div>
+                              <p className="text-xs text-foreground-dim capitalize">{c.type.replace(/_/g," ")} · {c.activityFilter || "All types"} · {c.participantCount} participant{c.participantCount !== 1 ? "s" : ""}</p>
+                              <p className="text-xs text-foreground-dim">{new Date(c.startDate).toLocaleDateString()} – {new Date(c.endDate).toLocaleDateString()}</p>
+                              {c.badgeName && <p className="text-xs text-foreground-dim">Badge: {c.badgeName}</p>}
+                              {c.dailyAwards?.awards?.length > 0 && <p className="text-xs text-teal-400 mt-1">AI awards generated · {c.dailyAwardsDate}</p>}
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
+                              <button
+                                onClick={async () => {
+                                  const next = isExpanded ? null : c.id;
+                                  setExpandedPlatformCh(next);
+                                  if (next) await loadPlatformLeaderboard(next);
+                                }}
+                                className="text-xs px-2.5 py-1 rounded-full border border-border hover:bg-surface-raised transition-colors"
+                              >
+                                {isExpanded ? "Collapse" : "Leaderboard"}
+                              </button>
+                              {confirmDeletePlatformCh === c.id ? (
+                                <>
+                                  <button onClick={() => deletePlatformChallenge(c.id)} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white">Confirm</button>
+                                  <button onClick={() => setConfirmDeletePlatformCh(null)} className="text-xs px-2.5 py-1 rounded-full border border-border">Cancel</button>
+                                </>
+                              ) : (
+                                <button onClick={() => setConfirmDeletePlatformCh(c.id)} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Delete</button>
+                              )}
+                            </div>
+                          </div>
+                          {c.dailyAwards?.awards?.length > 0 && (
+                            <div className="mt-3 space-y-1">
+                              <p className="text-xs font-medium text-foreground-dim">Today's AI awards:</p>
+                              {c.dailyAwards.awards.map(a => (
+                                <p key={a.rank} className="text-xs text-foreground-dim">{a.rank===1?"🥇":a.rank===2?"🥈":"🥉"} <strong className="text-foreground">{a.name}</strong> — {a.text} <span className="opacity-60">({a.stat})</span></p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {isExpanded && (
+                          <div className="border-t border-border px-4 pb-4 pt-3">
+                            <p className="text-xs font-medium text-foreground-dim mb-2">Live leaderboard ({lb.length} athletes)</p>
+                            {loadingPChLb === c.id ? (
+                              <p className="text-xs text-foreground-dim animate-pulse">Loading…</p>
+                            ) : lb.length === 0 ? (
+                              <p className="text-xs text-foreground-dim">No data yet.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {lb.slice(0, 15).map((e, i) => (
+                                  <div key={e.userId} className="flex items-center justify-between rounded-xl bg-background border border-border px-3 py-2">
+                                    <p className="text-sm">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`} <span className="font-medium">{e.name}</span></p>
+                                    <p className="text-xs text-foreground-dim">{e.stat}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border pt-6">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h2 className="font-medium">All Challenges ({filteredChallengesSearched.length})</h2>
               <button onClick={() => { setShowCreateChallenge(v => !v); setCreateChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium">+ Create challenge</button>
@@ -1818,6 +1997,7 @@ export default function AdminPage() {
                 })}
               </div>
             )}
+            </div>{/* end team challenges wrapper */}
           </div>
         )}
 
