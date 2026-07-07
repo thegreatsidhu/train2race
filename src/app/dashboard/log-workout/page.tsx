@@ -187,12 +187,33 @@ export default function LogWorkoutPage() {
             </div>
           )}
           {photoFiles.length < 3 && (
-            <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border bg-surface cursor-pointer hover:bg-surface-raised transition-colors text-sm text-foreground-dim">
-              <span>📷</span>
-              <span>Add photo{photoFiles.length > 0 ? ` (${photoFiles.length}/3)` : " (up to 3)"}</span>
-              <input type="file" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif" multiple className="hidden"
-                onChange={handlePhotoSelect} />
-            </label>
+            <>
+              {/* Mobile: camera + library side by side */}
+              <div className="flex gap-2 md:hidden">
+                <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-dashed border-signal/50 bg-signal/5 cursor-pointer active:bg-signal/10 transition-colors text-sm text-signal">
+                  <span>📷</span>
+                  <span className="font-medium">Take a photo</span>
+                  <input type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={handlePhotoSelect} />
+                </label>
+                <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-dashed border-border bg-surface cursor-pointer active:bg-surface-raised transition-colors text-sm text-foreground-dim">
+                  <span>🖼️</span>
+                  <span>Library</span>
+                  <input type="file" accept="image/*" multiple className="hidden"
+                    onChange={handlePhotoSelect} />
+                </label>
+              </div>
+              {/* Desktop: single upload button */}
+              <label className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border bg-surface cursor-pointer hover:bg-surface-raised transition-colors text-sm text-foreground-dim">
+                <span>📷</span>
+                <span>Upload photo{photoFiles.length > 0 ? ` (${photoFiles.length}/3)` : " (up to 3)"}</span>
+                <input type="file" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif" multiple className="hidden"
+                  onChange={handlePhotoSelect} />
+              </label>
+              {photoFiles.length > 0 && (
+                <p className="text-xs text-foreground-dim mt-1 md:hidden">{photoFiles.length}/3 photo{photoFiles.length !== 1 ? "s" : ""} added</p>
+              )}
+            </>
           )}
           {photoError && <p className="text-xs text-red-400 mt-1">{photoError}</p>}
         </div>
