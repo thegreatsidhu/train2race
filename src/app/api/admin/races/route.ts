@@ -47,9 +47,10 @@ export async function POST(req: NextRequest) {
 
   if (action === "create") {
     if (!name || !raceDate || !distanceM || !city || !country) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${new Date(raceDate).getFullYear()}-${Date.now()}`;
+    const parsedDate = new Date(raceDate + "T12:00:00");
+    const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${parsedDate.getFullYear()}-${Date.now()}`;
     const race = await prisma.majorRace.create({
-      data: { name, slug, city, country, raceDate: new Date(raceDate), distanceM: Number(distanceM), isTriathlon: !!isTriathlon, website: website || null, status: "active", sport: sport || null, series: series || null },
+      data: { name, slug, city, country, raceDate: parsedDate, distanceM: Number(distanceM), isTriathlon: !!isTriathlon, website: website || null, status: "active", sport: sport || null, series: series || null },
     });
     return NextResponse.json({ race });
   }
@@ -66,7 +67,7 @@ export async function PATCH(req: NextRequest) {
   if (name !== undefined) data.name = name;
   if (city !== undefined) data.city = city;
   if (country !== undefined) data.country = country;
-  if (raceDate !== undefined) data.raceDate = new Date(raceDate);
+  if (raceDate !== undefined) data.raceDate = new Date(raceDate + "T12:00:00");
   if (distanceM !== undefined) data.distanceM = Number(distanceM);
   if (website !== undefined) data.website = website || null;
   if (isTriathlon !== undefined) data.isTriathlon = isTriathlon;
