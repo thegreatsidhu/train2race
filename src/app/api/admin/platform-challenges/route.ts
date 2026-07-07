@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { sendEmail, groupEmailHtml } from "@/lib/email";
+import { sendEmail, groupEmailHtml, unsubscribeUrl } from "@/lib/email";
 import bcrypt from "bcryptjs";
 
 const FALLBACK_PASSWORD = "train2race2024";
@@ -130,9 +130,38 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Send alert emails to opted-in users and then delete their alert
   const startStr = challenge.startDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const endStr = challenge.endDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const challengeUrl = `${process.env.NEXTAUTH_URL || "https://train2race.com"}/challenge/${challenge.id}`;
+  const hoursUntilStart = (challenge.startDate.getTime() - Date.now()) / 3600000;
+
+  // Broadcast announcement to all users (only if challenge starts more than 24h from now)
+  if (process.env.RESEND_API_KEY && hoursUntilStart > 24) {
+    const allUsers = await (prisma as any).user.findMany({
+      where: { emailOptOut: false, emailChallengeOptOut: false, email: { not: null } },
+      select: { id: true, email: true, name: true },
+    });
+    for (const u of allUsers) {
+      sendEmail({
+        to: u.email,
+        subject: `New challenge: ${challenge.title} starts ${startStr} 🏆`,
+        html: groupEmailHtml({
+          preheader: `A new Train2Race challenge is starting — join before enrollment closes!`,
+          heading: `New challenge: ${challenge.title} 🏆`,
+          body: `<p style="margin:0 0 12px;">A new platform challenge has launched!</p>
+<p style="margin:0 0 6px;"><strong style="color:#ede9e2;">📅 Starts:</strong> ${startStr}</p>
+<p style="margin:0 0 6px;"><strong style="color:#ede9e2;">🏁 Ends:</strong> ${endStr}</p>
+${challenge.description ? `<p style="margin:12px 0;color:#9aa3ab;">${challenge.description}</p>` : ""}
+<p style="margin:12px 0 0;color:#9aa3ab;font-size:13px;">Enrollment closes when the challenge starts — join now to secure your spot!</p>`,
+          cta: "Join the challenge →",
+          ctaUrl: challengeUrl,
+          unsubUrl: unsubscribeUrl(u.id),
+        }),
+      }).catch(() => {});
+    }
+  }
+
+  // Send alert emails to opted-in users and then delete their alert
   const alertsToNotify = await (prisma as any).challengeAlert.findMany({
     where: { OR: [{ challengeType: type }, { challengeType: "all" }] },
     select: { id: true, userId: true, user: { select: { email: true, name: true, emailOptOut: true } } },
@@ -148,6 +177,7 @@ export async function POST(req: NextRequest) {
         body: `<p>A new platform challenge is starting soon — and you asked to be notified!</p><p style="margin-top:12px;"><strong style="color:#ede9e2;">${challenge.title}</strong> begins on <strong style="color:#ede9e2;">${startStr}</strong>. Join now before enrollment closes.</p>`,
         cta: "Join the challenge →",
         ctaUrl: challengeUrl,
+        unsubUrl: unsubscribeUrl(alert.userId),
       }),
     }).catch(() => {});
   }

@@ -25,7 +25,10 @@ model User {
   isBanned        Boolean   @default(false)
   role            String    @default("user")
   bio             String?   @db.VarChar(160)
-  emailOptOut         Boolean   @default(false)
+  emailOptOut              Boolean   @default(false)
+  emailDigestOptOut        Boolean   @default(false)
+  emailWeeklyOptOut        Boolean   @default(false)
+  emailChallengeOptOut     Boolean   @default(false)
   onboardingComplete  Boolean   @default(false)
   fitnessGoal         String?
   aiDailyMessage      String?

@@ -1,7 +1,34 @@
 import { Resend } from "resend";
+import crypto from "crypto";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM || "Train2Race <onboarding@resend.dev>";
+
+const UNSUB_SECRET = process.env.UNSUBSCRIBE_SECRET || process.env.NEXTAUTH_SECRET || "train2race-unsub-fallback";
+const BASE_URL = process.env.NEXTAUTH_URL || "https://train2race.com";
+
+export function generateUnsubToken(userId: string): string {
+  const sig = crypto.createHmac("sha256", UNSUB_SECRET).update(userId).digest("hex").slice(0, 20);
+  return Buffer.from(`${userId}:${sig}`).toString("base64url");
+}
+
+export function verifyUnsubToken(token: string): string | null {
+  try {
+    const decoded = Buffer.from(token, "base64url").toString("utf8");
+    const colonIdx = decoded.lastIndexOf(":");
+    if (colonIdx === -1) return null;
+    const userId = decoded.slice(0, colonIdx);
+    const sig = decoded.slice(colonIdx + 1);
+    if (!userId || !sig) return null;
+    const expected = crypto.createHmac("sha256", UNSUB_SECRET).update(userId).digest("hex").slice(0, 20);
+    if (sig !== expected) return null;
+    return userId;
+  } catch { return null; }
+}
+
+export function unsubscribeUrl(userId: string): string {
+  return `${BASE_URL}/unsubscribe?token=${generateUnsubToken(userId)}`;
+}
 
 export async function sendEmail({ to, subject, html, from }: { to: string | string[]; subject: string; html: string; from?: string }) {
   if (!process.env.RESEND_API_KEY) return;
@@ -89,7 +116,10 @@ export function welcomeEmailHtml(firstName: string): string {
 </body></html>`;
 }
 
-export function groupEmailHtml({ preheader, heading, body, cta, ctaUrl }: { preheader?: string; heading: string; body: string; cta?: string; ctaUrl?: string }) {
+export function groupEmailHtml({ preheader, heading, body, cta, ctaUrl, unsubUrl }: { preheader?: string; heading: string; body: string; cta?: string; ctaUrl?: string; unsubUrl?: string }) {
+  const unsubLink = unsubUrl
+    ? `<a href="${unsubUrl}" style="color:#4a5260;text-decoration:underline;">Unsubscribe</a>`
+    : `<a href="${BASE_URL}/dashboard/profile" style="color:#4a5260;text-decoration:underline;">Manage preferences</a>`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="background:#0b0d10;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>` : ""}
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px;">
@@ -99,7 +129,10 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;">${prehead
   <h1 style="color:#ede9e2;font-size:22px;font-weight:600;margin:0 0 16px;line-height:1.3;">${heading}</h1>
   <div style="color:#9aa3ab;font-size:14px;line-height:1.6;margin-bottom:${cta ? "28px" : "0"};">${body}</div>
   ${cta && ctaUrl ? `<a href="${ctaUrl}" style="display:inline-block;padding:12px 24px;background:#5ec9b5;color:#0b0d10;border-radius:999px;font-weight:600;text-decoration:none;font-size:14px;">${cta}</a>` : ""}
-  <p style="color:#4a5260;font-size:12px;margin-top:24px 0 0;">You're receiving this because you're a member of this group on Train2Race.</p>
+  <div style="margin-top:32px;padding-top:20px;border-top:1px solid #2a2e35;text-align:center;">
+    <p style="color:#4a5260;font-size:11px;margin:0 0 4px;">Train2Race · Los Angeles, CA</p>
+    <p style="color:#4a5260;font-size:11px;margin:0;">${unsubLink} · <a href="${BASE_URL}/dashboard/profile" style="color:#4a5260;text-decoration:underline;">Email preferences</a></p>
+  </div>
 </td></tr>
 </table>
 </td></tr></table>

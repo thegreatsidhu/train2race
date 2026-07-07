@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { syncAllConnections } from "@/lib/sync/engine";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
-import { groupEmailHtml } from "@/lib/email";
+import { groupEmailHtml, unsubscribeUrl } from "@/lib/email";
 import Anthropic from "@anthropic-ai/sdk";
 import { computeLeaderboard, formatStat } from "@/lib/platformChallenge";
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         majorRace: { select: { name: true, raceDate: true } },
-        members: { select: { user: { select: { id: true, name: true, email: true, emailOptOut: true } } } },
+        members: { select: { user: { select: { id: true, name: true, email: true, emailOptOut: true, emailWeeklyOptOut: true } } } },
       },
     });
 
@@ -78,13 +78,13 @@ export async function GET(req: NextRequest) {
       ].filter(Boolean).join("");
 
       for (const m of team.members) {
-        if (!m.user.email || m.user.emailOptOut) continue;
+        if (!m.user.email || m.user.emailOptOut || m.user.emailWeeklyOptOut) continue;
         try {
           await resend.emails.send({
             from: FROM,
             to: m.user.email,
             subject: `${team.name} — Weekly Summary`,
-            html: groupEmailHtml({ preheader: `Weekly team update for ${team.name}`, heading: `${team.name} — Weekly Update`, body: bodyParts }),
+            html: groupEmailHtml({ preheader: `Weekly team update for ${team.name}`, heading: `${team.name} — Weekly Update`, body: bodyParts, unsubUrl: unsubscribeUrl(m.user.id) }),
           });
           weeklyEmails++;
         } catch {}
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
             id: true,
             title: true,
             type: true,
-            user: { select: { id: true, name: true, email: true, emailOptOut: true } },
+            user: { select: { id: true, name: true, email: true, emailOptOut: true, emailDigestOptOut: true } },
           },
         },
       },
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
     const byRecipient = new Map<string, { user: any; rows: { fromName: string; workoutName: string }[] }>();
     for (const hf of todayHighFives as any[]) {
       const owner = hf.activity.user;
-      if (!owner.email || owner.emailOptOut) continue;
+      if (!owner.email || owner.emailOptOut || owner.emailDigestOptOut) continue;
       if (!byRecipient.has(owner.id)) {
         byRecipient.set(owner.id, { user: owner, rows: [] });
       }
@@ -141,9 +141,10 @@ export async function GET(req: NextRequest) {
           html: groupEmailHtml({
             preheader: `${rows.length} high five${rows.length !== 1 ? "s" : ""} on your workouts today`,
             heading: "You got high fives today 🙌",
-            body: listHtml + `<p style="margin:16px 0 0;color:#4a5260;font-size:12px;">To stop receiving these emails, <a href="https://train2race.com/dashboard/settings" style="color:#5ec9b5;text-decoration:none;">unsubscribe in your settings</a>.</p>`,
+            body: listHtml,
             cta: "View your dashboard",
             ctaUrl: "https://train2race.com/dashboard",
+            unsubUrl: unsubscribeUrl(user.id),
           }),
         });
         digestEmails++;
@@ -179,24 +180,24 @@ export async function GET(req: NextRequest) {
         const latestLog = logs[logs.length - 1] as any;
 
         // Get participants to notify
-        let participantEmails: { email: string; name: string }[] = [];
+        let participantEmails: { id: string; email: string; name: string }[] = [];
         if (firstLog.challengeType === "platform") {
           const parts = await (prisma as any).platformChallengeParticipant.findMany({
             where: { challengeId, optedOut: false },
-            select: { user: { select: { email: true, name: true, emailOptOut: true } } },
+            select: { user: { select: { id: true, email: true, name: true, emailOptOut: true } } },
           });
           participantEmails = parts
             .filter((p: any) => p.user.email && !p.user.emailOptOut)
-            .map((p: any) => ({ email: p.user.email, name: p.user.name || "Athlete" }));
+            .map((p: any) => ({ id: p.user.id, email: p.user.email, name: p.user.name || "Athlete" }));
         } else if (firstLog.challengeType === "team") {
           const entries = await (prisma as any).teamChallengeEntry.findMany({
             where: { challengeId },
             distinct: ["userId"],
-            select: { user: { select: { email: true, name: true, emailOptOut: true } } },
+            select: { user: { select: { id: true, email: true, name: true, emailOptOut: true } } },
           });
           participantEmails = entries
             .filter((e: any) => e.user.email && !e.user.emailOptOut)
-            .map((e: any) => ({ email: e.user.email, name: e.user.name || "Athlete" }));
+            .map((e: any) => ({ id: e.user.id, email: e.user.email, name: e.user.name || "Athlete" }));
         }
 
         // Build change summary
@@ -218,13 +219,13 @@ export async function GET(req: NextRequest) {
           : `${challengeTitle} was updated by ${editorName}`;
         const body = `<p style="margin:0 0 12px;color:#9aa3ab;">${endDateChange ? `<strong style="color:#ede9e2;">${challengeTitle}</strong> has been extended to <strong style="color:#ede9e2;">${endDateChange.to}</strong> by ${editorName}.` : `<strong style="color:#ede9e2;">${challengeTitle}</strong> was updated by <strong style="color:#ede9e2;">${editorName}</strong>:`}</p>${changeLines}`;
 
-        for (const p of participantEmails) {
+        for (const p of participantEmails as any[]) {
           try {
             await resend.emails.send({
               from: FROM,
               to: p.email,
               subject: heading,
-              html: groupEmailHtml({ preheader, heading, body, cta: "View challenge", ctaUrl: "https://train2race.com/dashboard" }),
+              html: groupEmailHtml({ preheader, heading, body, cta: "View challenge", ctaUrl: "https://train2race.com/dashboard", unsubUrl: unsubscribeUrl(p.id) }),
             });
             editNotifs++;
           } catch {}
@@ -292,9 +293,10 @@ export async function GET(req: NextRequest) {
           html: groupEmailHtml({
             preheader: "You've been invited to a platform challenge",
             heading: "Challenge invite 🏆",
-            body: inviteRows + `<p style="margin:12px 0 0;color:#4a5260;font-size:12px;">To stop receiving these emails, <a href="https://train2race.com/dashboard/settings" style="color:#5ec9b5;text-decoration:none;">unsubscribe in your settings</a>.</p>`,
+            body: inviteRows,
             cta: "View your dashboard",
             ctaUrl: "https://train2race.com/dashboard",
+            unsubUrl: unsubscribeUrl(userId),
           }),
         });
         inviteNotifs++;

@@ -6,7 +6,7 @@ const TIMEZONES = ["America/New_York","America/Chicago","America/Denver","Americ
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"personal"|"body"|"account">("personal");
-  const [name, setName] = useState(""); const [dob, setDob] = useState(""); const [sex, setSex] = useState(""); const [city, setCity] = useState(""); const [bio, setBio] = useState(""); const [isPrivate, setIsPrivate] = useState(false); const [emailOptOut, setEmailOptOut] = useState(false); const [timezone, setTimezone] = useState("America/Los_Angeles");
+  const [name, setName] = useState(""); const [dob, setDob] = useState(""); const [sex, setSex] = useState(""); const [city, setCity] = useState(""); const [bio, setBio] = useState(""); const [isPrivate, setIsPrivate] = useState(false); const [emailOptOut, setEmailOptOut] = useState(false); const [emailDigestOptOut, setEmailDigestOptOut] = useState(false); const [emailWeeklyOptOut, setEmailWeeklyOptOut] = useState(false); const [emailChallengeOptOut, setEmailChallengeOptOut] = useState(false); const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [weightLbs, setWeightLbs] = useState(""); const [heightFt, setHeightFt] = useState(""); const [heightIn, setHeightIn] = useState("");
   const [email, setEmail] = useState(""); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState(""); const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(""); const [error, setError] = useState("");
@@ -30,6 +30,9 @@ export default function ProfilePage() {
       if (user.bio) setBio(user.bio);
       if (user.isPrivate != null) setIsPrivate(!!user.isPrivate);
       if (user.emailOptOut != null) setEmailOptOut(!!user.emailOptOut);
+      if (user.emailDigestOptOut != null) setEmailDigestOptOut(!!user.emailDigestOptOut);
+      if (user.emailWeeklyOptOut != null) setEmailWeeklyOptOut(!!user.emailWeeklyOptOut);
+      if (user.emailChallengeOptOut != null) setEmailChallengeOptOut(!!user.emailChallengeOptOut);
       if (user.timezone) setTimezone(user.timezone);
       if (user.weightKg) setWeightLbs(Math.round(user.weightKg*2.20462).toString());
       if (user.heightCm) { const t=Math.round(user.heightCm/2.54); setHeightFt(Math.floor(t/12).toString()); setHeightIn((t%12).toString()); }
@@ -42,7 +45,7 @@ export default function ProfilePage() {
 
   async function savePersonal() {
     setSaving(true); setError("");
-    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,bio:bio.trim()||null,isPrivate,emailOptOut,timezone})});
+    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,bio:bio.trim()||null,isPrivate,emailOptOut,emailDigestOptOut,emailWeeklyOptOut,emailChallengeOptOut,timezone})});
     setSaving(false); if(res.ok) showSaved("Saved"); else setError("Failed to save");
   }
   async function saveBody() {
@@ -123,14 +126,35 @@ export default function ProfilePage() {
           </label>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Email notifications</label>
-          <p className="text-xs text-foreground-dim mb-2">Weekly team summaries and announcements from Train2Race.</p>
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <div onClick={()=>setEmailOptOut(p=>!p)} className={"relative w-10 h-5 rounded-full transition-colors "+(!emailOptOut?"bg-signal":"bg-border")}>
-              <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform "+(!emailOptOut?"left-5":"left-0.5")} />
+          <label className="block text-sm font-medium mb-3">Email preferences</label>
+          <div className="space-y-3">
+            {[
+              { label: "Daily digest", desc: "High fives, comments, and activity notifications", value: emailDigestOptOut, set: setEmailDigestOptOut },
+              { label: "Weekly team summary", desc: "Your team's weekly mileage recap", value: emailWeeklyOptOut, set: setEmailWeeklyOptOut },
+              { label: "Challenge announcements", desc: "New platform challenges and alerts", value: emailChallengeOptOut, set: setEmailChallengeOptOut },
+            ].map(({ label, desc, value, set }) => (
+              <label key={label} className="flex items-start gap-3 cursor-pointer select-none">
+                <div onClick={() => set(p => !p)} className={"relative w-10 h-5 rounded-full transition-colors shrink-0 mt-0.5 " + (!value ? "bg-signal" : "bg-border")}>
+                  <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (!value ? "left-5" : "left-0.5")} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{label}</p>
+                  <p className="text-xs text-foreground-dim">{desc}</p>
+                </div>
+              </label>
+            ))}
+            <div className="pt-2 border-t border-border">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <div onClick={() => setEmailOptOut(p => !p)} className={"relative w-10 h-5 rounded-full transition-colors shrink-0 mt-0.5 " + (!emailOptOut ? "bg-signal" : "bg-border")}>
+                  <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (!emailOptOut ? "left-5" : "left-0.5")} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">All emails (master switch)</p>
+                  <p className="text-xs text-foreground-dim">Turn off all Train2Race emails. You'll still receive critical account emails like password resets.</p>
+                </div>
+              </label>
             </div>
-            <span className="text-sm">{emailOptOut ? "Opted out — you won't receive team or broadcast emails" : "Enabled — receiving team summaries and announcements"}</span>
-          </label>
+          </div>
         </div>
         <div><label className="block text-sm font-medium mb-1">Timezone</label><select value={timezone} onChange={e=>setTimezone(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm">{TIMEZONES.map(tz=><option key={tz} value={tz}>{tz.replace(/_/g," ")}</option>)}</select></div>
         <div className="flex items-center gap-3 pt-2"><button onClick={savePersonal} disabled={saving} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{saving?"Saving...":"Save"}</button>{saved&&<span className="text-sm text-signal">{saved} ✓</span>}{error&&<span className="text-sm text-red-400">{error}</span>}</div>
