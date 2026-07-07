@@ -18,6 +18,7 @@ export async function GET() {
     select: {
       id: true,
       fromUserId: true,
+      createdAt: true,
       fromUser: { select: { name: true } },
       activity: { select: { id: true, title: true, type: true } },
     },
@@ -50,6 +51,7 @@ export async function GET() {
   const highFives = rawHighFives.map((hf: any) => ({
     id: hf.id,
     fromUserId: hf.fromUserId,
+    createdAt: hf.createdAt,
     fromName: hf.fromUser?.name || "A teammate",
     activityId: hf.activity.id,
     activityTitle: hf.activity.title || hf.activity.type || "workout",
