@@ -161,9 +161,12 @@ export function PlatformChallengeSection() {
         <h2 className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-3">Platform Challenge 🌍</h2>
         <div className="space-y-3">
           {challenges.map(ch => {
-            const isActive = ch.status === "active" && new Date(ch.endDate) > new Date();
-            const isEnded = ch.status === "ended" || new Date(ch.endDate) <= new Date();
+            const now = new Date();
+            const isUpcoming = new Date(ch.startDate) > now;
+            const isActive = ch.status === "active" && !isUpcoming && new Date(ch.endDate) > now;
+            const isEnded = ch.status === "ended" || (!isUpcoming && new Date(ch.endDate) <= now);
             const remaining = daysLeft(ch.endDate);
+            const startsIn = isUpcoming ? Math.ceil((new Date(ch.startDate).getTime() - now.getTime()) / 86400000) : 0;
             const endedDaysAgo = isEnded && ch.finalAnnouncedAt ? daysAgo(ch.finalAnnouncedAt) : null;
 
             return (
@@ -174,29 +177,38 @@ export function PlatformChallengeSection() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="font-semibold text-sm">{ch.title}</h3>
-                        {isEnded && <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border text-foreground-dim">Ended</span>}
+                        {isUpcoming && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 border border-blue-700/40 text-blue-300">Upcoming</span>}
                         {isActive && <span className="text-xs px-2 py-0.5 rounded-full bg-green-900/30 border border-green-700/40 text-green-300">{remaining}d left</span>}
+                        {isEnded && <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised border border-border text-foreground-dim">Ended</span>}
                       </div>
                       <p className="text-xs text-foreground-dim">
                         {TYPE_LABELS[ch.type] ?? ch.type}
                         {ch.activityFilter && ch.activityFilter !== "all" ? ` · ${FILTER_LABELS[ch.activityFilter] ?? ch.activityFilter}` : ""}
                         {" · "}{ch.participantCount} athlete{ch.participantCount !== 1 ? "s" : ""}
                       </p>
+                      {isUpcoming && (
+                        <p className="text-xs text-blue-400 mt-0.5">
+                          Starts {new Date(ch.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                          {" · "}Ends {new Date(ch.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                        </p>
+                      )}
                       {ch.description && <p className="text-xs text-foreground-dim mt-1">{ch.description}</p>}
                       {ch.badgeName && <p className="text-xs text-foreground-dim mt-0.5">Badge: {ch.badgeName}</p>}
                     </div>
-                    {isActive && (
+                    {(isActive || isUpcoming) && (
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
                         <button
                           onClick={() => toggleJoin(ch)}
                           disabled={joining.has(ch.id)}
                           className={"text-xs px-3 py-1.5 rounded-full font-medium border transition-colors disabled:opacity-50 " + (ch.isJoined ? "bg-signal/10 border-signal/40 text-signal" : "bg-signal text-background border-signal hover:bg-signal/90")}
                         >
-                          {joining.has(ch.id) ? "…" : ch.isJoined ? "✓ Joined" : "Join"}
+                          {joining.has(ch.id) ? "…" : ch.isJoined ? "✓ Joined" : isUpcoming ? "Join early" : "Join"}
                         </button>
-                        <button onClick={() => setLeaderboardId(ch.id)} className="text-xs text-foreground-dim hover:text-signal transition-colors">
-                          Leaderboard →
-                        </button>
+                        {isActive && (
+                          <button onClick={() => setLeaderboardId(ch.id)} className="text-xs text-foreground-dim hover:text-signal transition-colors">
+                            Leaderboard →
+                          </button>
+                        )}
                       </div>
                     )}
                     {isEnded && (
