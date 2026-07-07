@@ -168,6 +168,10 @@ export default function AdminPage() {
   const [expandedConnections, setExpandedConnections] = useState({});
   const [syncingConnection, setSyncingConnection] = useState({});
   const [syncResults, setSyncResults] = useState({});
+  const [expandedPlans, setExpandedPlans] = useState({});
+  const [userPlanData, setUserPlanData] = useState({});
+  const [loadingPlans, setLoadingPlans] = useState({});
+  const [togglingWorkout, setTogglingWorkout] = useState({});
   const [raceSearch, setRaceSearch] = useState("");
   const [raceDistFilter, setRaceDistFilter] = useState("all");
   const [raceYearFilter, setRaceYearFilter] = useState("all");
@@ -398,6 +402,42 @@ export default function AdminPage() {
     const res = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "resetPlanGenerations", userId }) });
     if (res.ok) { setUserMsg(userId, "Plan generations reset to 0", true); setData(prev => ({ ...prev, users: prev.users.map(u => u.id === userId ? { ...u, planGenerationCount: 0 } : u) })); }
     else setUserMsg(userId, "Failed to reset", false);
+  }
+
+  async function loadUserPlans(userId) {
+    if (loadingPlans[userId]) return;
+    setLoadingPlans(prev => ({...prev,[userId]:true}));
+    try {
+      const res = await fetch(`/api/admin/plans?userId=${userId}&password=${encodeURIComponent(password)}`);
+      const d = await res.json();
+      setUserPlanData(prev => ({...prev,[userId]:d}));
+    } catch {}
+    setLoadingPlans(prev => ({...prev,[userId]:false}));
+  }
+
+  async function toggleTrainingWorkout(workoutId, currentCompleted, userId) {
+    setTogglingWorkout(prev => ({...prev,[workoutId]:true}));
+    const res = await fetch("/api/admin/plans",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password,action:"toggleTrainingWorkout",workoutId,completed:!currentCompleted})});
+    if (res.ok) {
+      setUserPlanData(prev => {
+        const d = prev[userId]; if (!d) return prev;
+        return {...prev,[userId]:{...d,trainingPlans:d.trainingPlans.map(p=>({...p,workouts:p.workouts.map(w=>w.id===workoutId?{...w,completed:!currentCompleted}:w)}))}};
+      });
+    }
+    setTogglingWorkout(prev => ({...prev,[workoutId]:false}));
+  }
+
+  async function toggleFitnessWorkout(planId, workoutId, isComplete, userId) {
+    setTogglingWorkout(prev => ({...prev,[workoutId]:true}));
+    const res = await fetch("/api/admin/plans",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password,action:"toggleFitnessWorkout",planId,workoutId,complete:!isComplete})});
+    if (res.ok) {
+      const d = await res.json();
+      setUserPlanData(prev => {
+        const ud = prev[userId]; if (!ud) return prev;
+        return {...prev,[userId]:{...ud,fitnessPlans:ud.fitnessPlans.map(p=>p.id===planId?{...p,completedWorkoutIds:d.completedWorkoutIds}:p)}};
+      });
+    }
+    setTogglingWorkout(prev => ({...prev,[workoutId]:false}));
   }
 
   async function setTempPw(userId) {
@@ -997,7 +1037,13 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                    <button
+                      onClick={()=>{const open=!expandedPlans[user.id];setExpandedPlans(prev=>({...prev,[user.id]:open}));if(open&&!userPlanData[user.id])loadUserPlans(user.id);}}
+                      className="px-3 py-1.5 rounded-full border border-border text-xs hover:border-signal hover:text-signal transition-colors"
+                    >
+                      {expandedPlans[user.id]?"Hide plans ▲":"View plans ▼"}
+                    </button>
                     <button
                       onClick={() => { setSettingPwFor(settingPwFor === user.id ? null : user.id); setTempPassword(""); }}
                       className="px-3 py-1.5 rounded-full border border-border text-xs hover:border-signal hover:text-signal transition-colors"
@@ -1077,6 +1123,114 @@ export default function AdminPage() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+                {expandedPlans[user.id]&&(
+                  <div className="mt-3 rounded-xl border border-border bg-background p-3 space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide">Plans</p>
+                      <div className="flex items-center gap-3">
+                        <span className={"text-xs "+((user.planGenerationCount||0)>=3?"text-red-400 font-medium":"text-foreground-dim")}>{user.planGenerationCount||0}/3 generations used</span>
+                        <button onClick={()=>resetPlanGenerations(user.id)} className="text-xs text-signal hover:underline">Reset count</button>
+                      </div>
+                    </div>
+                    {loadingPlans[user.id]?(
+                      <p className="text-xs text-foreground-dim animate-pulse">Loading plans…</p>
+                    ):userPlanData[user.id]&&(
+                      <div className="space-y-4">
+                        {/* Race Training Plans */}
+                        <div>
+                          <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Race Training Plans</p>
+                          {userPlanData[user.id].trainingPlans?.length>0?userPlanData[user.id].trainingPlans.map(plan=>{
+                            const total=plan.workouts.length,done=plan.workouts.filter(w=>w.completed).length;
+                            const weekMap={};
+                            plan.workouts.forEach(w=>{if(!weekMap[w.week])weekMap[w.week]=[];weekMap[w.week].push(w);});
+                            return(
+                              <div key={plan.id} className="rounded-xl border border-border bg-surface p-3 mb-2">
+                                <p className="text-sm font-medium">{plan.race?.raceName}</p>
+                                <p className="text-xs text-foreground-dim">
+                                  {plan.race?.raceDate?new Date(plan.race.raceDate).toLocaleDateString():"—"} · {plan.race?.distanceM?`${(plan.race.distanceM/1609.34).toFixed(1)}mi`:"—"}{plan.startDate?" · "+new Date(plan.startDate).toLocaleDateString()+" → "+(plan.endDate?new Date(plan.endDate).toLocaleDateString():"?"):""}
+                                </p>
+                                <p className="text-xs text-signal mt-0.5">{done}/{total} complete ({total>0?Math.round(done/total*100):0}%)</p>
+                                <div className="mt-2 space-y-2">
+                                  {Object.entries(weekMap).sort(([a],[b])=>Number(a)-Number(b)).map(([wk,wkouts])=>(
+                                    <div key={wk}>
+                                      <p className="text-xs text-foreground-dim font-medium">Week {wk} — {wkouts.filter(w=>w.completed).length}/{wkouts.length} done</p>
+                                      <div className="space-y-0.5 mt-1">
+                                        {wkouts.map(w=>(
+                                          <div key={w.id} className={"flex items-center justify-between gap-2 px-2 py-1 rounded-lg text-xs "+(w.completed?"bg-green-900/10":"bg-surface-raised")}>
+                                            <span className="truncate min-w-0">
+                                              <span className={w.completed?"text-green-300 font-medium":"font-medium"}>{w.day}</span>
+                                              <span className="text-foreground-dim"> · {w.title}{w.distanceKm?" · "+w.distanceKm+"km":""}{w.durationMin?" · "+w.durationMin+"min":""}</span>
+                                            </span>
+                                            <button onClick={()=>toggleTrainingWorkout(w.id,w.completed,user.id)} disabled={!!togglingWorkout[w.id]}
+                                              className={"shrink-0 px-2 py-0.5 rounded-full border transition-colors disabled:opacity-40 "+(w.completed?"border-green-600/40 text-green-400 hover:border-red-600/40 hover:text-red-400":"border-border text-foreground-dim hover:border-signal hover:text-signal")}>
+                                              {togglingWorkout[w.id]?"…":w.completed?"✓ Done":"○ Todo"}
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }):<p className="text-xs text-foreground-dim">No race training plans.</p>}
+                        </div>
+                        {/* Get in Shape / Fitness Plan */}
+                        <div>
+                          <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Get in Shape Plan</p>
+                          {userPlanData[user.id].fitnessPlans?.length>0?userPlanData[user.id].fitnessPlans.map(plan=>{
+                            const pc=plan.planContent,nc=plan.nutritionContent,cids=plan.completedWorkoutIds||[];
+                            const allW=pc?.weeks?.flatMap(w=>w.workouts||[])||[];
+                            const doneW=allW.filter(w=>cids.includes(w.id)).length;
+                            return(
+                              <div key={plan.id} className="rounded-xl border border-border bg-surface p-3">
+                                <p className="text-sm font-medium">{pc?.planTitle||"Fitness Plan"}</p>
+                                <p className="text-xs text-foreground-dim">Goal: {plan.goal} · {plan.location} · {plan.currentFitness} · {plan.daysPerWeek}d/wk</p>
+                                <p className="text-xs text-signal mt-0.5">{doneW}/{allW.length} complete · Created {new Date(plan.createdAt).toLocaleDateString()}</p>
+                                <div className="mt-2 space-y-2">
+                                  {pc?.weeks?.map(week=>(
+                                    <div key={week.week}>
+                                      <p className="text-xs text-foreground-dim font-medium">Week {week.week}: {week.theme}</p>
+                                      <div className="space-y-0.5 mt-1">
+                                        {week.workouts?.map(w=>{
+                                          const isDone=cids.includes(w.id);
+                                          return(
+                                            <div key={w.id} className={"flex items-center justify-between gap-2 px-2 py-1 rounded-lg text-xs "+(isDone?"bg-green-900/10":"bg-surface-raised")}>
+                                              <span className="truncate min-w-0">
+                                                <span className={isDone?"text-green-300 font-medium":"font-medium"}>{w.day}</span>
+                                                <span className="text-foreground-dim"> · {w.title}{w.durationMin?" · "+w.durationMin+"min":""} <span className="text-foreground-dim/50">[{w.type}]</span></span>
+                                              </span>
+                                              <button onClick={()=>toggleFitnessWorkout(plan.id,w.id,isDone,user.id)} disabled={!!togglingWorkout[w.id]}
+                                                className={"shrink-0 px-2 py-0.5 rounded-full border transition-colors disabled:opacity-40 "+(isDone?"border-green-600/40 text-green-400 hover:border-red-600/40 hover:text-red-400":"border-border text-foreground-dim hover:border-signal hover:text-signal")}>
+                                                {togglingWorkout[w.id]?"…":isDone?"✓ Done":"○ Todo"}
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                {nc&&(
+                                  <div className="mt-3 pt-3 border-t border-border">
+                                    <p className="text-xs font-medium mb-1.5">Nutrition Guidance</p>
+                                    <div className="text-xs text-foreground-dim space-y-0.5">
+                                      {nc.dailyCalorieRange&&<p>Calories: {nc.dailyCalorieRange}</p>}
+                                      {nc.proteinTargetG&&<p>Protein: {nc.proteinTargetG}g/day</p>}
+                                      {nc.focusFoods?.length>0&&<p><span className="text-green-300">Focus: </span>{nc.focusFoods.join(", ")}</p>}
+                                      {nc.limitFoods?.length>0&&<p><span className="text-red-300">Limit: </span>{nc.limitFoods.join(", ")}</p>}
+                                      {nc.tips?.slice(0,3).map((t,i)=><p key={i}>· {t}</p>)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }):<p className="text-xs text-foreground-dim">No fitness plan generated.</p>}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 {userMsgs[user.id] && (
