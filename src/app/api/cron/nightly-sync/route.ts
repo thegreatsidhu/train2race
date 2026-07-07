@@ -151,6 +151,84 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Lock platform challenge enrollment once start date passes
+  await (prisma as any).platformChallenge.updateMany({
+    where: { status: "active", enrollmentLocked: false, startDate: { lte: new Date() } },
+    data: { enrollmentLocked: true },
+  });
+
+  // Platform challenge invite notifications — delivered once per invite for Train2Race members
+  let inviteNotifs = 0;
+  if (process.env.RESEND_API_KEY) {
+    const pendingInvites = await (prisma as any).platformChallengeInvite.findMany({
+      where: { userId: { not: null }, notified: false },
+      select: {
+        id: true,
+        userId: true,
+        challengeId: true,
+        invitedBy: true,
+        challenge: { select: { title: true, startDate: true, id: true } },
+      },
+    });
+
+    // Group by invitee userId
+    const byUser = new Map<string, typeof pendingInvites>();
+    for (const inv of pendingInvites as any[]) {
+      if (!byUser.has(inv.userId)) byUser.set(inv.userId, []);
+      byUser.get(inv.userId)!.push(inv);
+    }
+
+    // Fetch inviter names in bulk
+    const inviterIds = [...new Set((pendingInvites as any[]).map(i => i.invitedBy))];
+    const inviters = await prisma.user.findMany({
+      where: { id: { in: inviterIds } },
+      select: { id: true, name: true },
+    });
+    const inviterMap = Object.fromEntries(inviters.map(u => [u.id, u.name || "A friend"]));
+
+    // Fetch invitee email in bulk
+    const inviteeIds = [...byUser.keys()];
+    const invitees = await prisma.user.findMany({
+      where: { id: { in: inviteeIds } },
+      select: { id: true, name: true, email: true, emailOptOut: true },
+    });
+    const inviteeMap = Object.fromEntries(invitees.map(u => [u.id, u]));
+
+    for (const [userId, invites] of byUser.entries()) {
+      const user = inviteeMap[userId];
+      if (!user?.email || user.emailOptOut) continue;
+      const inviteRows = (invites as any[]).map(inv => {
+        const inviterName = inviterMap[inv.invitedBy] ?? "A friend";
+        const startStr = new Date(inv.challenge.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+        const url = `${process.env.NEXTAUTH_URL || "https://train2race.com"}/challenge/${inv.challenge.id}`;
+        return `<p style="margin:0 0 12px;"><strong style="color:#ede9e2;">${inviterName}</strong> invited you to join <a href="${url}" style="color:#5ec9b5;text-decoration:none;font-weight:600;">${inv.challenge.title}</a> — starts <strong style="color:#ede9e2;">${startStr}</strong>.</p>`;
+      }).join("");
+
+      try {
+        await resend.emails.send({
+          from: FROM,
+          to: user.email,
+          subject: invites.length === 1 ? `You've been invited to a challenge on Train2Race` : `You have ${invites.length} challenge invites on Train2Race`,
+          html: groupEmailHtml({
+            preheader: "You've been invited to a platform challenge",
+            heading: "Challenge invite 🏆",
+            body: inviteRows + `<p style="margin:12px 0 0;color:#4a5260;font-size:12px;">To stop receiving these emails, <a href="https://train2race.com/dashboard/settings" style="color:#5ec9b5;text-decoration:none;">unsubscribe in your settings</a>.</p>`,
+            cta: "View your dashboard",
+            ctaUrl: "https://train2race.com/dashboard",
+          }),
+        });
+        inviteNotifs++;
+      } catch {}
+
+      // Mark as notified
+      const ids = (invites as any[]).map(i => i.id);
+      await (prisma as any).platformChallengeInvite.updateMany({
+        where: { id: { in: ids } },
+        data: { notified: true },
+      });
+    }
+  }
+
   // Platform challenge daily awards + final announcements
   let awardsGenerated = 0;
   let announcementsGenerated = 0;
@@ -282,5 +360,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
+  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, inviteNotifs, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
 }

@@ -39,6 +39,7 @@ export async function GET() {
       status: c.status,
       participantCount: c._count.participants,
       isJoined: c.participants.length > 0 && !c.participants[0].optedOut,
+      enrollmentLocked: c.enrollmentLocked || new Date(c.startDate) <= new Date(),
       dailyAwards: c.dailyAwards ?? null,
       finalAnnouncement: c.finalAnnouncement ?? null,
       finalAnnouncedAt: c.finalAnnouncedAt ?? null,
@@ -52,17 +53,21 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
 
-  const { challengeId, action } = await req.json();
+  const { challengeId, action, joinedVia } = await req.json();
   if (!challengeId || !["join", "leave"].includes(action)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   const challenge = await (prisma as any).platformChallenge.findUnique({
     where: { id: challengeId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, startDate: true, enrollmentLocked: true },
   });
   if (!challenge || challenge.status === "ended") {
     return NextResponse.json({ error: "Challenge not found or ended" }, { status: 404 });
+  }
+  const enrollmentLocked = challenge.enrollmentLocked || new Date(challenge.startDate) <= new Date();
+  if (action === "join" && enrollmentLocked) {
+    return NextResponse.json({ error: "Enrollment closed" }, { status: 409 });
   }
 
   const existing = await (prisma as any).platformChallengeParticipant.findUnique({
@@ -77,7 +82,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       await (prisma as any).platformChallengeParticipant.create({
-        data: { challengeId, userId },
+        data: { challengeId, userId, joinedVia: joinedVia || "organic" },
       });
     }
   } else {

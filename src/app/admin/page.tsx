@@ -195,6 +195,7 @@ export default function AdminPage() {
 
   // Platform challenges
   const [platformChallenges, setPlatformChallenges] = useState([]);
+  const [challengeAlertCounts, setChallengeAlertCounts] = useState<Record<string,number>>({});
   const [loadingPlatformCh, setLoadingPlatformCh] = useState(false);
   const [showCreatePlatformCh, setShowCreatePlatformCh] = useState(false);
   const [newPChTitle, setNewPChTitle] = useState("");
@@ -578,6 +579,7 @@ export default function AdminPage() {
     const res = await fetch(`/api/admin/platform-challenges?password=${encodeURIComponent(password)}`);
     const d = await res.json();
     setPlatformChallenges(d.challenges || []);
+    setChallengeAlertCounts(d.alertCounts || {});
     setLoadingPlatformCh(false);
   }
 
@@ -1728,6 +1730,16 @@ export default function AdminPage() {
                 <h2 className="font-medium">Platform Challenges 🌍 ({platformChallenges.length})</h2>
                 <button onClick={() => { setShowCreatePlatformCh(v => !v); setCreatePChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full bg-teal-600 text-white font-medium">+ Create platform challenge</button>
               </div>
+              {Object.keys(challengeAlertCounts).length > 0 && (
+                <div className="rounded-xl border border-amber-700/30 bg-amber-900/10 px-4 py-3 mb-4">
+                  <p className="text-xs font-medium text-amber-300 mb-1.5">🔔 Alert list (users waiting for next challenge)</p>
+                  <div className="flex flex-wrap gap-3">
+                    {Object.entries(challengeAlertCounts).map(([type, count]) => (
+                      <span key={type} className="text-xs text-foreground-dim"><strong className="text-foreground">{count}</strong> for <span className="capitalize">{type.replace(/_/g," ")}</span></span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {showCreatePlatformCh && (
                 <div className="rounded-2xl border border-teal-500/30 bg-surface p-4 mb-4 space-y-3">
                   <p className="text-sm font-medium">New platform-wide challenge (visible to all users)</p>
@@ -1782,6 +1794,11 @@ export default function AdminPage() {
                               <p className="text-xs text-foreground-dim capitalize">{c.type.replace(/_/g," ")} · {c.activityFilter || "All types"} · {c.participantCount} participant{c.participantCount !== 1 ? "s" : ""}</p>
                               <p className="text-xs text-foreground-dim">{new Date(c.startDate).toLocaleDateString()} – {new Date(c.endDate).toLocaleDateString()}</p>
                               {c.badgeName && <p className="text-xs text-foreground-dim">Badge: {c.badgeName}</p>}
+                              {c.inviteCount > 0 && (
+                                <p className="text-xs text-foreground-dim mt-0.5">
+                                  Invites: {c.inviteCount} sent · {c.joinsBySource?.invite || 0} joined via invite · {c.joinsBySource?.link || 0} via link · {c.joinsBySource?.organic || 0} organic
+                                </p>
+                              )}
                               {c.dailyAwards?.awards?.length > 0 && <p className="text-xs text-teal-400 mt-1">AI awards generated · {c.dailyAwardsDate}</p>}
                             </div>
                             <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">

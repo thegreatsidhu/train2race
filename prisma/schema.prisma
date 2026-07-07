@@ -64,6 +64,7 @@ model User {
   activityComments ActivityComment[]
   fitnessPlans     FitnessPlan[]
   platformParticipants PlatformChallengeParticipant[]
+  challengeAlerts      ChallengeAlert[]
   @@map("users")
 }
 
@@ -449,7 +450,8 @@ model TeamChallenge {
   metric      String   // distance, duration, count
   unit        String   // mi, km, min, sessions, steps
   goal        Float?
-  goalPerDay  Boolean  @default(false)
+  goalPerDay          Boolean  @default(false)
+  lockEnrollmentAtStart Boolean @default(true)
   startDate   DateTime
   endDate     DateTime
   description String?
@@ -635,7 +637,9 @@ model PlatformChallenge {
   finalAnnouncement Json?
   finalAnnouncedAt  DateTime?
   createdAt         DateTime @default(now())
+  enrollmentLocked  Boolean  @default(false)
   participants      PlatformChallengeParticipant[]
+  invites           PlatformChallengeInvite[]
   @@map("platform_challenges")
 }
 
@@ -644,12 +648,40 @@ model PlatformChallengeParticipant {
   challengeId String
   userId      String
   optedOut    Boolean  @default(false)
+  joinedVia   String   @default("organic") // organic | invite | link
   joinedAt    DateTime @default(now())
   challenge   PlatformChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([challengeId, userId])
   @@index([userId])
   @@map("platform_challenge_participants")
+}
+
+model PlatformChallengeInvite {
+  id          String   @id @default(cuid())
+  challengeId String
+  invitedBy   String
+  email       String
+  userId      String?  // set if invitee is a Train2Race user
+  notified    Boolean  @default(false)
+  status      String   @default("pending") // pending | accepted
+  createdAt   DateTime @default(now())
+  challenge   PlatformChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  @@index([email])
+  @@index([userId])
+  @@index([challengeId])
+  @@map("platform_challenge_invites")
+}
+
+model ChallengeAlert {
+  id            String   @id @default(cuid())
+  userId        String
+  challengeType String   @default("all") // specific type or "all"
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, challengeType])
+  @@index([challengeType])
+  @@map("challenge_alerts")
 }
 
 model EventMessage {

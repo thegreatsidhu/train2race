@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: `This team already has an active challenge ("${existingActive.title}"). It must end before a new one can be created.` }, { status: 409 });
   }
 
-  const { title, type, metric, unit, goal, goalPerDay, startDate, endDate, description, isPublic } = await req.json();
+  const { title, type, metric, unit, goal, goalPerDay, lockEnrollmentAtStart, startDate, endDate, description, isPublic } = await req.json();
   if (!title?.trim() || !type || !metric || !unit || !startDate || !endDate || !goal) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -79,6 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       unit,
       goal: Number(goal),
       goalPerDay: goalPerDay === true,
+      lockEnrollmentAtStart: lockEnrollmentAtStart !== false,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       description: description?.trim() || null,

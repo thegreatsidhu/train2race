@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { sendEmail, groupEmailHtml } from "@/lib/email";
 import bcrypt from "bcryptjs";
 
 const FALLBACK_PASSWORD = "train2race2024";
@@ -40,9 +41,36 @@ export async function GET(req: NextRequest) {
   const challenges = await (prisma as any).platformChallenge.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { participants: { where: { optedOut: false } } } },
+      _count: {
+        select: {
+          participants: { where: { optedOut: false } },
+          invites: true,
+        },
+      },
     },
   });
+
+  // Alert counts by challenge type
+  const alertCounts = await (prisma as any).challengeAlert.groupBy({
+    by: ["challengeType"],
+    _count: { _all: true },
+  });
+  const alertCountMap: Record<string, number> = {};
+  for (const row of alertCounts) alertCountMap[row.challengeType] = row._count._all;
+
+  // For each challenge, count participants who joined via invite vs organic
+  const challengeIds = challenges.map((c: any) => c.id);
+  const inviteJoins = await (prisma as any).platformChallengeParticipant.groupBy({
+    by: ["challengeId", "joinedVia"],
+    where: { challengeId: { in: challengeIds }, optedOut: false },
+    _count: { _all: true },
+  });
+
+  const inviteJoinMap: Record<string, Record<string, number>> = {};
+  for (const row of inviteJoins) {
+    if (!inviteJoinMap[row.challengeId]) inviteJoinMap[row.challengeId] = {};
+    inviteJoinMap[row.challengeId][row.joinedVia] = row._count._all;
+  }
 
   return NextResponse.json({
     challenges: challenges.map((c: any) => ({
@@ -56,12 +84,15 @@ export async function GET(req: NextRequest) {
       endDate: c.endDate,
       status: c.status,
       participantCount: c._count.participants,
+      inviteCount: c._count.invites,
+      joinsBySource: inviteJoinMap[c.id] ?? {},
       dailyAwards: c.dailyAwards ?? null,
       dailyAwardsDate: c.dailyAwardsDate ?? null,
       finalAnnouncement: c.finalAnnouncement ?? null,
       finalAnnouncedAt: c.finalAnnouncedAt ?? null,
       createdAt: c.createdAt,
     })),
+    alertCounts: alertCountMap,
   });
 }
 
@@ -99,7 +130,35 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ challenge });
+  // Send alert emails to opted-in users and then delete their alert
+  const startStr = challenge.startDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const challengeUrl = `${process.env.NEXTAUTH_URL || "https://train2race.com"}/challenge/${challenge.id}`;
+  const alertsToNotify = await (prisma as any).challengeAlert.findMany({
+    where: { OR: [{ challengeType: type }, { challengeType: "all" }] },
+    select: { id: true, userId: true, user: { select: { email: true, name: true, emailOptOut: true } } },
+  });
+  for (const alert of alertsToNotify) {
+    if (!alert.user.email || alert.user.emailOptOut) continue;
+    sendEmail({
+      to: alert.user.email,
+      subject: `New challenge starting soon — ${challenge.title}`,
+      html: groupEmailHtml({
+        preheader: `${challenge.title} begins ${startStr}. Join now before enrollment closes!`,
+        heading: `New challenge: ${challenge.title} 🏆`,
+        body: `<p>A new platform challenge is starting soon — and you asked to be notified!</p><p style="margin-top:12px;"><strong style="color:#ede9e2;">${challenge.title}</strong> begins on <strong style="color:#ede9e2;">${startStr}</strong>. Join now before enrollment closes.</p>`,
+        cta: "Join the challenge →",
+        ctaUrl: challengeUrl,
+      }),
+    }).catch(() => {});
+  }
+  // Remove all triggered alerts (users must re-request each time)
+  if (alertsToNotify.length > 0) {
+    await (prisma as any).challengeAlert.deleteMany({
+      where: { id: { in: alertsToNotify.map((a: any) => a.id) } },
+    });
+  }
+
+  return NextResponse.json({ challenge, alertsNotified: alertsToNotify.length });
 }
 
 export async function DELETE(req: NextRequest) {
