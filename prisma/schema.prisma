@@ -525,16 +525,17 @@ model Setting {
 }
 
 model SupportTicket {
-  id          String   @id @default(cuid())
-  userId      String
-  subject     String
-  description String
-  category    String   @default("general")
-  status      String   @default("open")
-  adminNote   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String
+  subject       String
+  description   String
+  category      String   @default("general")
+  status        String   @default("open")
+  adminNote     String?
+  ticketImages  String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@map("support_tickets")
 }
 

@@ -1682,6 +1682,15 @@ export default function AdminPage() {
                           <p className="font-medium text-sm">{t.subject}</p>
                           <p className="text-xs text-foreground-dim mt-0.5">{t.user?.name||"Unknown"} · {t.user?.email} · {t.category} · {new Date(t.createdAt).toLocaleDateString()}</p>
                           <p className="text-sm text-foreground-dim mt-2">{t.description}</p>
+                          {t.ticketImages&&t.ticketImages.length>0&&(
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {t.ticketImages.map((url:string,i:number)=>(
+                                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                  <img src={url} alt={`Screenshot ${i+1}`} className="h-24 w-auto rounded-lg border border-border object-cover hover:opacity-80 transition-opacity"/>
+                                </a>
+                              ))}
+                            </div>
+                          )}
                           {t.adminNote&&<p className="text-xs text-signal mt-1">Note: {t.adminNote}</p>}
                         </div>
                         <span className={"text-xs px-2 py-0.5 rounded-full border shrink-0 "+STATUS_COLORS[t.status]}>{t.status.replace("_"," ")}</span>

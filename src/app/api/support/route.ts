@@ -20,10 +20,14 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
 
-  const { subject, description, category } = await req.json();
+  const { subject, description, category, ticketImages } = await req.json();
   if (!subject?.trim() || !description?.trim()) {
     return NextResponse.json({ error: "Subject and description are required" }, { status: 400 });
   }
+
+  const images = Array.isArray(ticketImages)
+    ? ticketImages.filter((u: unknown) => typeof u === "string").slice(0, 3)
+    : [];
 
   const ticket = await prisma.supportTicket.create({
     data: {
@@ -31,6 +35,7 @@ export async function POST(req: NextRequest) {
       subject: subject.trim(),
       description: description.trim(),
       category: category || "general",
+      ticketImages: images,
     },
   });
   return NextResponse.json({ ticket }, { status: 201 });
