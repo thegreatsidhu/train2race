@@ -4,43 +4,65 @@ import Link from "next/link";
 
 const LS_KEY = "hf_dismissed_at";
 
-interface HighFive {
+interface HFEvent {
   id: string;
   fromUserId: string;
   fromName: string;
   activityId: string;
   activityTitle: string;
   createdAt: string;
+  preview?: string; // comments only
 }
 
-function buildMessage(highFives: HighFive[]): string {
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor(diff / 60000);
+  if (h >= 24) return `${Math.floor(h / 24)}d ago`;
+  if (h >= 1) return `${h}h ago`;
+  if (m >= 1) return `${m}m ago`;
+  return "just now";
+}
+
+function dedupeByUser<T extends { fromUserId: string }>(items: T[]): T[] {
   const seen = new Set<string>();
-  const giverNames: string[] = [];
-  let singleActivityTitle = "";
+  return items.filter(item => {
+    if (seen.has(item.fromUserId)) return false;
+    seen.add(item.fromUserId);
+    return true;
+  });
+}
 
-  for (const hf of highFives) {
-    if (!seen.has(hf.fromUserId)) {
-      seen.add(hf.fromUserId);
-      giverNames.push(hf.fromName);
-      if (giverNames.length === 1) singleActivityTitle = hf.activityTitle;
-    }
+function buildMessage(hfs: HFEvent[], cmts: HFEvent[]): string {
+  const uniqueHF = dedupeByUser(hfs);
+  const uniqueCmt = dedupeByUser(cmts);
+
+  // Single high five, no comments
+  if (uniqueHF.length === 1 && uniqueCmt.length === 0) {
+    return `🙌 ${uniqueHF[0].fromName} high fived your ${uniqueHF[0].activityTitle} · ${timeAgo(uniqueHF[0].createdAt)}`;
   }
 
-  if (giverNames.length === 1) {
-    return `🙌 ${giverNames[0]} high fived your ${singleActivityTitle}`;
+  // Single comment, no high fives
+  if (uniqueHF.length === 0 && uniqueCmt.length === 1) {
+    const c = uniqueCmt[0];
+    return `💬 ${c.fromName} commented on your ${c.activityTitle} · ${timeAgo(c.createdAt)}${c.preview ? ` → "${c.preview}"` : ""}`;
   }
 
-  const shown = giverNames.slice(0, 2);
-  const others = giverNames.length - shown.length;
-  const namesPart =
-    others === 0
-      ? `${shown[0]} and ${shown[1]}`
-      : `${shown.join(", ")} and ${others} other${others > 1 ? "s" : ""}`;
-  return `🙌 ${namesPart} high fived your workouts today`;
+  // Exactly one of each
+  if (uniqueHF.length === 1 && uniqueCmt.length === 1) {
+    return `🙌 ${uniqueHF[0].fromName} high fived your ${uniqueHF[0].activityTitle} · 💬 ${uniqueCmt[0].fromName} commented on your ${uniqueCmt[0].activityTitle}`;
+  }
+
+  // Multiple — summary
+  const parts: string[] = [];
+  if (uniqueHF.length > 0) parts.push(`${uniqueHF.length} high five${uniqueHF.length > 1 ? "s" : ""}`);
+  if (uniqueCmt.length > 0) parts.push(`${uniqueCmt.length} comment${uniqueCmt.length > 1 ? "s" : ""}`);
+  return `You have ${parts.join(" and ")} on your workouts today 🔥`;
 }
 
 export function HighFiveStrip() {
-  const [visibleHighFives, setVisibleHighFives] = useState<HighFive[]>([]);
+  const [highFives, setHighFives] = useState<HFEvent[]>([]);
+  const [comments, setComments] = useState<HFEvent[]>([]);
   const [linkTeamId, setLinkTeamId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -49,21 +71,19 @@ export function HighFiveStrip() {
     fetch("/api/me/high-fives-today")
       .then(r => r.json())
       .then(d => {
-        const all: HighFive[] = d.highFives || [];
-
-        // Read persisted dismissal timestamp
         let dismissedAt = 0;
         try {
           const raw = localStorage.getItem(LS_KEY);
           if (raw) dismissedAt = JSON.parse(raw).dismissedAt ?? 0;
         } catch {}
 
-        // Only show high fives received AFTER the last dismissal
-        const fresh = dismissedAt > 0
-          ? all.filter(hf => new Date(hf.createdAt).getTime() > dismissedAt)
-          : all;
+        const filterFresh = (items: HFEvent[]) =>
+          dismissedAt > 0
+            ? items.filter(e => new Date(e.createdAt).getTime() > dismissedAt)
+            : items;
 
-        setVisibleHighFives(fresh);
+        setHighFives(filterFresh(d.highFives || []));
+        setComments(filterFresh(d.comments || []));
         setLinkTeamId(d.linkTeamId || null);
         setLoaded(true);
       })
@@ -77,9 +97,9 @@ export function HighFiveStrip() {
     setDismissed(true);
   }
 
-  if (!loaded || dismissed || visibleHighFives.length === 0) return null;
+  if (!loaded || dismissed || (highFives.length === 0 && comments.length === 0)) return null;
 
-  const message = buildMessage(visibleHighFives);
+  const message = buildMessage(highFives, comments);
   const href = linkTeamId ? `/dashboard/teams/${linkTeamId}` : "/dashboard/teams";
 
   return (
