@@ -256,7 +256,9 @@ export function OnboardingClient({ name }: { name: string }) {
     }).catch(() => {});
     if (pendingInviteCode) {
       localStorage.removeItem("pendingTeamCode");
-      router.push(`/join/${pendingInviteCode}`);
+      const pendingChallengeId = localStorage.getItem("pendingChallengeId");
+      localStorage.removeItem("pendingChallengeId");
+      router.push(pendingChallengeId ? `/join/${pendingInviteCode}?challenge=${pendingChallengeId}` : `/join/${pendingInviteCode}`);
     } else {
       router.push("/dashboard");
     }

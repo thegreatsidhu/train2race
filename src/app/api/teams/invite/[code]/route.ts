@@ -17,7 +17,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
     },
   });
   if (!team) return NextResponse.json({ error: "Invalid invite link" }, { status: 404 });
-  return NextResponse.json({ team });
+
+  const challengeId = req.nextUrl.searchParams.get("challenge");
+  let challenge = null;
+  if (challengeId) {
+    challenge = await prisma.teamChallenge.findFirst({
+      where: { id: challengeId, teamId: team.id },
+      select: { id: true, title: true, type: true, metric: true, unit: true, goal: true, goalPerDay: true, startDate: true, endDate: true, status: true },
+    });
+  }
+
+  return NextResponse.json({ team, challenge });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
@@ -25,13 +35,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
+  const { challengeId } = await req.json().catch(() => ({ challengeId: undefined }));
 
   const team = await prisma.team.findUnique({ where: { inviteCode: code }, select: { id: true } });
   if (!team) return NextResponse.json({ error: "Invalid invite link" }, { status: 404 });
 
   const existing = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: team.id, userId } } });
-  if (existing) return NextResponse.json({ teamId: team.id, alreadyMember: true });
+  if (!existing) {
+    await prisma.teamMember.create({ data: { teamId: team.id, userId, role: "member" } });
+  }
 
-  await prisma.teamMember.create({ data: { teamId: team.id, userId, role: "member" } });
-  return NextResponse.json({ teamId: team.id });
+  let challengeJoined = false;
+  let challengeError: string | undefined;
+  if (challengeId) {
+    const challenge = await prisma.teamChallenge.findFirst({ where: { id: challengeId, teamId: team.id } });
+    if (!challenge) {
+      challengeError = "That challenge invite is no longer valid.";
+    } else if (challenge.acceptances.includes(userId)) {
+      challengeJoined = true;
+    } else {
+      await prisma.teamChallenge.update({ where: { id: challenge.id }, data: { acceptances: { push: userId } } });
+      challengeJoined = true;
+    }
+  }
+
+  return NextResponse.json({ teamId: team.id, alreadyMember: !!existing, challengeJoined, challengeError });
 }
