@@ -31,9 +31,10 @@ interface Props {
   onDelete: (messageId: string) => Promise<void>;
   onDeleteAll?: () => Promise<void>;
   sending?: boolean;
+  readOnly?: boolean;
 }
 
-export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSend, onDelete, onDeleteAll, sending }: Props) {
+export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSend, onDelete, onDeleteAll, sending, readOnly }: Props) {
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
@@ -149,20 +150,26 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
       )}
 
       {/* Input */}
-      <div className="flex gap-2">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder={replyTo ? `Reply to ${replyTo.user.name}…` : "Message the group…"}
-          className="flex-1 px-3 py-2 rounded-full bg-surface border border-border focus:border-signal outline-none text-sm"
-        />
-        <button onClick={handleSend} disabled={sending || !input.trim()}
-          className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">
-          Send
-        </button>
-      </div>
+      {readOnly ? (
+        <div className="px-3 py-2.5 rounded-xl bg-surface border border-border text-xs text-foreground-dim text-center">
+          📢 Announcement mode — only captains and admins can post here.
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+            placeholder={replyTo ? `Reply to ${replyTo.user.name}…` : "Message the group…"}
+            className="flex-1 px-3 py-2 rounded-full bg-surface border border-border focus:border-signal outline-none text-sm"
+          />
+          <button onClick={handleSend} disabled={sending || !input.trim()}
+            className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">
+            Send
+          </button>
+        </div>
+      )}
     </div>
   );
 }

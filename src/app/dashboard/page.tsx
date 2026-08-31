@@ -14,6 +14,7 @@ import { RaceCommunityLeaderboard } from "@/components/RaceCommunityLeaderboard"
 import { KudosBanner } from "@/components/KudosBanner";
 import { DailyAIMessage } from "@/components/DailyAIMessage";
 import { HighFiveStrip } from "@/components/HighFiveStrip";
+import { TeamAvatar } from "@/components/TeamAvatar";
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run:"bg-green-900/50 text-green-300 border-green-700",
@@ -84,11 +85,11 @@ export default async function TodayPage() {
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
     prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
     (prisma as any).announcement.findMany({where:{AND:[{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},{OR:[{scheduledFor:null},{scheduledFor:{lte:now}}]}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
-    prisma.team.findMany({where:{members:{some:{userId}}},select:{id:true,name:true,_count:{select:{members:true}}},orderBy:{createdAt:"desc"},take:10}),
+    prisma.team.findMany({where:{members:{some:{userId}}},select:{id:true,name:true,logoUrl:true,logoStatus:true,isPrivate:true,_count:{select:{members:true}}},orderBy:{createdAt:"desc"},take:10}),
   ]);
 
   const teamsWithActivity = (userTeams as any[]).map((t: any) => ({
-    id: t.id, name: t.name, memberCount: t._count.members,
+    id: t.id, name: t.name, memberCount: t._count.members, logoUrl: t.logoUrl, logoStatus: t.logoStatus, isPrivate: t.isPrivate,
   }));
 
   const weeklyMiles = weeklyActivities.reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
@@ -325,9 +326,7 @@ export default async function TodayPage() {
             {teamsWithActivity.slice(0, 5).map((t: any) => (
               <Link key={t.id} href={`/dashboard/teams/${t.id}`}
                 className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 hover:border-signal/30 transition-colors group">
-                <div className="w-9 h-9 rounded-full bg-signal/10 border border-signal/20 flex items-center justify-center shrink-0">
-                  <span className="text-signal font-bold text-sm">{t.name.charAt(0).toUpperCase()}</span>
-                </div>
+                <TeamAvatar name={t.name} logoUrl={t.logoUrl} logoStatus={t.logoStatus} isPrivate={t.isPrivate} size={36} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{t.name}</p>
                   <p className="text-xs text-foreground-dim mt-0.5">

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LogWorkoutPage() {
@@ -8,6 +8,19 @@ export default function LogWorkoutPage() {
   const [error, setError] = useState("");
   const [unit, setUnit] = useState("mi");
   const [swimUnit, setSwimUnit] = useState("m");
+  const [photoRequiredChallenge, setPhotoRequiredChallenge] = useState<{ title: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me/active-challenges")
+      .then(r => r.json())
+      .then(d => {
+        const match = (d.challenges || []).find((c: any) =>
+          c.unit === "steps" && c.metric === "count" && c.requirePhotoVerification && c.userAccepted && c.isActive
+        );
+        if (match) setPhotoRequiredChallenge({ title: match.title });
+      })
+      .catch(() => {});
+  }, []);
 
   function todayLocal() {
     const d = new Date();
@@ -59,6 +72,10 @@ export default function LogWorkoutPage() {
     const totalMin = Number(form.durationHours || 0) * 60 + Number(form.durationMins || 0);
     if (!totalMin) errors.push("duration (hours or minutes)");
     if (errors.length) { setError("Missing required fields: " + errors.join(", ") + "."); return; }
+    if (photoRequiredChallenge && Number(form.steps || 0) > 0 && photoFiles.length === 0) {
+      setError(`"${photoRequiredChallenge.title}" requires photo proof of your step count. Attach a screenshot from your phone's health app, Fitbit, or step counter.`);
+      return;
+    }
     setError("");
     setLoading(true);
     const effectiveUnit = isSwim ? swimUnit : unit;
@@ -171,6 +188,11 @@ export default function LogWorkoutPage() {
               placeholder="e.g. 8000"
               value={form.steps}
               onChange={e => setForm({ ...form, steps: e.target.value })} />
+            {photoRequiredChallenge && Number(form.steps || 0) > 0 && (
+              <p className="text-xs text-amber-400 mt-1">
+                📸 "{photoRequiredChallenge.title}" requires photo proof of your step count — attach a screenshot below.
+              </p>
+            )}
           </div>
         )}
         <div>

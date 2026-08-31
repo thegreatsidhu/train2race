@@ -54,6 +54,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const isMember = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } } });
   if (!isMember) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
+  if (isMember.role !== "admin") {
+    const team = await prisma.team.findUnique({ where: { id }, select: { announcementMode: true } });
+    if (team?.announcementMode) return NextResponse.json({ error: "Only captains and admins can post in announcement mode" }, { status: 403 });
+  }
+
   const { content, replyToId } = await req.json();
   if (!content?.trim()) return NextResponse.json({ error: "Message required" }, { status: 400 });
 

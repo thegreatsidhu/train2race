@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
+import { TeamAvatar } from "@/components/TeamAvatar";
 
 function fmtGoal(sec: number) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
@@ -243,9 +244,12 @@ function CommunityPageInner() {
             ))}
             {commEvents.filter((e: any) => e.isMember).map((e: any) => (
               <div key={e.id} className="rounded-2xl border border-signal/30 bg-signal/5 p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                <TeamAvatar name={e.name} logoUrl={e.logoUrl} isPrivate={false} logoStatus="approved" size={36} />
                 <div className="min-w-0">
                   <p className="font-medium text-sm truncate">{e.name}</p>
                   <p className="text-xs text-foreground-dim mt-0.5">{e.memberCount} member{e.memberCount !== 1 ? "s" : ""}{e.description ? ` · ${e.description}` : ""}</p>
+                </div>
                 </div>
                 <button
                   onClick={() => router.push(`/dashboard/teams/${e.id}`)}
@@ -291,9 +295,12 @@ function CommunityPageInner() {
               <div className="space-y-2">
                 {filtered.map(e => (
                   <div key={e.id} className={"rounded-2xl border p-4 flex items-center justify-between gap-4 " + (e.isMember ? "border-signal/30 bg-signal/5" : "border-border bg-surface")}>
+                    <div className="flex items-center gap-3 min-w-0">
+                    <TeamAvatar name={e.name} logoUrl={e.logoUrl} isPrivate={false} logoStatus="approved" size={36} />
                     <div className="min-w-0">
                       <p className="font-medium text-sm">{e.name}</p>
                       <p className="text-xs text-foreground-dim mt-0.5">{e.memberCount} member{e.memberCount !== 1 ? "s" : ""}{e.description ? ` · ${e.description}` : ""}</p>
+                    </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {e.isMember ? (

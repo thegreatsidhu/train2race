@@ -36,7 +36,9 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
   const [activities, setActivities] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [highFiving, setHighFiving] = useState<Set<string>>(new Set());
-  const [visibleCount, setVisibleCount] = useState(14);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextSkip, setNextSkip] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
   // Comments state
@@ -51,9 +53,23 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
   useEffect(() => {
     fetch(`/api/teams/${teamId}/activity`)
       .then(r => r.json())
-      .then(d => { setActivities(d.activities || []); setLoaded(true); })
+      .then(d => { setActivities(d.activities || []); setHasMore(!!d.hasMore); setNextSkip(d.nextSkip || 0); setLoaded(true); })
       .catch(() => setLoaded(true));
   }, [teamId]);
+
+  async function loadMoreActivities() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/teams/${teamId}/activity?skip=${nextSkip}`);
+      const d = await res.json();
+      setActivities(prev => [...prev, ...(d.activities || [])]);
+      setHasMore(!!d.hasMore);
+      setNextSkip(d.nextSkip || nextSkip);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function toggleHighFive(activityId: string, iHighFived: boolean) {
     if (highFiving.has(activityId)) return;
@@ -144,7 +160,7 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
   if (!loaded) return <p className="text-sm text-foreground-dim py-4">Loading...</p>;
   if (activities.length === 0) return <p className="text-sm text-foreground-dim py-4">Be the first to log a workout today! Your team is watching 💪</p>;
 
-  const visible = activities.slice(0, visibleCount);
+  const visible = activities;
 
   return (
     <>
@@ -286,11 +302,12 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
             </div>
           );
         })}
-        {activities.length > visibleCount && (
+        {hasMore && (
           <button
-            onClick={() => setVisibleCount(c => c + 14)}
-            className="w-full py-2 text-sm text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">
-            Load more
+            onClick={loadMoreActivities}
+            disabled={loadingMore}
+            className="w-full py-2 text-sm text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors disabled:opacity-50">
+            {loadingMore ? "Loading..." : "Load more"}
           </button>
         )}
       </div>

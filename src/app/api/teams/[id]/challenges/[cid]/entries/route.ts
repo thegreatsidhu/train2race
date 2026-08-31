@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "You are already participating in another active challenge in this team." }, { status: 409 });
   }
 
-  const { value, date, note } = await req.json();
+  const { value, date, note, photoUrl } = await req.json();
   if (!value || !date) return NextResponse.json({ error: "value and date are required" }, { status: 400 });
   const numVal = Number(value);
   if (isNaN(numVal) || numVal <= 0) return NextResponse.json({ error: "Value must be a positive number" }, { status: 400 });
@@ -33,6 +33,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (challenge.status !== "approved") return NextResponse.json({ error: "Challenge is not active" }, { status: 400 });
   const now = new Date();
   if (now < challenge.startDate || now > challenge.endDate) return NextResponse.json({ error: "Challenge is not currently running" }, { status: 400 });
+  if (challenge.requirePhotoVerification && !photoUrl) {
+    return NextResponse.json({ error: "This challenge requires photo proof of your step count. Attach a screenshot from your phone's health app, Fitbit, or step counter." }, { status: 400 });
+  }
 
   const entry = await prisma.teamChallengeEntry.create({
     data: {
@@ -41,6 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       value: numVal,
       date: new Date(date),
       note: note?.trim() || null,
+      photoUrl: photoUrl || null,
     },
     include: { user: { select: { id: true, name: true } } },
   });

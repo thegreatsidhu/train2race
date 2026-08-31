@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
     description: t.description,
     isPrivate: t.isPrivate,
     isCommunity: t.isCommunity,
+    logoUrl: t.logoUrl,
+    logoStatus: t.logoStatus,
     createdAt: t.createdAt,
     createdBy: t.createdBy,
     members: t.members.map(m => ({

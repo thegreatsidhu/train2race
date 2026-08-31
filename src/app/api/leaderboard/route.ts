@@ -120,12 +120,15 @@ export async function GET(req: Request) {
       }),
       prisma.teamMember.findMany({
         where: { userId: { in: userIds } },
-        select: { userId: true, team: { select: { id: true, name: true } } },
+        select: { userId: true, team: { select: { id: true, name: true, logoUrl: true, logoStatus: true } } },
         distinct: ["userId"],
       }),
     ]);
     const userMap = Object.fromEntries(users.map((u: any) => [u.id, u]));
-    const teamMap = Object.fromEntries(memberships.map((m: any) => [m.userId, m.team]));
+    const teamMap = Object.fromEntries(memberships.map((m: any) => [
+      m.userId,
+      m.team ? { id: m.team.id, name: m.team.name, logoUrl: m.team.logoStatus === "approved" ? m.team.logoUrl : null } : null,
+    ]));
 
     const now = new Date();
     let entries = grouped.map((g: any) => {

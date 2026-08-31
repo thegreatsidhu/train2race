@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TeamInvitations } from "@/components/TeamInvitations";
+import { TeamAvatar } from "@/components/TeamAvatar";
 
 export default function TeamsPage() {
   const router = useRouter();
@@ -76,8 +77,20 @@ export default function TeamsPage() {
     setError(data.error || "Invalid invite code");
   }
 
-  async function handleJoinPublic(teamId: string) {
+  async function handleJoinPublic(teamId: string, requireApproval?: boolean) {
     setJoining(teamId);
+    if (requireApproval) {
+      const res = await fetch(`/api/teams/${teamId}/join-request`, { method: "POST" });
+      const data = await res.json();
+      setJoining(null);
+      if (res.ok) {
+        if (data.alreadyMember) { router.push(`/dashboard/teams/${teamId}`); return; }
+        setSearchResults(prev => prev.map((t: any) => t.id === teamId ? { ...t, _requested: true } : t));
+      } else {
+        setSearchResults(prev => prev.map((t: any) => t.id === teamId ? { ...t, _error: data.error } : t));
+      }
+      return;
+    }
     const res = await fetch(`/api/teams/${teamId}/join`, { method: "POST" });
     const data = await res.json();
     setJoining(null);
@@ -162,8 +175,9 @@ export default function TeamsPage() {
           ) : (
             <div className="space-y-3">
               {searchResults.map((t: any) => (
-                <div key={t.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
-                  <div>
+                <div key={t.id} className="flex items-center gap-3 justify-between rounded-xl border border-border bg-background px-4 py-3">
+                  <TeamAvatar name={t.name} logoUrl={t.logoUrl} isPrivate={false} logoStatus="approved" size={40} />
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm">{t.name}</p>
                     {t.description && <p className="text-xs text-foreground-dim mt-0.5">{t.description}</p>}
                     {t.majorRace && <p className="text-xs text-signal mt-0.5">🏁 {t.majorRace.name}</p>}
@@ -172,8 +186,10 @@ export default function TeamsPage() {
                   </div>
                   {t.isMember ? (
                     <button onClick={() => router.push(`/dashboard/teams/${t.id}`)} className="px-3 py-1.5 rounded-full border border-border text-xs shrink-0 ml-3">View</button>
+                  ) : t._requested ? (
+                    <span className="px-3 py-1.5 rounded-full border border-border text-xs shrink-0 ml-3 text-foreground-dim">Requested</span>
                   ) : (
-                    <button onClick={() => handleJoinPublic(t.id)} disabled={joining === t.id} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-60 shrink-0 ml-3">{joining === t.id ? "Joining..." : "Join"}</button>
+                    <button onClick={() => handleJoinPublic(t.id, t.requireJoinApproval)} disabled={joining === t.id} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-60 shrink-0 ml-3">{joining === t.id ? "..." : (t.requireJoinApproval ? "Request to join" : "Join")}</button>
                   )}
                 </div>
               ))}
@@ -208,8 +224,9 @@ export default function TeamsPage() {
             <p className="text-sm text-foreground-dim">No teams match "{myFilter}".</p>
           ) : filteredTeams.map((team: any) => (
             <button key={team.id} onClick={() => router.push(`/dashboard/teams/${team.id}`)} className="w-full text-left rounded-2xl border border-border bg-surface p-5 hover:bg-surface-raised transition-colors">
-              <div className="flex items-start justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <TeamAvatar name={team.name} logoUrl={team.logoUrl} logoStatus={team.logoStatus} isPrivate={team.isPrivate} size={44} />
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold">{team.name}</p>
                     {!team.isPrivate && <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">Public</span>}
@@ -218,7 +235,7 @@ export default function TeamsPage() {
                   {team.majorRace && <p className="text-xs text-signal mt-1">🏁 {team.majorRace.name}</p>}
                   <p className="text-xs text-foreground-dim mt-1">{team._count.members} member{team._count.members !== 1 ? "s" : ""} · {team.members[0]?.role === "admin" ? "Admin" : "Member"}</p>
                 </div>
-                <span className="text-foreground-dim">→</span>
+                <span className="text-foreground-dim shrink-0">→</span>
               </div>
             </button>
           ))}

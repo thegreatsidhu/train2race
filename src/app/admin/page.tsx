@@ -85,6 +85,7 @@ export default function AdminPage() {
   const [challengeStatusFilter, setChallengeStatusFilter] = useState("all");
   const [expandedChallengeId, setExpandedChallengeId] = useState(null);
   const [approvingChallenge, setApprovingChallenge] = useState(null);
+  const [reviewingEntryKey, setReviewingEntryKey] = useState(null);
   const [deletingChallengeId, setDeletingChallengeId] = useState(null);
   const [confirmDeleteChallengeId, setConfirmDeleteChallengeId] = useState(null);
   const [removingParticipantKey, setRemovingParticipantKey] = useState(null);
@@ -95,6 +96,7 @@ export default function AdminPage() {
   const [confirmActionKey, setConfirmActionKey] = useState(null);
   const [confirmDeleteTeam, setConfirmDeleteTeam] = useState(null);
   const [deletingTeamId, setDeletingTeamId] = useState(null);
+  const [reviewingLogoId, setReviewingLogoId] = useState(null);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamDesc, setNewTeamDesc] = useState("");
@@ -521,6 +523,26 @@ export default function AdminPage() {
     setApprovingChallenge(null);
   }
 
+  async function reviewChallengeEntry(entryId, entryAction) {
+    const challenge = allChallenges.find(c => c.entries?.some(e => e.id === entryId));
+    const key = `${challenge?.id}:${entryId}`;
+    setReviewingEntryKey(key);
+    const res = await fetch("/api/admin/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "reviewEntry", entryId, entryAction }) });
+    if (res.ok) {
+      setAllChallenges(prev => prev.map(c => {
+        if (!c.entries?.some(e => e.id === entryId)) return c;
+        if (entryAction === "remove") return { ...c, entries: c.entries.filter(e => e.id !== entryId) };
+        return { ...c, entries: c.entries.map(e => e.id === entryId ? {
+          ...e,
+          verified: entryAction === "verify",
+          flagged: entryAction === "flag",
+          flagReason: entryAction === "flag" ? "Flagged as suspicious" : null,
+        } : e) };
+      }));
+    }
+    setReviewingEntryKey(null);
+  }
+
   async function deleteChallenge(challengeId) {
     setDeletingChallengeId(challengeId);
     setConfirmDeleteChallengeId(null);
@@ -686,6 +708,15 @@ export default function AdminPage() {
     if (action === "setRole") setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: t.members.map(m => m.userId === userId ? { ...m, role: extra.role } : m) } : t));
     if (action === "banUser") setTeams(prev => prev.map(t => ({ ...t, members: t.members.map(m => m.userId === userId ? { ...m, isBanned: true } : m) })));
     if (action === "unbanUser") setTeams(prev => prev.map(t => ({ ...t, members: t.members.map(m => m.userId === userId ? { ...m, isBanned: false } : m) })));
+  }
+
+  async function reviewTeamLogo(teamId, action) {
+    setReviewingLogoId(teamId);
+    const res = await fetch("/api/admin/team-logos", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, teamId, action }) });
+    setReviewingLogoId(null);
+    if (res.ok) {
+      setTeams(prev => prev.map(t => t.id === teamId ? { ...t, logoStatus: action === "approve" ? "approved" : "rejected", logoUrl: action === "reject" ? null : t.logoUrl } : t));
+    }
   }
 
   async function deleteTeam(teamId) {
@@ -2162,6 +2193,47 @@ export default function AdminPage() {
                               })}
                             </div>
                           )}
+                          {c.requirePhotoVerification && (
+                            <div className="mt-4 pt-3 border-t border-border">
+                              <p className="text-xs font-medium text-foreground-dim mb-2">📸 Top 10 leaderboard — photo review</p>
+                              {(!c.entries || c.entries.length === 0) ? (
+                                <p className="text-xs text-foreground-dim">No entries yet.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {c.entries.map((e, i) => {
+                                    const key = `${c.id}:${e.id}`;
+                                    return (
+                                      <div key={e.id} className={"rounded-xl border px-3 py-2 flex items-center gap-3 " + (e.flagged ? "border-red-700/40 bg-red-900/5" : i === 0 ? "border-yellow-500/40 bg-yellow-900/5" : "border-border bg-background")}>
+                                        {e.photoUrl ? (
+                                          <a href={e.photoUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                            <img src={e.photoUrl} alt="" className="w-12 h-12 object-cover rounded-lg border border-border" />
+                                          </a>
+                                        ) : (
+                                          <div className="w-12 h-12 rounded-lg border border-dashed border-border flex items-center justify-center text-xs text-foreground-dim shrink-0">No photo</div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium">{i === 0 ? "🥇 " : ""}{e.userName} <span className="text-foreground-dim font-normal">— {e.value} {c.unit}</span></p>
+                                          <p className="text-xs text-foreground-dim">
+                                            {e.verified ? <span className="text-signal">✓ Verified</span> : e.flagged ? <span className="text-red-400">🚩 Flagged{e.flagReason ? `: ${e.flagReason}` : ""}</span> : <span>Unverified</span>}
+                                            {" · "}{new Date(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                          </p>
+                                        </div>
+                                        <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                                          {!e.verified && <button onClick={() => reviewChallengeEntry(e.id, "verify")} disabled={reviewingEntryKey === key} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background disabled:opacity-50">{reviewingEntryKey === key ? "..." : "Verify"}</button>}
+                                          {e.flagged ? (
+                                            <button onClick={() => reviewChallengeEntry(e.id, "unflag")} disabled={reviewingEntryKey === key} className="text-xs px-2.5 py-1 rounded-full border border-border disabled:opacity-50">Unflag</button>
+                                          ) : (
+                                            <button onClick={() => reviewChallengeEntry(e.id, "flag")} disabled={reviewingEntryKey === key} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 disabled:opacity-50">Flag as suspicious</button>
+                                          )}
+                                          <button onClick={() => reviewChallengeEntry(e.id, "remove")} disabled={reviewingEntryKey === key} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500 disabled:opacity-50">Remove</button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2293,7 +2365,28 @@ export default function AdminPage() {
                 {filteredTeams.map(t => {
                   const captain = t.members.find(m => m.userId === t.createdBy);
                   return (
-                    <div key={t.id} className="rounded-2xl border border-border bg-surface p-4">
+                    <div key={t.id} className={"rounded-2xl border p-4 " + (t.logoStatus === "pending" ? "border-amber-500/40 bg-amber-900/5" : "border-border bg-surface")}>
+                      {t.logoUrl && (
+                        <div className="flex items-center gap-3 mb-3 pb-3 border-b border-border">
+                          <TeamAvatar name={t.name} logoUrl={t.logoUrl} isPrivate={true} logoStatus="approved" size={48} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-foreground-dim">
+                              Logo status: <span className={t.logoStatus === "pending" ? "text-amber-400 font-medium" : t.logoStatus === "approved" ? "text-signal" : "text-foreground-dim"}>{t.logoStatus}</span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {t.logoStatus === "pending" && (
+                              <>
+                                <button onClick={() => reviewTeamLogo(t.id, "approve")} disabled={reviewingLogoId === t.id} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-50">{reviewingLogoId === t.id ? "..." : "Approve"}</button>
+                                <button onClick={() => reviewTeamLogo(t.id, "reject")} disabled={reviewingLogoId === t.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Reject</button>
+                              </>
+                            )}
+                            {t.logoStatus !== "pending" && (
+                              <button onClick={() => reviewTeamLogo(t.id, "reject")} disabled={reviewingLogoId === t.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">{reviewingLogoId === t.id ? "..." : "Remove logo"}</button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <p className="font-medium">{t.name}</p>

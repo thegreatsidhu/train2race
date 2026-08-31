@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
       majorRace: t.majorRace,
       memberCount: t._count.members,
       isMember: t.members.length > 0,
+      logoUrl: t.logoStatus === "approved" ? t.logoUrl : null,
+      requireJoinApproval: t.requireJoinApproval,
     })),
   });
 }

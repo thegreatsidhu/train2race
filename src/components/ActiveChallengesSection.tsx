@@ -154,6 +154,16 @@ export function ActiveChallengesSection() {
               const cpct = c.goal ? Math.min(100, Math.round((myTotal / c.goal) * 100)) : null;
               const daysLeft = Math.ceil((new Date(c.endDate).getTime() - Date.now()) / 86400000);
               const isSteps = c.unit === "steps";
+              let leader: { name: string; total: number } | null = null;
+              if (!c.goal) {
+                const totalsByUser: Record<string, { name: string; total: number }> = {};
+                (c.entries ?? []).forEach((e: any) => {
+                  if (!totalsByUser[e.userId]) totalsByUser[e.userId] = { name: e.user?.name || "?", total: 0 };
+                  totalsByUser[e.userId].total += e.value;
+                });
+                const ranked = Object.values(totalsByUser).sort((a, b) => b.total - a.total);
+                leader = ranked[0] || null;
+              }
 
               return (
                 <div key={c.id} className="rounded-2xl border border-border bg-surface overflow-hidden">
@@ -175,6 +185,8 @@ export function ActiveChallengesSection() {
                           <div className="h-1.5 rounded-full bg-signal transition-all" style={{ width: `${cpct}%` }} />
                         </div>
                       </div>
+                    ) : leader ? (
+                      <p className="text-xs"><span className="px-2 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20 font-medium">📊 Currently leading: {leader.name} with {leader.total} {c.unit}</span></p>
                     ) : (
                       <p className="text-xs text-foreground-dim">{myTotal} {c.unit} logged</p>
                     )}

@@ -52,6 +52,7 @@ model User {
   raceRegistrations RaceRegistration[]
   eventMessages     EventMessage[]
   teamMembers              TeamMember[]
+  teamJoinRequests         TeamJoinRequest[]
   teamMessages             TeamMessage[]
   teamChallengeEntries     TeamChallengeEntry[]
   teamInvitations          TeamInvitation[] @relation("InvitationReceived")
@@ -390,6 +391,11 @@ model Team {
   isPrivate   Boolean  @default(true)
   createdAt   DateTime @default(now())
   isCommunity Boolean  @default(false)
+  logoUrl     String?
+  logoStatus  String   @default("none") // none | pending | approved | rejected
+  announcementMode Boolean @default(false)
+  requireJoinApproval Boolean @default(false)
+  joinRequests TeamJoinRequest[]
   members     TeamMember[]
   messages    TeamMessage[]
   challenges  TeamChallenge[]
@@ -455,6 +461,7 @@ model TeamChallenge {
   goal        Float?
   goalPerDay          Boolean  @default(false)
   lockEnrollmentAtStart Boolean @default(true)
+  requirePhotoVerification Boolean @default(false)
   startDate   DateTime
   endDate     DateTime
   description String?
@@ -475,11 +482,27 @@ model TeamChallengeEntry {
   value       Float
   date        DateTime
   note        String?
+  photoUrl    String?
+  verified    Boolean  @default(false)
+  flagged     Boolean  @default(false)
+  flagReason  String?
   createdAt   DateTime @default(now())
   challenge   TeamChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([challengeId, userId])
   @@map("team_challenge_entries")
+}
+model TeamJoinRequest {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  status    String   @default("pending") // pending | approved | rejected
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([teamId, userId])
+  @@index([teamId, status])
+  @@map("team_join_requests")
 }
 model TeamMember {
   id               String    @id @default(cuid())

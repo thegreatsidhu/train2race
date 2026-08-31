@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { TeamAvatar } from "@/components/TeamAvatar";
 
 const PERIODS    = [{ v: "week", l: "This week" }, { v: "month", l: "This month" }, { v: "year", l: "This year" }, { v: "all", l: "All time" }];
 const METRICS    = [{ v: "distance", l: "Distance" }, { v: "duration", l: "Duration" }, { v: "count", l: "Activities" }];
@@ -265,7 +266,7 @@ function LeaderboardContent() {
                   {e.city && <span>{e.city}</span>}
                   {e.ageGroup && <span>{e.ageGroup}</span>}
                   {e.sex && e.sex !== "other" && <span className="capitalize">{e.sex}</span>}
-                  {e.team && <span className="text-signal">{e.team.name}</span>}
+                  {e.team && <span className="text-signal inline-flex items-center gap-1">{e.team.logoUrl&&<TeamAvatar name={e.team.name} logoUrl={e.team.logoUrl} isPrivate={false} logoStatus="approved" size={14} />}{e.team.name}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">

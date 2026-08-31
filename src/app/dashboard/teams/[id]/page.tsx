@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TeamActivityFeed } from "@/components/TeamActivityFeed";
+import { TeamAvatar } from "@/components/TeamAvatar";
 
 function combineDateTime(dateStr: string, timeStr: string, endOfDay: boolean): string {
   if (!dateStr) return "";
@@ -36,11 +37,11 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [id,setId]=useState("");const [team,setTeam]=useState<any>(null);const [messages,setMessages]=useState<any[]>([]);const [isAdmin,setIsAdmin]=useState(false);const [myUserId,setMyUserId]=useState("");const [sending,setSending]=useState(false);const [editingName,setEditingName]=useState(false);const [nameInput,setNameInput]=useState("");const [savingName,setSavingName]=useState(false);const [activeTab,setActiveTab]=useState<"bulletin"|"events"|"contact"|"activity"|"leaderboard"|"challenges"|"chat"|"members"|"race">("activity");
   const [bulletins,setBulletins]=useState<any[]>([]);const [bulletinsLoaded,setBulletinsLoaded]=useState(false);const [newBulTitle,setNewBulTitle]=useState("");const [newBulContent,setNewBulContent]=useState("");const [newBulPinned,setNewBulPinned]=useState(false);const [savingBul,setSavingBul]=useState(false);const [showBulForm,setShowBulForm]=useState(false);const [deletingBulId,setDeletingBulId]=useState<string|null>(null);
   const [teamEvents,setTeamEvents]=useState<any[]>([]);const [eventsLoaded,setEventsLoaded]=useState(false);const [newEvTitle,setNewEvTitle]=useState("");const [newEvDesc,setNewEvDesc]=useState("");const [newEvDate,setNewEvDate]=useState("");const [newEvLoc,setNewEvLoc]=useState("");const [newEvLink,setNewEvLink]=useState("");const [savingEv,setSavingEv]=useState(false);const [showEvForm,setShowEvForm]=useState(false);const [deletingEvId,setDeletingEvId]=useState<string|null>(null);
-  const [contacts,setContacts]=useState<any[]>([]);const [contactsLoaded,setContactsLoaded]=useState(false);const [newCtLabel,setNewCtLabel]=useState("");const [newCtValue,setNewCtValue]=useState("");const [newCtType,setNewCtType]=useState("text");const [savingCt,setSavingCt]=useState(false);const [showCtForm,setShowCtForm]=useState(false);const [deletingCtId,setDeletingCtId]=useState<string|null>(null);const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [copiedChallengeId,setCopiedChallengeId]=useState<string|null>(null);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
-  const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",goalPerDay:false,lockEnrollmentAtStart:true,startDate:"",startTime:"",endDate:"",endTime:"",description:""});const [savingChallenge,setSavingChallenge]=useState(false);const [createMsg,setCreateMsg]=useState("");const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string;error?:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [todaySteps,setTodaySteps]=useState<number|null>(null);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);const [approvingChallenge,setApprovingChallenge]=useState<string|null>(null);const [leavingChallenge,setLeavingChallenge]=useState<string|null>(null);const [confirmLeaveChallenge,setConfirmLeaveChallenge]=useState<string|null>(null);const [confirmDeleteChId,setConfirmDeleteChId]=useState<string|null>(null);const [acceptingChallenge,setAcceptingChallenge]=useState<string|null>(null);
+  const [contacts,setContacts]=useState<any[]>([]);const [contactsLoaded,setContactsLoaded]=useState(false);const [newCtLabel,setNewCtLabel]=useState("");const [newCtValue,setNewCtValue]=useState("");const [newCtType,setNewCtType]=useState("text");const [savingCt,setSavingCt]=useState(false);const [showCtForm,setShowCtForm]=useState(false);const [deletingCtId,setDeletingCtId]=useState<string|null>(null);const [copied,setCopied]=useState(false);const [copiedLink,setCopiedLink]=useState(false);const [copiedChallengeId,setCopiedChallengeId]=useState<string|null>(null);const [togglingPrivacy,setTogglingPrivacy]=useState(false);const [uploadingLogo,setUploadingLogo]=useState(false);const [logoError,setLogoError]=useState("");const [visibleMemberCount,setVisibleMemberCount]=useState(20);const [togglingAnnouncement,setTogglingAnnouncement]=useState(false);const [togglingJoinApproval,setTogglingJoinApproval]=useState(false);const [joinRequests,setJoinRequests]=useState<any[]>([]);const [joinRequestsLoaded,setJoinRequestsLoaded]=useState(false);const [reviewingRequestId,setReviewingRequestId]=useState<string|null>(null);const [bulkApprovingRequests,setBulkApprovingRequests]=useState(false);const [promotingId,setPromotingId]=useState<string|null>(null);
+  const [challenges,setChallenges]=useState<any[]>([]);const [challengesLoaded,setChallengesLoaded]=useState(false);const [showNewChallenge,setShowNewChallenge]=useState(false);const [challengeForm,setChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",goalPerDay:false,lockEnrollmentAtStart:true,startDate:"",startTime:"",endDate:"",endTime:"",description:"",requirePhotoVerification:false});const [savingChallenge,setSavingChallenge]=useState(false);const [createMsg,setCreateMsg]=useState("");const [logEntry,setLogEntry]=useState<{challengeId:string;value:string;note:string;error?:string;photoFile?:File;photoPreview?:string}|null>(null);const [savingEntry,setSavingEntry]=useState(false);const [todaySteps,setTodaySteps]=useState<number|null>(null);const [deletingChallenge,setDeletingChallenge]=useState<string|null>(null);const [approvingChallenge,setApprovingChallenge]=useState<string|null>(null);const [leavingChallenge,setLeavingChallenge]=useState<string|null>(null);const [confirmLeaveChallenge,setConfirmLeaveChallenge]=useState<string|null>(null);const [confirmDeleteChId,setConfirmDeleteChId]=useState<string|null>(null);const [acceptingChallenge,setAcceptingChallenge]=useState<string|null>(null);
   const [editingChallengeId,setEditingChallengeId]=useState<string|null>(null);const [editChallengeForm,setEditChallengeForm]=useState({title:"",type:"run",metric:"distance",unit:"mi",goal:"",goalPerDay:false,lockEnrollmentAtStart:true,startDate:"",startTime:"",endDate:"",endTime:"",description:""});const [savingChallengeEdit,setSavingChallengeEdit]=useState(false);const [editChallengeError,setEditChallengeError]=useState("");const [confirmShortenEnd,setConfirmShortenEnd]=useState<string|null>(null);
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
-  const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);
+  const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbSearch,setLbSearch]=useState("");const [lbVisibleCount,setLbVisibleCount]=useState(50);
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
   const [dmTarget,setDmTarget]=useState<string|null>(null);const [dmThread,setDmThread]=useState<any[]>([]);const [dmContent,setDmContent]=useState("");const [sendingDm,setSendingDm]=useState(false);const [dmLoading,setDmLoading]=useState(false);const [myThreads,setMyThreads]=useState<any[]>([]);const [threadsLoaded,setThreadsLoaded]=useState(false);
@@ -68,7 +69,33 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     if(res.ok){setTeam((t:any)=>({...t,members:t.members.map((m:any)=>m.userId===memberId?{...m,role:newRole}:m)}));}
     setPromotingId(null);
   }
-  async function togglePrivacy(){setTogglingPrivacy(true);const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({isPrivate:!team.isPrivate})});if(res.ok){setTeam((t:any)=>({...t,isPrivate:!t.isPrivate}));}setTogglingPrivacy(false);}
+  async function toggleJoinApproval(){setTogglingJoinApproval(true);const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({requireJoinApproval:!team.requireJoinApproval})});if(res.ok){setTeam((t:any)=>({...t,requireJoinApproval:!t.requireJoinApproval}));}setTogglingJoinApproval(false);}
+  async function loadJoinRequests(){const res=await fetch(`/api/teams/${id}/join-request`);const d=await res.json().catch(()=>({}));setJoinRequests(d.requests||[]);setJoinRequestsLoaded(true);}
+  async function reviewJoinRequest(requestId:string,action:string){setReviewingRequestId(requestId);const res=await fetch(`/api/teams/${id}/join-request`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({requestId,action})});if(res.ok){setJoinRequests(prev=>prev.filter(r=>r.id!==requestId));}setReviewingRequestId(null);}
+  async function approveAllJoinRequests(){setBulkApprovingRequests(true);const res=await fetch(`/api/teams/${id}/join-request`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"approve",bulk:true})});if(res.ok){setJoinRequests([]);}setBulkApprovingRequests(false);}
+  async function toggleAnnouncementMode(){setTogglingAnnouncement(true);const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({announcementMode:!team.announcementMode})});if(res.ok){setTeam((t:any)=>({...t,announcementMode:!t.announcementMode}));}setTogglingAnnouncement(false);}
+  async function togglePrivacy(){setTogglingPrivacy(true);const goingPublic=team.isPrivate;const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({isPrivate:!team.isPrivate})});if(res.ok){setTeam((t:any)=>({...t,isPrivate:!t.isPrivate,logoStatus:(goingPublic&&t.logoUrl&&t.logoStatus==="approved")?"pending":t.logoStatus}));}setTogglingPrivacy(false);}
+  async function uploadTeamLogo(file:File){setUploadingLogo(true);setLogoError("");const fd=new FormData();fd.append("file",file);const res=await fetch(`/api/teams/${id}/logo`,{method:"POST",body:fd});const d=await res.json().catch(()=>({}));if(res.ok){setTeam((t:any)=>({...t,logoUrl:d.logoUrl,logoStatus:d.logoStatus}));}else{setLogoError(d.error||"Failed to upload logo.");}setUploadingLogo(false);}
+  async function removeTeamLogo(){setUploadingLogo(true);setLogoError("");const res=await fetch(`/api/teams/${id}/logo`,{method:"DELETE"});if(res.ok){setTeam((t:any)=>({...t,logoUrl:null,logoStatus:"none"}));}else{const d=await res.json().catch(()=>({}));setLogoError(d.error||"Failed to remove logo.");}setUploadingLogo(false);}
+  async function cropLogoToSquare(file:File):Promise<File|null>{
+    const objectUrl=URL.createObjectURL(file);
+    try{
+      const img=await new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=objectUrl;});
+      if(img.naturalWidth<200||img.naturalHeight<200){setLogoError("Logo must be at least 200x200 pixels.");return null;}
+      const side=Math.min(img.naturalWidth,img.naturalHeight);
+      const sx=(img.naturalWidth-side)/2,sy=(img.naturalHeight-side)/2;
+      const canvas=document.createElement("canvas");
+      canvas.width=side;canvas.height=side;
+      const ctx=canvas.getContext("2d");
+      if(!ctx){setLogoError("Could not process image.");return null;}
+      ctx.drawImage(img,sx,sy,side,side,0,0,side,side);
+      const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,file.type==="image/png"?"image/png":"image/jpeg",0.92));
+      if(!blob){setLogoError("Could not process image.");return null;}
+      return new File([blob],file.name,{type:blob.type});
+    }catch{setLogoError("Could not read that image.");return null;}
+    finally{URL.revokeObjectURL(objectUrl);}
+  }
+  async function handleLogoSelect(e:React.ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];e.target.value="";if(!file)return;if(!["image/jpeg","image/jpg","image/png","image/webp"].includes(file.type)){setLogoError("Logo must be JPG, PNG, or WEBP.");return;}if(file.size>2*1024*1024){setLogoError("Logo must be under 2 MB.");return;}setLogoError("");const cropped=await cropLogoToSquare(file);if(!cropped)return;uploadTeamLogo(cropped);}
   async function loadChallenges(tid:string){const res=await fetch(`/api/teams/${tid}/challenges`);const d=await res.json();setChallenges(d.challenges||[]);setChallengesLoaded(true);}
   async function createChallenge(){if(!challengeForm.title||!challengeForm.startDate||!challengeForm.endDate)return;setSavingChallenge(true);setCreateMsg("");const res=await fetch(`/api/teams/${id}/challenges`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...challengeForm,startDate:combineDateTime(challengeForm.startDate,challengeForm.startTime,false),endDate:combineDateTime(challengeForm.endDate,challengeForm.endTime,true),goalPerDay:challengeForm.metric==="count"&&challengeForm.goalPerDay})});const d=await res.json().catch(()=>({}));if(res.ok){setChallenges(p=>[{...d.challenge,entries:[]},...p]);setShowNewChallenge(false);setChallengeForm({title:"",type:"run",metric:"distance",unit:"mi",goal:"",goalPerDay:false,lockEnrollmentAtStart:true,startDate:"",startTime:"",endDate:"",endTime:"",description:""});setCreateMsg(d.challenge?.status==="pending"?"Your challenge was submitted and is awaiting admin approval (up to 5 days).":"");}else{setCreateMsg(d.error||"Failed to create challenge.");}setSavingChallenge(false);}
   async function approveChallenge(cId:string,status:string){setApprovingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});if(res.ok){setChallenges(prev=>prev.map(c=>c.id===cId?{...c,status}:c));}setApprovingChallenge(null);}
@@ -96,7 +123,25 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     const d=await res.json().catch(()=>({}));
     setMyThreads(d.threads||[]);setThreadsLoaded(true);
   }
-  async function submitEntry(){if(!logEntry||!logEntry.value)return;setSavingEntry(true);const todayStr=new Date().toISOString().split("T")[0];const res=await fetch(`/api/teams/${id}/challenges/${logEntry.challengeId}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:logEntry.value,date:todayStr,note:logEntry.note})});if(res.ok){const d=await res.json();setChallenges(prev=>prev.map(c=>c.id===logEntry.challengeId?{...c,entries:[...c.entries,d.entry]}:c));setLogEntry(null);}else{const d=await res.json().catch(()=>({}));setLogEntry(l=>l?{...l,error:d.error||"Failed to save entry."}:null);}setSavingEntry(false);}
+  async function submitEntry(){
+    if(!logEntry||!logEntry.value)return;
+    const challenge=challenges.find(c=>c.id===logEntry.challengeId);
+    if(challenge?.requirePhotoVerification&&!logEntry.photoFile){setLogEntry(l=>l?{...l,error:"This challenge requires photo proof of your step count. Attach a screenshot from your phone's health app, Fitbit, or step counter."}:null);return;}
+    setSavingEntry(true);
+    const todayStr=new Date().toISOString().split("T")[0];
+    let photoUrl:string|undefined;
+    if(logEntry.photoFile){
+      const fd=new FormData();fd.append("file",logEntry.photoFile);
+      const upRes=await fetch("/api/upload",{method:"POST",body:fd});
+      const upData=await upRes.json().catch(()=>({}));
+      if(!upRes.ok){setLogEntry(l=>l?{...l,error:upData.error||"Photo upload failed."}:null);setSavingEntry(false);return;}
+      photoUrl=upData.url;
+    }
+    const res=await fetch(`/api/teams/${id}/challenges/${logEntry.challengeId}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:logEntry.value,date:todayStr,note:logEntry.note,photoUrl})});
+    if(res.ok){const d=await res.json();setChallenges(prev=>prev.map(c=>c.id===logEntry.challengeId?{...c,entries:[...c.entries,d.entry]}:c));setLogEntry(null);}
+    else{const d=await res.json().catch(()=>({}));setLogEntry(l=>l?{...l,error:d.error||"Failed to save entry."}:null);}
+    setSavingEntry(false);
+  }
   async function loadBulletins(tid:string){if(bulletinsLoaded)return;const res=await fetch(`/api/teams/${tid}/bulletins`);const d=await res.json().catch(()=>({}));setBulletins(d.bulletins||[]);setBulletinsLoaded(true);}
   async function postBulletin(tid:string){if(!newBulContent.trim())return;setSavingBul(true);const res=await fetch(`/api/teams/${tid}/bulletins`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:newBulTitle.trim()||null,content:newBulContent.trim(),isPinned:newBulPinned})});const d=await res.json().catch(()=>({}));if(res.ok){setBulletins(prev=>[d.bulletin,...prev].sort((a,b)=>Number(b.isPinned)-Number(a.isPinned)||(new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime())));setNewBulTitle("");setNewBulContent("");setNewBulPinned(false);setShowBulForm(false);}setSavingBul(false);}
   async function deleteBulletin(bulletinId:string){setDeletingBulId(bulletinId);await fetch(`/api/teams/${id}/bulletins`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({bulletinId})});setBulletins(prev=>prev.filter(b=>b.id!==bulletinId));setDeletingBulId(null);}
@@ -122,6 +167,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
     const res=await fetch(`/api/teams/${id}/leaderboard?${p}`);
     const d=await res.json().catch(()=>({}));
     setLbData(d.entries||[]);
+    setLbVisibleCount(50);
     setLbLoading(false);
   },[id,lbPeriod,lbMetric,lbType]);
 
@@ -182,10 +228,26 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   return(
     <div className="max-w-3xl px-4 md:px-8 py-6 md:py-10">
       <div className="flex items-start justify-between mb-6">
-        <div><button onClick={()=>router.push("/dashboard/teams")} className="text-xs text-foreground-dim hover:text-foreground mb-2 block">Back to Teams</button>{editingName?(<div className="flex items-center gap-2 mt-1"><input autoFocus value={nameInput} onChange={e=>setNameInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveName();if(e.key==="Escape")setEditingName(false);}} className="text-lg font-semibold bg-surface border border-signal rounded-xl px-3 py-1 focus:outline-none max-w-xs"/><button onClick={saveName} disabled={savingName} className="text-xs text-signal hover:underline disabled:opacity-40">{savingName?"Saving…":"Save"}</button><button onClick={()=>setEditingName(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button></div>):(<div className="flex items-center gap-2 mt-1"><h1 className="text-2xl font-semibold">{team.name}</h1>{isCaptain&&<button onClick={()=>{setNameInput(team.name);setEditingName(true);}} className="text-foreground-dim hover:text-foreground transition-colors text-sm" title="Rename">✎</button>}</div>)}{team.description&&<p className="text-foreground-dim text-sm mt-0.5">{team.description}</p>}{team.majorRace&&<p className="text-xs text-signal mt-1">🏁 {team.majorRace.name} · {new Date(team.majorRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>}</div>
+        <div className="flex items-start gap-3">
+          <div className="relative shrink-0">
+            <TeamAvatar name={team.name} logoUrl={team.logoUrl} logoStatus={team.logoStatus} isPrivate={team.isPrivate} size={56} />
+            {isCaptain&&<label className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-signal text-background flex items-center justify-center text-[10px] cursor-pointer border-2 border-background" title={uploadingLogo?"Uploading...":"Upload team logo"}>
+              {uploadingLogo?"…":"✎"}
+              <input type="file" accept="image/jpeg,image/jpg,image/png" className="hidden" disabled={uploadingLogo} onChange={handleLogoSelect}/>
+            </label>}
+          </div>
+          <div><button onClick={()=>router.push("/dashboard/teams")} className="text-xs text-foreground-dim hover:text-foreground mb-2 block">Back to Teams</button>{editingName?(<div className="flex items-center gap-2 mt-1"><input autoFocus value={nameInput} onChange={e=>setNameInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveName();if(e.key==="Escape")setEditingName(false);}} className="text-lg font-semibold bg-surface border border-signal rounded-xl px-3 py-1 focus:outline-none max-w-xs"/><button onClick={saveName} disabled={savingName} className="text-xs text-signal hover:underline disabled:opacity-40">{savingName?"Saving…":"Save"}</button><button onClick={()=>setEditingName(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button></div>):(<div className="flex items-center gap-2 mt-1"><h1 className="text-2xl font-semibold">{team.name}</h1>{isCaptain&&<button onClick={()=>{setNameInput(team.name);setEditingName(true);}} className="text-foreground-dim hover:text-foreground transition-colors text-sm" title="Rename">✎</button>}</div>)}{team.description&&<p className="text-foreground-dim text-sm mt-0.5">{team.description}</p>}{team.majorRace&&<p className="text-xs text-signal mt-1">🏁 {team.majorRace.name} · {new Date(team.majorRace.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>}
+          {isCaptain&&team.logoStatus==="pending"&&<p className="text-xs text-amber-400 mt-1">⏳ Logo pending admin review — not visible to non-members yet</p>}
+          {isCaptain&&team.logoStatus==="rejected"&&<p className="text-xs text-red-400 mt-1">Logo was rejected by an admin. Try uploading a different image.</p>}
+          {isCaptain&&team.logoUrl&&<button onClick={removeTeamLogo} disabled={uploadingLogo} className="text-xs text-foreground-dim hover:text-red-400 hover:underline mt-1 disabled:opacity-40">Remove logo</button>}
+          {logoError&&<p className="text-xs text-red-400 mt-1">{logoError}</p>}
+          </div>
+        </div>
         <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
           <button onClick={copyInviteLink} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border hover:bg-surface-raised transition-colors text-sm"><span className="text-xs">🔗</span><span className="text-xs text-foreground-dim">{copiedLink?"Link copied!":"Invite"}</span></button>
           {team.isAdmin&&<button onClick={togglePrivacy} disabled={togglingPrivacy} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingPrivacy?"Saving...":(team.isPrivate?"Private — make public":"Public — make private")}</button>}
+          {team.isAdmin&&<button onClick={toggleAnnouncementMode} disabled={togglingAnnouncement} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingAnnouncement?"Saving...":(team.announcementMode?"📢 Announcement mode — captains only post":"Open chat — everyone can post")}</button>}
+          {team.isAdmin&&!team.isPrivate&&<button onClick={toggleJoinApproval} disabled={togglingJoinApproval} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingJoinApproval?"Saving...":(team.requireJoinApproval?"Join requests require approval":"Anyone can join instantly")}</button>}
           {team.isAdmin&&<button onClick={()=>{setShowInvitePanel(p=>!p);setInviteQuery("");setInviteResults([]);}} className={"text-xs transition-colors "+(showInvitePanel?"text-signal hover:text-foreground":"text-foreground-dim hover:text-foreground")}>+ Find &amp; add members</button>}
         </div>
       </div>
@@ -261,7 +323,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         <button onClick={handleEventsTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="events"?"bg-signal text-background":"border border-border hover:bg-surface")}>Events{teamEvents.length>0?` (${teamEvents.length})`:""}</button>
         <button onClick={()=>setActiveTab("leaderboard")} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="leaderboard"?"bg-signal text-background":"border border-border hover:bg-surface")}>Leaderboard</button>
         <button onClick={()=>{setActiveTab("race");loadRaceTab(id);}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="race"?"bg-signal text-background":"border border-border hover:bg-surface")}>Race{team.majorRace?" 🏁":""}</button>
-        <button onClick={()=>{setActiveTab("members");loadMyThreads();}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length})</button>
+        <button onClick={()=>{setActiveTab("members");loadMyThreads();if(isCaptain&&!joinRequestsLoaded)loadJoinRequests();}} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="members"?"bg-signal text-background":"border border-border hover:bg-surface")}>Members ({team.members.length}){isCaptain&&joinRequests.length>0?` · ${joinRequests.length} pending`:""}</button>
         <button onClick={handleContactTab} className={"px-4 py-2 rounded-full text-sm font-medium transition-colors "+(activeTab==="contact"?"bg-signal text-background":"border border-border hover:bg-surface")}>Contact</button>
       </div>
       {activeTab==="bulletin"&&<div>
@@ -448,17 +510,23 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
               {LB_TYPES.map(t=><button key={t.v} onClick={()=>setLbType(t.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors "+(lbType===t.v?"bg-signal text-background":"border border-border hover:bg-surface text-foreground-dim")}>{t.l}</button>)}
             </div>
           </div>
-          {lbLoading?<div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-14 rounded-2xl bg-surface animate-pulse"/>)}</div>:lbData.length===0?<p className="text-sm text-foreground-dim py-6 text-center">Your crew is warming up — check back soon!</p>:(
+          {lbData.length>10&&<input value={lbSearch} onChange={e=>setLbSearch(e.target.value)} placeholder="Search by name..." className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm mb-3"/>}
+          {lbLoading?<div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-14 rounded-2xl bg-surface animate-pulse"/>)}</div>:lbData.length===0?<p className="text-sm text-foreground-dim py-6 text-center">Your crew is warming up — check back soon!</p>:(()=>{
+            const filtered=lbSearch.trim()?lbData.filter((e:any)=>e.name?.toLowerCase().includes(lbSearch.trim().toLowerCase())):lbData;
+            const visible=filtered.slice(0,lbVisibleCount);
+            return filtered.length===0?<p className="text-sm text-foreground-dim py-6 text-center">No one matches "{lbSearch}"</p>:(
             <div className="space-y-2">
-              {lbData.map((e:any)=>(
+              {visible.map((e:any)=>(
                 <div key={e.userId} className={"flex items-center gap-3 rounded-2xl border px-4 py-3 "+(e.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
                   <span className={"w-7 text-center font-bold shrink-0 "+(e.rank===1?"text-yellow-400 text-base":e.rank===2?"text-gray-400 text-base":e.rank===3?"text-amber-600 text-base":"text-foreground-dim text-xs")}>{e.rank<=3?["🥇","🥈","🥉"][e.rank-1]:`#${e.rank}`}</span>
                   <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{e.name}{e.isMe?" (you)":""}</p>{e.bio&&<p className="text-xs text-foreground-dim truncate">{e.bio}</p>}<p className="text-xs text-foreground-dim">{e.activityCount===0?"Getting started":e.activityCount===1?"1 activity":`${e.activityCount} activities`}</p></div>
                   <p className="font-semibold text-sm shrink-0">{formatLbValue(e)}</p>
                 </div>
               ))}
+              {filtered.length>visible.length&&<button onClick={()=>setLbVisibleCount(c=>c+50)} className="w-full py-2 text-sm text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">Show more ({filtered.length-visible.length} more)</button>}
             </div>
-          )}
+            );
+          })()}
       </div>}
       {activeTab==="challenges"&&<div>
         {/* New challenge form — open to all members */}
@@ -479,6 +547,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                 <div><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">End date</label><div className="flex gap-1"><input type="date" className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" value={challengeForm.endDate} onChange={e=>setChallengeForm(f=>({...f,endDate:e.target.value}))}/><input type="time" title="End time (optional)" className="bg-background border border-border rounded-xl px-2 py-2 text-sm w-[6.5rem]" value={challengeForm.endTime} onChange={e=>setChallengeForm(f=>({...f,endTime:e.target.value}))}/></div></div>
                 <div className="col-span-2"><label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Description (optional)</label><textarea className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm" rows={2} value={challengeForm.description} onChange={e=>setChallengeForm(f=>({...f,description:e.target.value}))}/></div>
                 <div className="col-span-2"><label className="flex items-center gap-2 cursor-pointer select-none"><input type="checkbox" checked={challengeForm.lockEnrollmentAtStart} onChange={e=>setChallengeForm(f=>({...f,lockEnrollmentAtStart:e.target.checked}))} className="accent-signal"/><span className="text-xs text-foreground-dim">Lock enrollment at start date — members who haven't joined before the challenge begins cannot participate</span></label></div>
+                {challengeForm.metric==="count"&&challengeForm.unit==="steps"&&<div className="col-span-2"><label className="flex items-center gap-2 cursor-pointer select-none"><input type="checkbox" checked={challengeForm.requirePhotoVerification} onChange={e=>setChallengeForm(f=>({...f,requirePhotoVerification:e.target.checked}))} className="accent-signal"/><span className="text-xs text-foreground-dim">Require photo proof of steps — every entry must include a screenshot before it can be submitted</span></label></div>}
               </div>
               {challengeForm.unit==="steps"&&<div className="rounded-xl border border-teal-500/30 bg-teal-900/10 p-3 text-xs space-y-1.5"><p className="font-medium text-teal-400">ℹ️ Don't have a step tracker? These free apps work great:</p><p className="font-medium text-foreground-dim pt-0.5">iPhone:</p><p className="text-foreground-dim">• <a href="https://www.apple.com/ios/health/" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Apple Health</a> (built-in, no download needed)</p><p className="text-foreground-dim">• <a href="https://apps.apple.com/us/app/pedometer/id712286167" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Pedometer++</a></p><p className="font-medium text-foreground-dim pt-0.5">Android:</p><p className="text-foreground-dim">• <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.fitness" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Google Fit</a> (free)</p><p className="text-foreground-dim">• <a href="https://play.google.com/store/apps/details?id=com.sec.android.app.shealth" target="_blank" rel="noopener noreferrer" className="text-signal hover:underline">Samsung Health</a> (free)</p><p className="text-foreground-dim pt-0.5">Log your daily steps in Train2Race using the <strong className="text-foreground">+ Log workout</strong> button. Select any activity type and enter your step count.</p></div>}
               <div className="flex gap-2"><button onClick={createChallenge} disabled={savingChallenge||!challengeForm.title||!challengeForm.startDate||!challengeForm.endDate} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{savingChallenge?(team.isAdmin||isCreator?"Creating...":"Submitting..."):(team.isAdmin||isCreator?"Create challenge":"Submit for approval")}</button><button onClick={()=>{setShowNewChallenge(false);setCreateMsg("");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button></div>
@@ -504,11 +573,16 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                 Object.entries(c.stepsByUser as Record<string,{total:number;todayTotal:number}>).forEach(([uid,st])=>{totals[uid]={name:nameMap[uid]||"?",total:st.total,todayTotal:st.todayTotal};});
               }else{
                 c.entries.forEach((e:any)=>{
+                  if(e.flagged)return;
                   if(!totals[e.userId])totals[e.userId]={name:e.user.name||"?",total:0,todayTotal:0};
                   totals[e.userId].total+=e.value;
                   const eDay=e.date?new Date(e.date).toISOString().split("T")[0]:null;
                   if(eDay===todayStr)totals[e.userId].todayTotal+=e.value;
                 });
+              }
+              const verifiedByUser:{[uid:string]:boolean}={};
+              if(c.requirePhotoVerification){
+                c.entries.forEach((e:any)=>{if(e.verified)verifiedByUser[e.userId]=true;});
               }
               const sorted=Object.entries(totals).sort((a,b)=>c.goalPerDay?(b[1].todayTotal-a[1].todayTotal):(b[1].total-a[1].total));
               const myEntry=totals[myUserId??''];
@@ -564,8 +638,21 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                     )}
                   </div>}
                   {pct!==null&&!isPending&&!isRejected&&!isUpcoming&&!isEnded&&<div className="mb-3">{pct>=100?<div className="flex items-center gap-2 mb-1"><span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/30 text-yellow-300 border border-yellow-700/40 font-medium">🏆 {c.goalPerDay?"Today's goal hit!":"Challenge completed!"}</span></div>:<div className="flex justify-between text-xs text-foreground-dim mb-1"><span>{c.goalPerDay?"Today":"My progress"}</span><span>{myDisplayTotal} / {c.goal} {c.unit}{c.goalPerDay?" today":""} ({pct}%)</span></div>}<div className="w-full h-2 bg-border rounded-full"><div className={"h-2 rounded-full transition-all "+(pct>=100?"bg-yellow-400":"bg-signal")} style={{width:`${Math.min(pct,100)}%`}}/></div></div>}
-                  {logEntry?.challengeId===c.id&&<div className="mb-3 p-3 rounded-xl bg-background border border-border space-y-2"><div className="flex gap-2 items-center"><input type="number" placeholder={`Value in ${c.unit}`} className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm" value={logEntry.value} onChange={e=>setLogEntry(l=>l?{...l,value:e.target.value,error:undefined}:null)}/><button onClick={submitEntry} disabled={savingEntry||!logEntry.value} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-50">{savingEntry?"...":"Save"}</button><button onClick={()=>setLogEntry(null)} className="text-xs text-foreground-dim hover:text-foreground">✕</button></div><input placeholder="Note (optional)" className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm" value={logEntry.note} onChange={e=>setLogEntry(l=>l?{...l,note:e.target.value}:null)}/>{logEntry.error&&<p className="text-xs text-red-400">{logEntry.error}</p>}</div>}
-                  {sorted.length>0&&!isPending&&!isRejected&&!isUpcoming&&<div className="mt-2 space-y-1">{isEnded&&<p className="text-xs text-foreground-dim font-medium mb-1">Final standings</p>}{sorted.map(([uid,d],i)=>{const displayVal=c.goalPerDay?d.todayTotal:d.total;const hit=c.goal&&displayVal>=c.goal;return(<div key={uid} className="flex items-center justify-between text-xs"><span className="text-foreground-dim min-w-0 flex-1 truncate flex items-center gap-1">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`} {d.name}{uid===myUserId?" (you)":""}{hit&&<span className="shrink-0 text-yellow-400 font-bold">🏆</span>}</span><div className="flex items-center gap-2 ml-2 shrink-0">{team.isAdmin&&uid!==myUserId&&(confirmRemoveParticipant?.cId===c.id&&confirmRemoveParticipant?.uId===uid?<><button onClick={()=>removeParticipant(c.id,uid)} disabled={removingParticipant===`${c.id}:${uid}`} className="text-red-400 font-medium hover:underline disabled:opacity-40">{removingParticipant===`${c.id}:${uid}`?"...":"OK"}</button><button onClick={()=>setConfirmRemoveParticipant(null)} className="text-foreground-dim hover:underline">✕</button></>:<button onClick={()=>setConfirmRemoveParticipant({cId:c.id,uId:uid})} className="text-foreground-dim hover:text-red-400 hover:underline">Remove</button>)}<span className="font-medium">{displayVal} {c.unit}</span></div></div>)})}</div>}
+                  {pct===null&&!c.goal&&!isPending&&!isRejected&&!isUpcoming&&!isEnded&&sorted.length>0&&<div className="mb-3 flex items-center gap-2 text-xs"><span className="px-2 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20 font-medium">📊 Currently leading: {sorted[0][1].name}{sorted[0][0]===myUserId?" (you)":""} with {c.goalPerDay?sorted[0][1].todayTotal:sorted[0][1].total} {c.unit}{c.goalPerDay?" today":""}</span></div>}
+                  {logEntry?.challengeId===c.id&&<div className="mb-3 p-3 rounded-xl bg-background border border-border space-y-2">
+                    <div className="flex gap-2 items-center"><input type="number" placeholder={`Value in ${c.unit}`} className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm" value={logEntry.value} onChange={e=>setLogEntry(l=>l?{...l,value:e.target.value,error:undefined}:null)}/><button onClick={submitEntry} disabled={savingEntry||!logEntry.value||(c.requirePhotoVerification&&!logEntry.photoFile)} className="px-3 py-1.5 rounded-lg bg-signal text-background text-xs font-medium disabled:opacity-50">{savingEntry?"...":"Save"}</button><button onClick={()=>{if(logEntry.photoPreview)URL.revokeObjectURL(logEntry.photoPreview);setLogEntry(null);}} className="text-xs text-foreground-dim hover:text-foreground">✕</button></div>
+                    <input placeholder="Note (optional)" className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm" value={logEntry.note} onChange={e=>setLogEntry(l=>l?{...l,note:e.target.value}:null)}/>
+                    {c.requirePhotoVerification&&<div className="rounded-lg border border-amber-500/30 bg-amber-900/10 p-2.5 space-y-2">
+                      <p className="text-xs text-amber-300">📸 This challenge requires photo proof of your step count. Attach a screenshot from your phone's health app, Fitbit, or step counter.</p>
+                      {logEntry.photoPreview?(
+                        <div className="flex items-center gap-2"><img src={logEntry.photoPreview} alt="" className="w-14 h-14 object-cover rounded-lg border border-border"/><button onClick={()=>{if(logEntry.photoPreview)URL.revokeObjectURL(logEntry.photoPreview);setLogEntry(l=>l?{...l,photoFile:undefined,photoPreview:undefined}:null);}} className="text-xs text-red-400 hover:underline">Remove</button></div>
+                      ):(
+                        <label className="inline-block px-3 py-1.5 rounded-lg border border-dashed border-border bg-surface text-xs cursor-pointer hover:bg-surface-raised">Attach photo<input type="file" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif" className="hidden" onChange={e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;setLogEntry(l=>l?{...l,photoFile:f,photoPreview:URL.createObjectURL(f),error:undefined}:null);}}/></label>
+                      )}
+                    </div>}
+                    {logEntry.error&&<p className="text-xs text-red-400">{logEntry.error}</p>}
+                  </div>}
+                  {sorted.length>0&&!isPending&&!isRejected&&!isUpcoming&&<div className="mt-2 space-y-1">{isEnded&&<p className="text-xs text-foreground-dim font-medium mb-1">Final standings</p>}{sorted.map(([uid,d],i)=>{const displayVal=c.goalPerDay?d.todayTotal:d.total;const hit=c.goal&&displayVal>=c.goal;const isLeader=i===0&&!c.goal;return(<div key={uid} className={"flex items-center justify-between text-xs rounded-lg "+(isLeader?"bg-signal/5 border border-signal/20 px-2 py-1":"")}><span className="text-foreground-dim min-w-0 flex-1 truncate flex items-center gap-1">{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`} {d.name}{uid===myUserId?" (you)":""}{hit&&<span className="shrink-0 text-yellow-400 font-bold">🏆</span>}{isLeader&&<span className="shrink-0 text-signal font-medium">Leading</span>}{c.requirePhotoVerification&&(verifiedByUser[uid]?<span className="shrink-0 text-signal">✓ Verified</span>:<span className="shrink-0 text-foreground-dim italic">Unverified</span>)}</span><div className="flex items-center gap-2 ml-2 shrink-0">{team.isAdmin&&uid!==myUserId&&(confirmRemoveParticipant?.cId===c.id&&confirmRemoveParticipant?.uId===uid?<><button onClick={()=>removeParticipant(c.id,uid)} disabled={removingParticipant===`${c.id}:${uid}`} className="text-red-400 font-medium hover:underline disabled:opacity-40">{removingParticipant===`${c.id}:${uid}`?"...":"OK"}</button><button onClick={()=>setConfirmRemoveParticipant(null)} className="text-foreground-dim hover:underline">✕</button></>:<button onClick={()=>setConfirmRemoveParticipant({cId:c.id,uId:uid})} className="text-foreground-dim hover:text-red-400 hover:underline">Remove</button>)}<span className="font-medium">{displayVal} {c.unit}</span></div></div>)})}</div>}
                 </div>
               );
             })}
@@ -670,6 +757,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           messages={messages}
           myUserId={myUserId}
           isAdmin={isAdmin}
+          readOnly={!!team.announcementMode&&!isCaptain}
           height="100%"
           onSend={sendMessage}
           onDelete={deleteMessage}
@@ -727,10 +815,29 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           <button onClick={copyInviteCode} className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-surface-raised transition-colors shrink-0">{copied?"Copied!":"Copy code"}</button>
         </div>
 
+        {isCaptain&&joinRequests.length>0&&(
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-900/5 p-4 mb-2">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-amber-300">⏳ {joinRequests.length} pending join request{joinRequests.length!==1?"s":""}</p>
+              <button onClick={approveAllJoinRequests} disabled={bulkApprovingRequests} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{bulkApprovingRequests?"...":"Approve all"}</button>
+            </div>
+            <div className="space-y-2">
+              {joinRequests.map((r:any)=>(
+                <div key={r.id} className="flex items-center justify-between gap-2 rounded-xl bg-background border border-border px-3 py-2">
+                  <p className="text-sm truncate">{r.user.name||r.user.email}</p>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={()=>reviewJoinRequest(r.id,"approve")} disabled={reviewingRequestId===r.id} className="text-xs text-signal hover:underline disabled:opacity-40">{reviewingRequestId===r.id?"...":"Approve"}</button>
+                    <button onClick={()=>reviewJoinRequest(r.id,"reject")} disabled={reviewingRequestId===r.id} className="text-xs text-red-400 hover:underline disabled:opacity-40">Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {team.members.length === 0 && (
           <p className="text-sm text-foreground-dim py-2">No members yet.</p>
         )}
-        {team.members.map((member:any)=>(
+        {team.members.slice(0,visibleMemberCount).map((member:any)=>(
           <div key={member.userId} className={"rounded-2xl border "+(member.isMe?"border-signal bg-signal/5":"border-border bg-surface")}>
             <div className="flex items-center justify-between px-4 py-3">
               <div>
@@ -781,6 +888,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
             )}
           </div>
         ))}
+        {team.members.length>visibleMemberCount&&<button onClick={()=>setVisibleMemberCount(c=>c+20)} className="w-full py-2 text-sm text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">Load more ({team.members.length-visibleMemberCount} more)</button>}
         <div className="pt-5 border-t border-border mt-3">
           {confirmLeave?(
             <div className="flex items-center gap-3">

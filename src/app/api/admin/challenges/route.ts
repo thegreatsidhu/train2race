@@ -55,6 +55,11 @@ export async function GET(req: NextRequest) {
       teamName: c.team.name,
       creator: creatorMap[c.createdBy] || null,
       participants: Object.values(participantMap).sort((a, b) => b.total - a.total),
+      requirePhotoVerification: c.requirePhotoVerification,
+      entries: c.requirePhotoVerification ? c.entries
+        .map((e) => ({ id: e.id, userId: e.userId, userName: e.user?.name || "?", value: e.value, date: e.date, photoUrl: e.photoUrl, verified: e.verified, flagged: e.flagged, flagReason: e.flagReason }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10) : undefined,
     };
   });
 
@@ -90,6 +95,28 @@ export async function POST(req: NextRequest) {
     if (!challengeId || !userId) return NextResponse.json({ error: "challengeId and userId required" }, { status: 400 });
     await prisma.teamChallengeEntry.deleteMany({ where: { challengeId, userId } });
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === "reviewEntry") {
+    const { entryId, entryAction, flagReason } = body;
+    if (!entryId || !entryAction) return NextResponse.json({ error: "entryId and entryAction required" }, { status: 400 });
+    if (entryAction === "remove") {
+      await prisma.teamChallengeEntry.delete({ where: { id: entryId } });
+      return NextResponse.json({ ok: true });
+    }
+    if (entryAction === "verify") {
+      await prisma.teamChallengeEntry.update({ where: { id: entryId }, data: { verified: true, flagged: false, flagReason: null } });
+      return NextResponse.json({ ok: true });
+    }
+    if (entryAction === "flag") {
+      await prisma.teamChallengeEntry.update({ where: { id: entryId }, data: { flagged: true, verified: false, flagReason: flagReason || "Flagged as suspicious" } });
+      return NextResponse.json({ ok: true });
+    }
+    if (entryAction === "unflag") {
+      await prisma.teamChallengeEntry.update({ where: { id: entryId }, data: { flagged: false, flagReason: null } });
+      return NextResponse.json({ ok: true });
+    }
+    return NextResponse.json({ error: "Unknown entryAction" }, { status: 400 });
   }
 
   if (action === "createChallenge") {

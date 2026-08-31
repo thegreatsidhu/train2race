@@ -21,6 +21,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const memberIds = members.map(m => m.userId);
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const url = new URL(req.url);
+  const skip = Math.max(0, parseInt(url.searchParams.get("skip") || "0", 10) || 0);
+  const PAGE_SIZE = 20;
 
   const activities = await prisma.activity.findMany({
     where: { userId: { in: memberIds }, startTime: { gte: sevenDaysAgo } },
@@ -32,8 +35,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       comments: { where: { isDeleted: false }, select: { id: true } },
     },
     orderBy: { startTime: "desc" },
-    take: 40,
+    skip,
+    take: PAGE_SIZE + 1,
   });
+  const hasMore = activities.length > PAGE_SIZE;
+  if (hasMore) activities.pop();
 
   const formatted = activities.map(a => ({
     id: a.id,
@@ -52,5 +58,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     photos: a.photos ?? [],
   }));
 
-  return NextResponse.json({ activities: formatted });
+  return NextResponse.json({ activities: formatted, hasMore, nextSkip: skip + formatted.length });
 }

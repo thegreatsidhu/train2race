@@ -88,8 +88,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
   const updateData: any = {};
   if ("name" in body && typeof body.name === "string" && body.name.trim()) updateData.name = body.name.trim();
-  if ("isPrivate" in body) updateData.isPrivate = body.isPrivate;
+  if ("isPrivate" in body) {
+    updateData.isPrivate = body.isPrivate;
+    if (body.isPrivate === false) {
+      // Going public: a logo approved while private hasn't been reviewed for public visibility yet.
+      const current = await prisma.team.findUnique({ where: { id }, select: { logoUrl: true, logoStatus: true } });
+      if (current?.logoUrl && current.logoStatus === "approved") updateData.logoStatus = "pending";
+    }
+  }
   if ("majorRaceId" in body) updateData.majorRaceId = body.majorRaceId ?? null;
+  if ("announcementMode" in body) updateData.announcementMode = body.announcementMode === true;
+  if ("requireJoinApproval" in body) updateData.requireJoinApproval = body.requireJoinApproval === true;
   const team = await prisma.team.update({ where: { id }, data: updateData });
   return NextResponse.json({ team });
 }

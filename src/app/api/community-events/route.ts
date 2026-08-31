@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
       createdAt: e.createdAt,
       memberCount: e._count.members,
       isMember: e.members.length > 0,
+      logoUrl: e.logoStatus === "approved" ? e.logoUrl : null,
     })),
   });
 }
