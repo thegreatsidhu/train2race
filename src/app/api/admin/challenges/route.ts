@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 
   if (action === "createChallenge") {
     const { teamId, title, type, metric, unit, goal, goalPerDay, startDate, endDate, description } = body;
-    if (!teamId || !title?.trim() || !type || !metric || !unit || !startDate || !endDate || !goal) {
+    if (!teamId || !title?.trim() || !type || !metric || !unit || !startDate || !endDate) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
     const [challenge, team] = await Promise.all([
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
           type,
           metric,
           unit,
-          goal: Number(goal),
+          goal: goal != null && goal !== "" ? Number(goal) : null,
           goalPerDay: goalPerDay === true,
           startDate: new Date(startDate),
           endDate: new Date(endDate),

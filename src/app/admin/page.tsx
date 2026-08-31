@@ -2034,7 +2034,7 @@ export default function AdminPage() {
                   <select value={newChUnit} onChange={e => setNewChUnit(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
                     {(newChMetric === "distance" ? ["mi","km"] : newChMetric === "duration" ? ["min"] : newChType === "walk" ? ["steps"] : ["sessions"]).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (required)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (optional — blank = open leaderboard)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <label className="flex items-center gap-2 text-sm col-span-2"><input type="checkbox" checked={newChGoalPerDay} onChange={e => setNewChGoalPerDay(e.target.checked)} /> Per day goal</label>
                   <input type="date" value={newChStart} onChange={e => setNewChStart(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <input type="date" value={newChEnd} onChange={e => setNewChEnd(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
@@ -2042,7 +2042,7 @@ export default function AdminPage() {
                 </div>
                 {createChMsg && <p className="text-xs text-red-400">{createChMsg}</p>}
                 <div className="flex gap-2">
-                  <button onClick={createPublicChallenge} disabled={creatingCh || !newChTeamId || !newChTitle || !newChGoal || !newChStart || !newChEnd} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingCh ? "Creating..." : "Create"}</button>
+                  <button onClick={createPublicChallenge} disabled={creatingCh || !newChTeamId || !newChTitle || !newChStart || !newChEnd} className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-50">{creatingCh ? "Creating..." : "Create"}</button>
                   <button onClick={() => { setShowCreateChallenge(false); setCreateChMsg(""); }} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
                 </div>
               </div>

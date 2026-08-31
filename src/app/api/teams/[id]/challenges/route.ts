@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { title, type, metric, unit, goal, goalPerDay, lockEnrollmentAtStart, startDate, endDate, description, isPublic } = await req.json();
-  if (!title?.trim() || !type || !metric || !unit || !startDate || !endDate || !goal) {
+  if (!title?.trim() || !type || !metric || !unit || !startDate || !endDate) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       type,
       metric,
       unit,
-      goal: Number(goal),
+      goal: goal != null && goal !== "" ? Number(goal) : null,
       goalPerDay: goalPerDay === true,
       lockEnrollmentAtStart: lockEnrollmentAtStart !== false,
       startDate: new Date(startDate),
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           html: groupEmailHtml({
             preheader: `Join the challenge — ends ${ends}`,
             heading: `New challenge: ${title.trim()}`,
-            body: `<strong>${teamName}</strong> has a new group challenge!${description ? `<br/><br/>${description}` : ""}<br/><br/>Goal: <strong>${goal} ${unit}</strong>${goalPerDay ? " per day" : ""} · Ends ${ends}`,
+            body: `<strong>${teamName}</strong> has a new group challenge!${description ? `<br/><br/>${description}` : ""}<br/><br/>${goal != null && goal !== "" ? `Goal: <strong>${goal} ${unit}</strong>${goalPerDay ? " per day" : ""} · ` : `Track: <strong>${unit}</strong> · `}Ends ${ends}`,
             cta: "View challenge",
             ctaUrl: `${baseUrl}/dashboard/teams/${teamId}?tab=challenges`,
           }),

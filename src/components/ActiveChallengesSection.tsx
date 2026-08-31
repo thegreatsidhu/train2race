@@ -187,7 +187,7 @@ export function ActiveChallengesSection() {
                     <div className="border-t border-border px-4 py-3 space-y-3 bg-background/40">
                       {c.description && <p className="text-sm text-foreground-dim">{c.description}</p>}
                       <div className="text-xs text-foreground-dim space-y-0.5">
-                        <p><span className="text-foreground font-medium">Goal:</span> {c.goal} {c.unit}{c.goalPerDay ? " per day" : " total"}</p>
+                        <p><span className="text-foreground font-medium">Goal:</span> {c.goal != null ? `${c.goal} ${c.unit}${c.goalPerDay ? " per day" : " total"}` : `Open leaderboard — most ${c.unit} wins`}</p>
                         <p><span className="text-foreground font-medium">Ends:</span> {new Date(c.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
                         <p><span className="text-foreground font-medium">Team:</span> {c.team.name}</p>
                       </div>
