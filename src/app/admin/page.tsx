@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
+import { TeamAvatar } from "@/components/TeamAvatar";
 
 function combineDateTime(dateStr: string, timeStr: string, endOfDay: boolean, defaultTime?: string): string {
   if (!dateStr) return "";
