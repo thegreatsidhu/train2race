@@ -1,6 +1,16 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 
+function combineDateTime(dateStr: string, timeStr: string, endOfDay: boolean, defaultTime?: string): string {
+  if (!dateStr) return "";
+  const t = timeStr || defaultTime || (endOfDay ? "23:59" : "00:00");
+  return `${dateStr}T${t}:00.000Z`;
+}
+
+function fmtChallengeDate(d: string | Date): string {
+  return new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+}
+
 const MAJOR_CITIES = new Set([
   "new york","los angeles","chicago","houston","phoenix","philadelphia","san antonio",
   "san diego","dallas","san jose","austin","jacksonville","fort worth","columbus",
@@ -188,7 +198,9 @@ export default function AdminPage() {
   const [newChGoal, setNewChGoal] = useState("");
   const [newChGoalPerDay, setNewChGoalPerDay] = useState(false);
   const [newChStart, setNewChStart] = useState("");
+  const [newChStartTime, setNewChStartTime] = useState("");
   const [newChEnd, setNewChEnd] = useState("");
+  const [newChEndTime, setNewChEndTime] = useState("");
   const [newChDesc, setNewChDesc] = useState("");
   const [creatingCh, setCreatingCh] = useState(false);
   const [createChMsg, setCreateChMsg] = useState("");
@@ -204,7 +216,9 @@ export default function AdminPage() {
   const [newPChFilter, setNewPChFilter] = useState("");
   const [newPChBadge, setNewPChBadge] = useState("");
   const [newPChStart, setNewPChStart] = useState("");
+  const [newPChStartTime, setNewPChStartTime] = useState("");
   const [newPChEnd, setNewPChEnd] = useState("");
+  const [newPChEndTime, setNewPChEndTime] = useState("");
   const [creatingPCh, setCreatingPCh] = useState(false);
   const [createPChMsg, setCreatePChMsg] = useState("");
   const [expandedPlatformCh, setExpandedPlatformCh] = useState(null);
@@ -212,7 +226,7 @@ export default function AdminPage() {
   const [loadingPChLb, setLoadingPChLb] = useState(null);
   const [confirmDeletePlatformCh, setConfirmDeletePlatformCh] = useState(null);
   const [editingPlatformCh, setEditingPlatformCh] = useState(null);
-  const [editPChForm, setEditPChForm] = useState({title:"",description:"",startDate:"",endDate:"",badgeName:"",activityFilter:"",enrollmentLocked:false});
+  const [editPChForm, setEditPChForm] = useState({title:"",description:"",startDate:"",startTime:"",endDate:"",endTime:"",badgeName:"",activityFilter:"",enrollmentLocked:false});
   const [savingPCh, setSavingPCh] = useState(false);
   const [editPChError, setEditPChError] = useState("");
   const [confirmShortenPCh, setConfirmShortenPCh] = useState(null);
@@ -573,10 +587,10 @@ export default function AdminPage() {
   async function createPublicChallenge() {
     if (!newChTeamId || !newChTitle || !newChStart || !newChEnd) return;
     setCreatingCh(true); setCreateChMsg("");
-    const res = await fetch("/api/admin/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createChallenge", teamId: newChTeamId, title: newChTitle, type: newChType, metric: newChMetric, unit: newChUnit, goal: newChGoal || null, goalPerDay: newChMetric === "count" && newChGoalPerDay, startDate: newChStart, endDate: newChEnd, description: newChDesc || null }) });
+    const res = await fetch("/api/admin/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "createChallenge", teamId: newChTeamId, title: newChTitle, type: newChType, metric: newChMetric, unit: newChUnit, goal: newChGoal || null, goalPerDay: newChMetric === "count" && newChGoalPerDay, startDate: combineDateTime(newChStart, newChStartTime, false), endDate: combineDateTime(newChEnd, newChEndTime, true), description: newChDesc || null }) });
     const d = await res.json();
     setCreatingCh(false);
-    if (res.ok) { setAllChallenges(prev => [d.challenge, ...prev]); setShowCreateChallenge(false); setNewChTitle(""); setNewChGoal(""); setNewChGoalPerDay(false); setNewChStart(""); setNewChEnd(""); setNewChDesc(""); setCreateChMsg(""); }
+    if (res.ok) { setAllChallenges(prev => [d.challenge, ...prev]); setShowCreateChallenge(false); setNewChTitle(""); setNewChGoal(""); setNewChGoalPerDay(false); setNewChStart(""); setNewChStartTime(""); setNewChEnd(""); setNewChEndTime(""); setNewChDesc(""); setCreateChMsg(""); }
     else setCreateChMsg(d.error || "Failed to create challenge.");
   }
 
@@ -596,14 +610,14 @@ export default function AdminPage() {
     const res = await fetch("/api/admin/platform-challenges", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, title: newPChTitle, description: newPChDesc || null, type: newPChType, activityFilter: newPChFilter || null, badgeName: newPChBadge || null, startDate: newPChStart, endDate: newPChEnd }),
+      body: JSON.stringify({ password, title: newPChTitle, description: newPChDesc || null, type: newPChType, activityFilter: newPChFilter || null, badgeName: newPChBadge || null, startDate: combineDateTime(newPChStart, newPChStartTime, false, "12:00"), endDate: combineDateTime(newPChEnd, newPChEndTime, true) }),
     });
     const d = await res.json();
     setCreatingPCh(false);
     if (res.ok) {
       setPlatformChallenges(prev => [d.challenge, ...prev]);
       setShowCreatePlatformCh(false);
-      setNewPChTitle(""); setNewPChDesc(""); setNewPChBadge(""); setNewPChFilter(""); setNewPChStart(""); setNewPChEnd(""); setCreatePChMsg("");
+      setNewPChTitle(""); setNewPChDesc(""); setNewPChBadge(""); setNewPChFilter(""); setNewPChStart(""); setNewPChStartTime(""); setNewPChEnd(""); setNewPChEndTime(""); setCreatePChMsg("");
     } else setCreatePChMsg(d.error || "Failed.");
   }
 
@@ -629,7 +643,7 @@ export default function AdminPage() {
     const res = await fetch(`/api/admin/platform-challenges/${challengeId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, ...editPChForm, force }),
+      body: JSON.stringify({ password, ...editPChForm, startDate: combineDateTime(editPChForm.startDate, editPChForm.startTime, false, "12:00"), endDate: combineDateTime(editPChForm.endDate, editPChForm.endTime, true), force }),
     });
     const d = await res.json().catch(() => ({}));
     setSavingPCh(false);
@@ -1798,8 +1812,8 @@ export default function AdminPage() {
                       <option value="swim">Swim only</option>
                       <option value="strength">Strength only</option>
                     </select>
-                    <input type="date" value={newPChStart} onChange={e => setNewPChStart(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                    <input type="date" value={newPChEnd} onChange={e => setNewPChEnd(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                    <div className="flex gap-1"><input type="date" value={newPChStart} onChange={e => setNewPChStart(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" /><input type="time" title="Start time (optional, defaults to noon)" value={newPChStartTime} onChange={e => setNewPChStartTime(e.target.value)} className="px-2 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none w-[6.5rem]" /></div>
+                    <div className="flex gap-1"><input type="date" value={newPChEnd} onChange={e => setNewPChEnd(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" /><input type="time" title="End time (optional, defaults to end of day)" value={newPChEndTime} onChange={e => setNewPChEndTime(e.target.value)} className="px-2 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none w-[6.5rem]" /></div>
                     <input value={newPChBadge} onChange={e => setNewPChBadge(e.target.value)} placeholder="Badge name (e.g. Summer Warrior 🏆)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                     <input value={newPChDesc} onChange={e => setNewPChDesc(e.target.value)} placeholder="Description (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   </div>
@@ -1835,7 +1849,7 @@ export default function AdminPage() {
                                 {c.status === "ended" && <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface-raised text-foreground-dim border border-border">Ended</span>}
                               </div>
                               <p className="text-xs text-foreground-dim capitalize">{c.type.replace(/_/g," ")} · {c.activityFilter || "All types"} · {c.participantCount} participant{c.participantCount !== 1 ? "s" : ""}</p>
-                              <p className="text-xs text-foreground-dim">{new Date(c.startDate).toLocaleDateString()} – {new Date(c.endDate).toLocaleDateString()}</p>
+                              <p className="text-xs text-foreground-dim">{fmtChallengeDate(c.startDate)} – {fmtChallengeDate(c.endDate)}</p>
                               {c.badgeName && <p className="text-xs text-foreground-dim">Badge: {c.badgeName}</p>}
                               {c.inviteCount > 0 && (
                                 <p className="text-xs text-foreground-dim mt-0.5">
@@ -1863,7 +1877,9 @@ export default function AdminPage() {
                                     title: c.title,
                                     description: c.description || "",
                                     startDate: new Date(c.startDate).toISOString().split("T")[0],
+                                    startTime: new Date(c.startDate).toISOString().slice(11,16),
                                     endDate: new Date(c.endDate).toISOString().split("T")[0],
+                                    endTime: new Date(c.endDate).toISOString().slice(11,16),
                                     badgeName: c.badgeName || "",
                                     activityFilter: c.activityFilter || "",
                                     enrollmentLocked: !!c.enrollmentLocked,
@@ -1899,12 +1915,18 @@ export default function AdminPage() {
                               <textarea value={editPChForm.description} onChange={e => setEditPChForm(f => ({...f, description: e.target.value}))} placeholder="Description" rows={2} className="col-span-2 px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none resize-none" />
                               <div>
                                 <label className="text-xs text-foreground-dim mb-1 block">Start date{hasStarted ? " (locked)" : ""}</label>
-                                <input type="date" disabled={hasStarted} value={editPChForm.startDate} onChange={e => setEditPChForm(f => ({...f, startDate: e.target.value}))} className={"px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none w-full " + (hasStarted ? "opacity-50 cursor-not-allowed" : "focus:border-signal")} />
+                                <div className="flex gap-1">
+                                  <input type="date" disabled={hasStarted} value={editPChForm.startDate} onChange={e => setEditPChForm(f => ({...f, startDate: e.target.value}))} className={"px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none w-full " + (hasStarted ? "opacity-50 cursor-not-allowed" : "focus:border-signal")} />
+                                  <input type="time" disabled={hasStarted} title="Start time (optional, defaults to noon)" value={editPChForm.startTime} onChange={e => setEditPChForm(f => ({...f, startTime: e.target.value}))} className={"px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none w-[6rem] " + (hasStarted ? "opacity-50 cursor-not-allowed" : "focus:border-signal")} />
+                                </div>
                               </div>
                               <div>
                                 <label className="text-xs text-foreground-dim mb-1 block">End date</label>
-                                <input type="date" value={editPChForm.endDate} onChange={e => { setEditPChForm(f => ({...f, endDate: e.target.value})); setConfirmShortenPCh(null); }} className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none w-full" />
-                                {isActive && editPChForm.endDate && new Date(editPChForm.endDate + "T23:59:59") < new Date(c.endDate) && (
+                                <div className="flex gap-1">
+                                  <input type="date" value={editPChForm.endDate} onChange={e => { setEditPChForm(f => ({...f, endDate: e.target.value})); setConfirmShortenPCh(null); }} className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none w-full" />
+                                  <input type="time" title="End time (optional, defaults to end of day)" value={editPChForm.endTime} onChange={e => { setEditPChForm(f => ({...f, endTime: e.target.value})); setConfirmShortenPCh(null); }} className="px-2 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none w-[6rem]" />
+                                </div>
+                                {isActive && editPChForm.endDate && new Date(combineDateTime(editPChForm.endDate, editPChForm.endTime, true)) < new Date(c.endDate) && (
                                   <p className="text-xs text-amber-400 mt-0.5">⚠️ Shortening an active challenge will affect participant progress</p>
                                 )}
                               </div>
@@ -2036,8 +2058,8 @@ export default function AdminPage() {
                   </select>
                   <input type="number" value={newChGoal} onChange={e => setNewChGoal(e.target.value)} placeholder="Goal (optional — blank = open leaderboard)" className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                   <label className="flex items-center gap-2 text-sm col-span-2"><input type="checkbox" checked={newChGoalPerDay} onChange={e => setNewChGoalPerDay(e.target.checked)} /> Per day goal</label>
-                  <input type="date" value={newChStart} onChange={e => setNewChStart(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
-                  <input type="date" value={newChEnd} onChange={e => setNewChEnd(e.target.value)} className="px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
+                  <div className="flex gap-1"><input type="date" value={newChStart} onChange={e => setNewChStart(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" /><input type="time" title="Start time (optional)" value={newChStartTime} onChange={e => setNewChStartTime(e.target.value)} className="px-2 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none w-[6.5rem]" /></div>
+                  <div className="flex gap-1"><input type="date" value={newChEnd} onChange={e => setNewChEnd(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" /><input type="time" title="End time (optional)" value={newChEndTime} onChange={e => setNewChEndTime(e.target.value)} className="px-2 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none w-[6.5rem]" /></div>
                   <input value={newChDesc} onChange={e => setNewChDesc(e.target.value)} placeholder="Description (optional)" className="col-span-2 px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none" />
                 </div>
                 {createChMsg && <p className="text-xs text-red-400">{createChMsg}</p>}
@@ -2073,7 +2095,7 @@ export default function AdminPage() {
                               {isRejected && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-300 border border-red-700/30">Rejected</span>}
                             </div>
                             <p className="text-xs text-foreground-dim capitalize">{c.teamName} · {c.type} · {c.metric} · {c.unit}{c.goal ? ` · Goal: ${c.goal}` : ""}</p>
-                            <p className="text-xs text-foreground-dim">{new Date(c.startDate).toLocaleDateString()} – {new Date(c.endDate).toLocaleDateString()} · {c.participants.length} participant{c.participants.length !== 1 ? "s" : ""}</p>
+                            <p className="text-xs text-foreground-dim">{fmtChallengeDate(c.startDate)} – {fmtChallengeDate(c.endDate)} · {c.participants.length} participant{c.participants.length !== 1 ? "s" : ""}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                             {isPending && (

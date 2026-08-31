@@ -1,6 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 
+function fmtChallengeDate(d: string | Date): string {
+  return new Date(d).toLocaleString("en-US", { month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+}
+
 const TYPE_LABELS: Record<string, string> = {
   most_workouts: "Most Workouts",
   most_miles: "Most Miles",
@@ -363,8 +367,8 @@ export function PlatformChallengeSection() {
                       </p>
                       {isUpcoming && (
                         <p className="text-xs text-blue-400 mt-0.5">
-                          Starts {new Date(ch.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
-                          {" · "}Ends {new Date(ch.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                          Starts {fmtChallengeDate(ch.startDate)}
+                          {" · "}Ends {fmtChallengeDate(ch.endDate)}
                         </p>
                       )}
                       {enrollmentUrgent && (

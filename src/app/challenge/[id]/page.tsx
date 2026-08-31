@@ -56,8 +56,8 @@ export default async function ChallengeLandingPage({ params }: { params: Promise
     isJoined = p ? !p.optedOut : false;
   }
 
-  const startStr = new Date(challenge.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-  const endStr = new Date(challenge.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const startStr = new Date(challenge.startDate).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  const endStr = new Date(challenge.endDate).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 
   return (
     <div className="min-h-screen bg-background text-foreground">

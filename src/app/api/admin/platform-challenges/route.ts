@@ -124,14 +124,14 @@ export async function POST(req: NextRequest) {
       type,
       activityFilter: activityFilter || null,
       badgeName: badgeName?.trim() || null,
-      startDate: new Date(startDate + "T12:00:00"),
-      endDate: new Date(endDate + "T23:59:59"),
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
       status: "active",
     },
   });
 
-  const startStr = challenge.startDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-  const endStr = challenge.endDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const startStr = challenge.startDate.toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  const endStr = challenge.endDate.toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
   const challengeUrl = `${process.env.NEXTAUTH_URL || "https://train2race.com"}/challenge/${challenge.id}`;
   const hoursUntilStart = (challenge.startDate.getTime() - Date.now()) / 3600000;
 

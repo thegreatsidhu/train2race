@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Validate: cannot change startDate once started
   if (fields.startDate !== undefined) {
-    const newStart = new Date(fields.startDate + "T12:00:00");
+    const newStart = new Date(fields.startDate);
     if (hasStarted && newStart.toISOString() !== challenge.startDate.toISOString()) {
       return NextResponse.json({ error: "Cannot change start date — challenge has already started." }, { status: 422 });
     }
@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Validate: cannot shorten endDate on active challenge unless force
   if (fields.endDate !== undefined && isActive) {
-    const newEnd = new Date(fields.endDate + "T23:59:59");
+    const newEnd = new Date(fields.endDate);
     if (newEnd < challenge.endDate) {
       if (!force) {
         return NextResponse.json({
@@ -116,18 +116,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.enrollmentLocked = fields.enrollmentLocked;
   }
   if (fields.startDate !== undefined && !hasStarted) {
-    const newStart = new Date(fields.startDate + "T12:00:00");
+    const newStart = new Date(fields.startDate);
     track("startDate",
-      challenge.startDate.toISOString().split("T")[0],
-      fields.startDate,
+      challenge.startDate.toISOString(),
+      newStart.toISOString(),
     );
     data.startDate = newStart;
   }
   if (fields.endDate !== undefined) {
-    const newEnd = new Date(fields.endDate + "T23:59:59");
+    const newEnd = new Date(fields.endDate);
     track("endDate",
-      challenge.endDate.toISOString().split("T")[0],
-      fields.endDate,
+      challenge.endDate.toISOString(),
+      newEnd.toISOString(),
     );
     data.endDate = newEnd;
   }

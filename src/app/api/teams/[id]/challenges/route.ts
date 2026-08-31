@@ -97,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!members.length) return;
       const teamName = members[0].team.name;
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://train2race.com";
-      const ends = new Date(endDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      const ends = new Date(endDate).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
       await Promise.all(members.filter(m => m.user.email).map(m =>
         sendEmail({
           to: m.user.email,

@@ -2,6 +2,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+function fmtChallengeDate(d: string | Date): string {
+  return new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+}
+function fmtChallengeDateLong(d: string | Date): string {
+  return new Date(d).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+}
+
 export function ActiveChallengesSection() {
   const [challenges, setChallenges] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -88,8 +95,8 @@ export function ActiveChallengesSection() {
                       </div>
                     </div>
                     <p className="text-xs text-foreground-dim">
-                      Starts {new Date(c.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
-                      {" · "}Ends {new Date(c.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                      Starts {fmtChallengeDate(c.startDate)}
+                      {" · "}Ends {fmtChallengeDate(c.endDate)}
                     </p>
                     {c.goal && (
                       <p className="text-xs text-foreground-dim mt-0.5">
@@ -121,7 +128,7 @@ export function ActiveChallengesSection() {
                           <span className="text-xs px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-300 border border-yellow-700/40">🏆 Complete</span>
                         </div>
                         <p className="text-xs text-foreground-dim capitalize">
-                          {c.team.name} · Ended {new Date(c.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {c.team.name} · Ended {fmtChallengeDate(c.endDate)}
                         </p>
                       </div>
                     </div>
@@ -188,7 +195,7 @@ export function ActiveChallengesSection() {
                       {c.description && <p className="text-sm text-foreground-dim">{c.description}</p>}
                       <div className="text-xs text-foreground-dim space-y-0.5">
                         <p><span className="text-foreground font-medium">Goal:</span> {c.goal != null ? `${c.goal} ${c.unit}${c.goalPerDay ? " per day" : " total"}` : `Open leaderboard — most ${c.unit} wins`}</p>
-                        <p><span className="text-foreground font-medium">Ends:</span> {new Date(c.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+                        <p><span className="text-foreground font-medium">Ends:</span> {fmtChallengeDateLong(c.endDate)}</p>
                         <p><span className="text-foreground font-medium">Team:</span> {c.team.name}</p>
                       </div>
 
