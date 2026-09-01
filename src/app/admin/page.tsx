@@ -966,6 +966,7 @@ export default function AdminPage() {
 
   function switchTab(id) {
     setActiveTab(id);
+    if (id === "approvals") { loadChallenges(); loadTeams(); loadCommRequests(); loadInviteRequests(); }
     if (id === "challenges") { loadChallenges(); loadTeams(); loadPlatformChallenges(); }
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
@@ -1019,6 +1020,13 @@ export default function AdminPage() {
   const unusedCodes = data?.inviteCodes?.filter((c) => !c.usedBy) || [];
   const usedCodes = data?.inviteCodes?.filter((c) => c.usedBy) || [];
   const pendingChallengeCount = allChallenges.filter(c => c.status === "pending").length;
+
+  const pendingRacesList = data?.pendingRaces || [];
+  const pendingTeamChallenges = allChallenges.filter(c => c.status === "pending");
+  const pendingTeamLogos = teams.filter(t => t.logoStatus === "pending");
+  const pendingCommRequests = commRequests.filter(r => r.status === "pending");
+  const pendingInviteReqs = inviteRequests.filter(r => r.status === "pending");
+  const totalPendingApprovals = pendingRacesList.length + pendingTeamChallenges.length + pendingTeamLogos.length + pendingCommRequests.length + pendingInviteReqs.length;
 
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
@@ -1106,6 +1114,7 @@ export default function AdminPage() {
 
         <div className="flex gap-2 mb-6 flex-wrap">
           {[
+            { id: "approvals", label: "Approvals" + (totalPendingApprovals > 0 ? " (" + totalPendingApprovals + ")" : "") },
             { id: "users", label: "Users (" + (data?.users?.length || 0) + ")" },
             { id: "invites", label: "Invites (" + unusedCodes.length + " unused)" },
             { id: "races", label: "Races (" + (data?.pendingRaces?.length || 0) + " pending)" },
@@ -1125,6 +1134,123 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+
+        {activeTab === "approvals" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-medium">Approvals {totalPendingApprovals > 0 && <span className="text-foreground-dim font-normal">({totalPendingApprovals} pending)</span>}</h2>
+            </div>
+            {totalPendingApprovals === 0 ? (
+              <p className="text-sm text-foreground-dim">🎉 Nothing waiting on you right now.</p>
+            ) : (
+              <>
+                {pendingTeamLogos.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Team &amp; community logos ({pendingTeamLogos.length})</p>
+                    <div className="space-y-2">
+                      {pendingTeamLogos.map(t => (
+                        <div key={t.id} className="rounded-2xl border border-amber-500/40 bg-amber-900/5 p-3 flex items-center gap-3">
+                          <TeamAvatar name={t.name} logoUrl={t.logoUrl} isPrivate={true} logoStatus="approved" size={44} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{t.name}</p>
+                            <p className="text-xs text-foreground-dim">{t.isPrivate ? "Private" : "Public"} · {t.members.length} member{t.members.length !== 1 ? "s" : ""}</p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={() => reviewTeamLogo(t.id, "approve")} disabled={reviewingLogoId === t.id} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-50">{reviewingLogoId === t.id ? "..." : "Approve"}</button>
+                            <button onClick={() => reviewTeamLogo(t.id, "reject")} disabled={reviewingLogoId === t.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Reject</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pendingTeamChallenges.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Team challenges ({pendingTeamChallenges.length})</p>
+                    <div className="space-y-2">
+                      {pendingTeamChallenges.map(c => (
+                        <div key={c.id} className="rounded-2xl border border-yellow-700/40 bg-yellow-900/5 p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{c.title}</p>
+                            <p className="text-xs text-foreground-dim capitalize">{c.teamName} · {c.type} · {c.metric} · {c.unit}{c.goal ? ` · Goal: ${c.goal}` : ""}</p>
+                            <p className="text-xs text-foreground-dim">{fmtChallengeDate(c.startDate)} – {fmtChallengeDate(c.endDate)}</p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={() => approveChallenge(c.id, "approved")} disabled={approvingChallenge === c.id} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-50">{approvingChallenge === c.id ? "..." : "Approve"}</button>
+                            <button onClick={() => approveChallenge(c.id, "rejected")} disabled={approvingChallenge === c.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Reject</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pendingCommRequests.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Community requests ({pendingCommRequests.length})</p>
+                    <div className="space-y-2">
+                      {pendingCommRequests.map(r => (
+                        <div key={r.id} className="rounded-2xl border border-yellow-700/40 bg-yellow-900/5 p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{r.name}</p>
+                            <p className="text-xs text-foreground-dim">From: {r.user?.name || "?"} ({r.user?.email})</p>
+                            {r.description && <p className="text-xs text-foreground-dim mt-0.5">{r.description}</p>}
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={() => approveRequest(r.id)} disabled={approvingReqId === r.id} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-50">{approvingReqId === r.id ? "..." : "Approve"}</button>
+                            <button onClick={() => rejectRequest(r.id)} disabled={rejectingReqId === r.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Reject</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pendingInviteReqs.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Invite code requests ({pendingInviteReqs.length})</p>
+                    <div className="space-y-2">
+                      {pendingInviteReqs.map(r => (
+                        <div key={r.id} className="rounded-2xl border border-yellow-700/40 bg-yellow-900/5 p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{r.name}</p>
+                            <p className="text-xs text-foreground-dim">{r.email}</p>
+                            {r.message && <p className="text-xs text-foreground-dim mt-0.5 italic">"{r.message}"</p>}
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={() => fulfillRequest(r.id)} disabled={fulfillingId === r.id} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-50">{fulfillingId === r.id ? "..." : "Fulfill"}</button>
+                            <button onClick={() => declineRequest(r.id)} disabled={decliningId === r.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Decline</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pendingRacesList.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Race submissions ({pendingRacesList.length})</p>
+                    <div className="space-y-2">
+                      {pendingRacesList.map(race => (
+                        <div key={race.id} className="rounded-2xl border border-yellow-700/40 bg-yellow-900/5 p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{race.name}</p>
+                            <p className="text-xs text-foreground-dim">{[race.city, race.country].filter(Boolean).join(", ")} · {new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={() => approveRace(race.id,"approve")} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium">Approve</button>
+                            <button onClick={() => approveRace(race.id,"reject")} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Reject</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {activeTab === "users" && (
           <div>
