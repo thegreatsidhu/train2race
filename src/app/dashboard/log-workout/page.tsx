@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { isMedianApp, requestHealthPermissions, getHealthData } from "@/lib/median";
 
 export default function LogWorkoutPage() {
   const router = useRouter();
@@ -9,6 +10,13 @@ export default function LogWorkoutPage() {
   const [unit, setUnit] = useState("mi");
   const [swimUnit, setSwimUnit] = useState("m");
   const [photoRequiredChallenge, setPhotoRequiredChallenge] = useState<{ title: string } | null>(null);
+  const [showHealthSync, setShowHealthSync] = useState(false);
+  const [syncingHealth, setSyncingHealth] = useState(false);
+  const [healthSyncMsg, setHealthSyncMsg] = useState("");
+
+  useEffect(() => {
+    setShowHealthSync(isMedianApp());
+  }, []);
 
   useEffect(() => {
     fetch("/api/me/active-challenges")
@@ -66,6 +74,41 @@ export default function LogWorkoutPage() {
     setPhotoPreviews(prev => prev.filter((_, j) => j !== i));
   }
 
+  async function handleSyncHealth() {
+    setSyncingHealth(true);
+    setHealthSyncMsg("");
+    setError("");
+    // iOS never reports which permissions were actually granted — request, then just
+    // try to read data and handle an empty result rather than branching on the response.
+    await requestHealthPermissions();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    const result = await getHealthData(startOfDay.toISOString(), endOfDay.toISOString());
+
+    const steps = result?.data?.steps?.value;
+    const distanceM = result?.data?.distance?.value;
+    const exerciseMin = result?.data?.exerciseTime?.value;
+
+    if (!steps && !distanceM && !exerciseMin) {
+      setHealthSyncMsg("No health data found for today - enter manually");
+      setSyncingHealth(false);
+      return;
+    }
+
+    setForm(f => ({
+      ...f,
+      steps: steps ? String(Math.round(steps)) : f.steps,
+      distance: distanceM ? (distanceM / 1609.34).toFixed(2) : f.distance,
+      durationHours: exerciseMin ? String(Math.floor(exerciseMin / 60)) : f.durationHours,
+      durationMins: exerciseMin ? String(Math.round(exerciseMin % 60)) : f.durationMins,
+    }));
+    if (distanceM) setUnit("mi");
+    setHealthSyncMsg("Synced from Health app — review and edit before saving.");
+    setSyncingHealth(false);
+  }
+
   async function handleSubmit() {
     const errors: string[] = [];
     if (!form.date) errors.push("date");
@@ -115,6 +158,24 @@ export default function LogWorkoutPage() {
     <div className="max-w-lg px-8 py-10">
       <h1 className="text-2xl font-semibold mb-6">Log Workout</h1>
       <div className="flex flex-col gap-4">
+        {showHealthSync && (
+          <div>
+            <button onClick={handleSyncHealth} disabled={syncingHealth}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-signal/50 bg-signal/5 text-signal text-sm font-medium hover:bg-signal/10 transition-colors disabled:opacity-60">
+              {syncingHealth ? (
+                <>
+                  <span className="w-4 h-4 rounded-full border-2 border-signal border-t-transparent animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>❤️ Sync from Health App</>
+              )}
+            </button>
+            {healthSyncMsg && (
+              <p className={"text-xs mt-1.5 " + (healthSyncMsg.startsWith("No health data") ? "text-foreground-dim" : "text-signal")}>{healthSyncMsg}</p>
+            )}
+          </div>
+        )}
         <div>
           <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Activity type</label>
           <select className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-sm"

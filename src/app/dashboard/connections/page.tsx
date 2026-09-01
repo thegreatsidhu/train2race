@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ConnectionRow } from "@/components/ConnectionRow";
+import { MedianHealthCard } from "@/components/MedianHealthCard";
 
 export default async function ConnectionsPage({
   searchParams,
@@ -40,6 +41,7 @@ export default async function ConnectionsPage({
       )}
 
       <div className="space-y-3">
+        <MedianHealthCard />
         <ConnectionRow
           source="WHOOP"
           label="Whoop"
