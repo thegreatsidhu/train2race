@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { isMedianApp, requestHealthPermissions, getHealthData } from "@/lib/median";
 
@@ -13,9 +13,19 @@ export default function LogWorkoutPage() {
   const [showHealthSync, setShowHealthSync] = useState(false);
   const [syncingHealth, setSyncingHealth] = useState(false);
   const [healthSyncMsg, setHealthSyncMsg] = useState("");
+  const [micSupported, setMicSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [parsingVoice, setParsingVoice] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     setShowHealthSync(isMedianApp());
+  }, []);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setMicSupported(!!SpeechRecognition);
   }, []);
 
   useEffect(() => {
@@ -109,6 +119,74 @@ export default function LogWorkoutPage() {
     setSyncingHealth(false);
   }
 
+  function startVoiceInput() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    setVoiceError("");
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+    recognition.onstart = () => setListening(true);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript;
+      if (transcript) handleVoiceTranscript(transcript);
+    };
+    recognition.onerror = (event: any) => {
+      setListening(false);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setVoiceError("Microphone access denied — enable it in your browser settings, or enter manually.");
+      } else if (event.error === "no-speech") {
+        setVoiceError("Didn't catch that — try again.");
+      } else {
+        setVoiceError("Voice input failed — please enter manually.");
+      }
+    };
+    recognition.onend = () => setListening(false);
+    try {
+      recognition.start();
+    } catch {
+      setListening(false);
+      setVoiceError("Couldn't start listening — please enter manually.");
+    }
+  }
+
+  async function handleVoiceTranscript(transcript: string) {
+    setParsingVoice(true);
+    setVoiceError("");
+    try {
+      const res = await fetch("/api/activities/parse-voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.parsed) {
+        setVoiceError("Couldn't understand that — please enter manually.");
+        setParsingVoice(false);
+        return;
+      }
+      const p = d.parsed;
+      setForm(f => ({
+        ...f,
+        type: p.type || f.type,
+        durationHours: p.durationMin != null ? String(Math.floor(p.durationMin / 60)) : f.durationHours,
+        durationMins: p.durationMin != null ? String(Math.round(p.durationMin % 60)) : f.durationMins,
+        distance: p.distance != null ? String(p.distance) : f.distance,
+        steps: p.steps != null ? String(p.steps) : f.steps,
+        notes: p.notes || f.notes,
+      }));
+      if (p.unit) {
+        if (p.type === "swim" && (p.unit === "m" || p.unit === "yd")) setSwimUnit(p.unit);
+        else if (p.unit === "mi" || p.unit === "km") setUnit(p.unit);
+      }
+    } catch {
+      setVoiceError("Something went wrong — please enter manually.");
+    }
+    setParsingVoice(false);
+  }
+
   async function handleSubmit() {
     const errors: string[] = [];
     if (!form.date) errors.push("date");
@@ -174,6 +252,27 @@ export default function LogWorkoutPage() {
             {healthSyncMsg && (
               <p className={"text-xs mt-1.5 " + (healthSyncMsg.startsWith("No health data") ? "text-foreground-dim" : "text-signal")}>{healthSyncMsg}</p>
             )}
+          </div>
+        )}
+        {micSupported && (
+          <div>
+            <button onClick={startVoiceInput} disabled={listening || parsingVoice}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-signal/50 bg-signal/5 text-signal text-sm font-medium hover:bg-signal/10 transition-colors disabled:opacity-60">
+              {listening ? (
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                  Listening...
+                </>
+              ) : parsingVoice ? (
+                <>
+                  <span className="w-4 h-4 rounded-full border-2 border-signal border-t-transparent animate-spin" />
+                  Understanding...
+                </>
+              ) : (
+                <>🎤 Describe your workout</>
+              )}
+            </button>
+            {voiceError && <p className="text-xs text-red-400 mt-1.5">{voiceError}</p>}
           </div>
         )}
         <div>
