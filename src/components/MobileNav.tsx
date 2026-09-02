@@ -20,7 +20,7 @@ export function MobileNav({ email, role }: { email: string; role?: string }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-background">
+        <div className="fixed inset-0 z-50 bg-background overflow-y-auto pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2">
               <Image src="/logo.png" alt="Train2Race" width={28} height={28} className="rounded-md" />
