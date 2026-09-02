@@ -257,82 +257,9 @@ export default function RacesPage() {
       </div>
 
       {/* ── Events ── */}
-      {tab === "events" && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <input placeholder="Search by name or city..." value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm mb-3" />
-            <div className="flex gap-1.5 flex-wrap mb-2">
-              {DFILTERS.map((fi, i) => (
-                <button key={fi.label} onClick={() => setDf(i)}
-                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (df === i ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
-                  {fi.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-1.5 flex-wrap mb-2 items-center">
-              {(showPast ? ["all","2024","2025","2026","2027"] : ["all","2026","2027"]).map(y => (
-                <button key={y} onClick={() => setYearF(y)}
-                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (yearF === y ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
-                  {y === "all" ? "Any year" : y}
-                </button>
-              ))}
-              <button onClick={() => { setShowPast(p => !p); setYearF("all"); }}
-                className={"text-xs px-3 py-1 rounded-full border transition-colors ml-auto " + (showPast ? "bg-surface-raised border-border" : "border-border hover:bg-surface")}>
-                {showPast ? "Hide past races" : "Show past races"}
-              </button>
-            </div>
-            <div className="flex gap-1.5 flex-wrap mb-3">
-              {[["all","All countries"],["USA","USA"],["international","International"]].map(([v,l]) => (
-                <button key={v} onClick={() => setCountryF(v)}
-                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (countryF === v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
-                  {l}
-                </button>
-              ))}
-            </div>
-            {eventsLoading ? (
-              <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-surface animate-pulse" />)}</div>
-            ) : (
-              <>
-                <p className="text-xs text-foreground-dim mb-2">{filtered.length} events</p>
-                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-                  {filtered.slice(0, racePage * 30).map((race: any) => {
-                    const d = Math.ceil((new Date(race.raceDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                    const count = race._count?.registrations || 0;
-                    return (
-                      <button key={race.id} onClick={() => { setSelEvent(race); setGoalH(""); setGoalM(""); setPub(true); }}
-                        className={"w-full text-left rounded-xl border p-3 transition-colors " + (selEvent?.id === race.id ? "border-signal bg-signal/5" : "border-border bg-surface hover:bg-surface-raised")}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{race.name}</p>
-                            <p className="text-xs text-foreground-dim">{race.city}, {race.country} · {distLabel(race.distanceM)}</p>
-                            <p className="text-xs text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {d > 0 ? `${d}d away` : "past"}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            {isReg(race.id) && <span className="text-xs bg-signal/20 text-signal px-2 py-0.5 rounded-full">Joined</span>}
-                            {count > 0 && <span className="text-xs text-foreground-dim">{count} athletes</span>}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {filtered.length === 0 && (
-                    <div className="text-center py-6">
-                      <p className="text-sm text-foreground-dim mb-2">No events found.</p>
-                      <button onClick={() => setTab("submit")} className="text-sm text-signal hover:underline">Submit this race</button>
-                    </div>
-                  )}
-                </div>
-                {filtered.length > racePage * 30 && (
-                  <button onClick={() => setRacePage(p => p + 1)} className="w-full mt-2 py-2 text-xs text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">
-                    Show more ({filtered.length - racePage * 30} remaining)
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          <div>
+      {tab === "events" && (() => {
+        const renderEventDetail = () => (
+          <>
             {selEvent ? (
               <div className="rounded-2xl border border-border bg-surface p-5">
                 <div className="flex items-start justify-between mb-1">
@@ -404,9 +331,97 @@ export default function RacesPage() {
                 )}
               </div>
             )}
+          </>
+        );
+        return (
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <input placeholder="Search by name or city..." value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm mb-3" />
+            <div className="flex gap-1.5 flex-wrap mb-2">
+              {DFILTERS.map((fi, i) => (
+                <button key={fi.label} onClick={() => setDf(i)}
+                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (df === i ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                  {fi.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5 flex-wrap mb-2 items-center">
+              {(showPast ? ["all","2024","2025","2026","2027"] : ["all","2026","2027"]).map(y => (
+                <button key={y} onClick={() => setYearF(y)}
+                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (yearF === y ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                  {y === "all" ? "Any year" : y}
+                </button>
+              ))}
+              <button onClick={() => { setShowPast(p => !p); setYearF("all"); }}
+                className={"text-xs px-3 py-1 rounded-full border transition-colors ml-auto " + (showPast ? "bg-surface-raised border-border" : "border-border hover:bg-surface")}>
+                {showPast ? "Hide past races" : "Show past races"}
+              </button>
+            </div>
+            <div className="flex gap-1.5 flex-wrap mb-3">
+              {[["all","All countries"],["USA","USA"],["international","International"]].map(([v,l]) => (
+                <button key={v} onClick={() => setCountryF(v)}
+                  className={"text-xs px-3 py-1 rounded-full border transition-colors " + (countryF === v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {eventsLoading ? (
+              <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-surface animate-pulse" />)}</div>
+            ) : (
+              <>
+                <p className="text-xs text-foreground-dim mb-2">{filtered.length} events</p>
+                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                  {filtered.slice(0, racePage * 30).map((race: any) => {
+                    const d = Math.ceil((new Date(race.raceDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    const count = race._count?.registrations || 0;
+                    return (
+                      <div key={race.id}>
+                        <button onClick={() => { setSelEvent(selEvent?.id === race.id ? null : race); setGoalH(""); setGoalM(""); setPub(true); }}
+                          className={"w-full text-left rounded-xl border p-3 transition-colors " + (selEvent?.id === race.id ? "border-signal bg-signal/5" : "border-border bg-surface hover:bg-surface-raised")}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{race.name}</p>
+                              <p className="text-xs text-foreground-dim">{race.city}, {race.country} · {distLabel(race.distanceM)}</p>
+                              <p className="text-xs text-foreground-dim">{new Date(race.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {d > 0 ? `${d}d away` : "past"}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              {isReg(race.id) && <span className="text-xs bg-signal/20 text-signal px-2 py-0.5 rounded-full">Joined</span>}
+                              {count > 0 && <span className="text-xs text-foreground-dim">{count} athletes</span>}
+                            </div>
+                          </div>
+                        </button>
+                        {/* Mobile: show detail/join inline right below the tapped race, since the side-by-side column is desktop-only */}
+                        {selEvent?.id === race.id && (
+                          <div className="mt-2 md:hidden">
+                            {renderEventDetail()}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-foreground-dim mb-2">No events found.</p>
+                      <button onClick={() => setTab("submit")} className="text-sm text-signal hover:underline">Submit this race</button>
+                    </div>
+                  )}
+                </div>
+                {filtered.length > racePage * 30 && (
+                  <button onClick={() => setRacePage(p => p + 1)} className="w-full mt-2 py-2 text-xs text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">
+                    Show more ({filtered.length - racePage * 30} remaining)
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="hidden md:block">
+            {renderEventDetail()}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── My events ── */}
       {tab === "myevents" && (
