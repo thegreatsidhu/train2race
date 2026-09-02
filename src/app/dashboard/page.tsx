@@ -15,6 +15,9 @@ import { KudosBanner } from "@/components/KudosBanner";
 import { DailyAIMessage } from "@/components/DailyAIMessage";
 import { HighFiveStrip } from "@/components/HighFiveStrip";
 import { TeamAvatar } from "@/components/TeamAvatar";
+import { TodaysStepsCard } from "@/components/TodaysStepsCard";
+
+const STEPS_SOURCE_LABEL: Record<string, string> = { GARMIN: "Garmin", APPLE_HEALTH: "Apple Health" };
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run:"bg-green-900/50 text-green-300 border-green-700",
@@ -74,7 +77,8 @@ export default async function TodayPage() {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const fortyFiveDaysAgo = new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000);
   const now = new Date();
-  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams] = await Promise.all([
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams, todayStepsMetric] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,photos:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
@@ -86,6 +90,7 @@ export default async function TodayPage() {
     prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
     (prisma as any).announcement.findMany({where:{AND:[{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},{OR:[{scheduledFor:null},{scheduledFor:{lte:now}}]}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
     prisma.team.findMany({where:{members:{some:{userId}}},select:{id:true,name:true,logoUrl:true,logoStatus:true,isPrivate:true,_count:{select:{members:true}}},orderBy:{createdAt:"desc"},take:10}),
+    prisma.dailyMetrics.findFirst({where:{userId,date:{gte:today,lt:tomorrow},steps:{not:null}},orderBy:{steps:"desc"},select:{steps:true,source:true}}),
   ]);
 
   const teamsWithActivity = (userTeams as any[]).map((t: any) => ({
@@ -112,6 +117,7 @@ export default async function TodayPage() {
   const streak = computeStreak(recentForStreak, today);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const isNewUser = !hasConnection && !activeRace && recentActivities.length === 0;
+  const stepsSourceLabel = todayStepsMetric?.source ? (STEPS_SOURCE_LABEL[todayStepsMetric.source] ?? null) : null;
   const profileIncomplete = !(user as any)?.dateOfBirth || !(user as any)?.sex;
   const workoutItems = completedWorkouts.map((w: any) => ({
     id: `workout_${w.id}`, title: w.title, type: w.type,
@@ -157,6 +163,9 @@ export default async function TodayPage() {
           <WeatherBadge city={displayCity} timezone={user?.timezone ?? null} />
         </div>
       </header>
+
+      {/* ── Today's steps — shown only if a connected source reports steps ── */}
+      <TodaysStepsCard initialSteps={todayStepsMetric?.steps ?? null} initialSourceLabel={stepsSourceLabel} />
 
       {/* ── Log Workout CTA + High Five strip — desktop only ── */}
       <div className="hidden md:block w-full max-w-[280px] mb-8">
