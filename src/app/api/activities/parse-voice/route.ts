@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
     const text = r.content.find(b => b.type === "text")?.text ?? "{}";
     const parsed = JSON.parse(text);
     return NextResponse.json({ parsed });
-  } catch {
+  } catch (err) {
+    console.error("[parse-voice] Claude call failed. transcript:", transcript, "error:", err);
     return NextResponse.json({ error: "Failed to parse voice input" }, { status: 500 });
   }
 }

@@ -17,6 +17,7 @@ export default function LogWorkoutPage() {
   const [listening, setListening] = useState(false);
   const [parsingVoice, setParsingVoice] = useState(false);
   const [voiceError, setVoiceError] = useState("");
+  const [voiceTranscript, setVoiceTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -131,16 +132,19 @@ export default function LogWorkoutPage() {
     recognition.onstart = () => setListening(true);
     recognition.onresult = (event: any) => {
       const transcript = event.results?.[0]?.[0]?.transcript;
+      console.log("[voice] speech recognition transcript:", transcript, event.results);
+      setVoiceTranscript(transcript || "");
       if (transcript) handleVoiceTranscript(transcript);
     };
     recognition.onerror = (event: any) => {
+      console.error("[voice] speech recognition error:", event.error, event);
       setListening(false);
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setVoiceError("Microphone access denied — enable it in your browser settings, or enter manually.");
       } else if (event.error === "no-speech") {
         setVoiceError("Didn't catch that — try again.");
       } else {
-        setVoiceError("Voice input failed — please enter manually.");
+        setVoiceError(`Voice input failed (${event.error}) — please enter manually.`);
       }
     };
     recognition.onend = () => setListening(false);
@@ -163,7 +167,8 @@ export default function LogWorkoutPage() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d.parsed) {
-        setVoiceError("Couldn't understand that — please enter manually.");
+        console.error("[voice] parse-voice API failed:", res.status, d);
+        setVoiceError("Couldn't extract workout details from that — please enter manually.");
         setParsingVoice(false);
         return;
       }
@@ -181,8 +186,9 @@ export default function LogWorkoutPage() {
         if (p.type === "swim" && (p.unit === "m" || p.unit === "yd")) setSwimUnit(p.unit);
         else if (p.unit === "mi" || p.unit === "km") setUnit(p.unit);
       }
-    } catch {
-      setVoiceError("Something went wrong — please enter manually.");
+    } catch (err) {
+      console.error("[voice] handleVoiceTranscript failed:", err);
+      setVoiceError("Something went wrong processing that — please enter manually.");
     }
     setParsingVoice(false);
   }
@@ -272,7 +278,10 @@ export default function LogWorkoutPage() {
                 <>🎤 Describe your workout</>
               )}
             </button>
-            {voiceError && <p className="text-xs text-red-400 mt-1.5">{voiceError}</p>}
+            {!listening && voiceTranscript && (
+              <p className="text-xs text-foreground-dim mt-1.5">🎤 You said: "{voiceTranscript}"</p>
+            )}
+            {voiceError && <p className="text-xs text-red-400 mt-1">{voiceError}</p>}
           </div>
         )}
         <div>
