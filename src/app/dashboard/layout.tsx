@@ -21,7 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <SideNav email={session.user.email ?? ""} role={(session.user as any).role} />
 
       {/* Mobile top bar */}
-      <div className="md:hidden flex flex-col pt-[env(safe-area-inset-top)]">
+      <div className="md:hidden flex flex-col pt-[env(safe-area-inset-top)] sticky top-0 z-20 bg-background">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <Link href="/dashboard" className="flex items-center gap-2"><Image src="/logo.png" alt="Train2Race" width={28} height={28} className="rounded-md" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></Link>
           <MobileNav email={session.user.email ?? ""} role={(session.user as any).role} />

@@ -28,7 +28,7 @@ export function SideNav({ email, role }: { email: string; role?: string }) {
   }
 
   return (
-    <aside className="hidden md:flex w-56 border-r border-border flex-col px-4 py-6 shrink-0">
+    <aside className="hidden md:flex w-56 border-r border-border flex-col px-4 py-6 shrink-0 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
       <Link href="/dashboard" className="flex items-center gap-2 px-2 mb-8">
         <Image src="/logo.png" alt="Train2Race" width={32} height={32} className="rounded-lg" />
         <span className="font-semibold tracking-tight text-lg">Train2Race</span>
