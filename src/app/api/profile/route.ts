@@ -6,7 +6,7 @@ export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const user = await (prisma as any).user.findUnique({ where: { id: userId }, select: { name: true, email: true, weightKg: true, heightCm: true, dateOfBirth: true, sex: true, city: true, isPrivate: true, timezone: true, bio: true, emailOptOut: true, emailDigestOptOut: true, emailWeeklyOptOut: true, emailChallengeOptOut: true, passwordHash: true } });
+  const user = await (prisma as any).user.findUnique({ where: { id: userId }, select: { name: true, email: true, weightKg: true, heightCm: true, dateOfBirth: true, sex: true, city: true, isPrivate: true, timezone: true, bio: true, emailOptOut: true, emailDigestOptOut: true, emailWeeklyOptOut: true, emailChallengeOptOut: true, pushEnabled: true, pushDigestOptOut: true, pushWeeklyOptOut: true, pushChallengeOptOut: true, passwordHash: true } });
   return NextResponse.json({ user: { ...user, hasPassword: !!user?.passwordHash, passwordHash: undefined } });
 }
 export async function POST(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
   const body = await req.json();
-  const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone, bio, emailOptOut, emailDigestOptOut, emailWeeklyOptOut, emailChallengeOptOut } = body;
+  const { name, weightKg, heightCm, dateOfBirth, sex, city, isPrivate, timezone, bio, emailOptOut, emailDigestOptOut, emailWeeklyOptOut, emailChallengeOptOut, pushDigestOptOut, pushWeeklyOptOut, pushChallengeOptOut } = body;
   const data: any = {};
   if ("name" in body)        data.name = name ? String(name).trim().slice(0, 100) || null : null;
   if ("weightKg" in body) {
@@ -46,6 +46,12 @@ export async function POST(req: Request) {
   if ("emailDigestOptOut" in body)   data.emailDigestOptOut = !!emailDigestOptOut;
   if ("emailWeeklyOptOut" in body)   data.emailWeeklyOptOut = !!emailWeeklyOptOut;
   if ("emailChallengeOptOut" in body) data.emailChallengeOptOut = !!emailChallengeOptOut;
+  // pushEnabled (the master switch) is intentionally not settable here — it's only flipped via
+  // POST /api/push, right after a real Median.onesignal.register()/logout() call, so the DB
+  // flag never claims a device is registered when it isn't.
+  if ("pushDigestOptOut" in body)    data.pushDigestOptOut = !!pushDigestOptOut;
+  if ("pushWeeklyOptOut" in body)    data.pushWeeklyOptOut = !!pushWeeklyOptOut;
+  if ("pushChallengeOptOut" in body) data.pushChallengeOptOut = !!pushChallengeOptOut;
   if (Object.keys(data).length === 0) return NextResponse.json({ ok: true });
   try {
     await prisma.user.update({ where: { id: userId }, data });

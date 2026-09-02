@@ -4,6 +4,7 @@ import { syncAllConnections } from "@/lib/sync/engine";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { groupEmailHtml, unsubscribeUrl } from "@/lib/email";
+import { sendPush } from "@/lib/oneSignal";
 import Anthropic from "@anthropic-ai/sdk";
 import { computeLeaderboard, formatStat } from "@/lib/platformChallenge";
 
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         majorRace: { select: { name: true, raceDate: true } },
-        members: { select: { user: { select: { id: true, name: true, email: true, emailOptOut: true, emailWeeklyOptOut: true } } } },
+        members: { select: { user: { select: { id: true, name: true, email: true, emailOptOut: true, emailWeeklyOptOut: true, pushEnabled: true, pushWeeklyOptOut: true } } } },
       },
     });
 
@@ -77,17 +78,26 @@ export async function GET(req: NextRequest) {
         daysToRace !== null && daysToRace > 0 ? `<p style="margin:0;">&#127937; <strong style="color:#ede9e2;">${daysToRace} day${daysToRace !== 1 ? "s" : ""}</strong> until ${team.majorRace.name}. Keep it up!</p>` : daysToRace === 0 ? `<p style="margin:0;">&#127937; Race day is today — good luck, ${team.name}!</p>` : "",
       ].filter(Boolean).join("");
 
+      const pushSummary = mvpMember && mvp._count.userId > 0
+        ? `MVP this week: ${mvpMember.user.name || "Athlete"} with ${mvp._count.userId} workout${mvp._count.userId !== 1 ? "s" : ""}`
+        : "See how your team did this week";
+
       for (const m of team.members) {
-        if (!m.user.email || m.user.emailOptOut || m.user.emailWeeklyOptOut) continue;
-        try {
-          await resend.emails.send({
-            from: FROM,
-            to: m.user.email,
-            subject: `${team.name} — Weekly Summary`,
-            html: groupEmailHtml({ preheader: `Weekly team update for ${team.name}`, heading: `${team.name} — Weekly Update`, body: bodyParts, unsubUrl: unsubscribeUrl(m.user.id) }),
-          });
-          weeklyEmails++;
-        } catch {}
+        if (m.user.email && !m.user.emailOptOut && !m.user.emailWeeklyOptOut) {
+          try {
+            await resend.emails.send({
+              from: FROM,
+              to: m.user.email,
+              subject: `${team.name} — Weekly Summary`,
+              html: groupEmailHtml({ preheader: `Weekly team update for ${team.name}`, heading: `${team.name} — Weekly Update`, body: bodyParts, unsubUrl: unsubscribeUrl(m.user.id) }),
+            });
+            weeklyEmails++;
+          } catch {}
+        }
+
+        if (m.user.pushEnabled && !m.user.pushWeeklyOptOut) {
+          sendPush({ userId: m.user.id, title: `${team.name} — Weekly Summary`, message: pushSummary }).catch(() => {});
+        }
       }
     }
   }
@@ -108,17 +118,17 @@ export async function GET(req: NextRequest) {
             id: true,
             title: true,
             type: true,
-            user: { select: { id: true, name: true, email: true, emailOptOut: true, emailDigestOptOut: true } },
+            user: { select: { id: true, name: true, email: true, emailOptOut: true, emailDigestOptOut: true, pushEnabled: true, pushDigestOptOut: true } },
           },
         },
       },
     });
 
-    // Group by recipient userId
+    // Group by recipient userId — don't pre-filter by email eligibility here, since push
+    // eligibility is independent and checked per-channel below.
     const byRecipient = new Map<string, { user: any; rows: { fromName: string; workoutName: string }[] }>();
     for (const hf of todayHighFives as any[]) {
       const owner = hf.activity.user;
-      if (!owner.email || owner.emailOptOut || owner.emailDigestOptOut) continue;
       if (!byRecipient.has(owner.id)) {
         byRecipient.set(owner.id, { user: owner, rows: [] });
       }
@@ -130,25 +140,35 @@ export async function GET(req: NextRequest) {
 
     for (const { user, rows } of byRecipient.values()) {
       if (!rows.length) continue;
-      const listHtml = rows
-        .map(r => `<p style="margin:0 0 8px;"><strong style="color:#ede9e2;">${r.fromName}</strong> high fived your <strong style="color:#ede9e2;">${r.workoutName}</strong></p>`)
-        .join("");
-      try {
-        await resend.emails.send({
-          from: FROM,
-          to: user.email,
-          subject: "You got high fives today 🙌",
-          html: groupEmailHtml({
-            preheader: `${rows.length} high five${rows.length !== 1 ? "s" : ""} on your workouts today`,
-            heading: "You got high fives today 🙌",
-            body: listHtml,
-            cta: "View your dashboard",
-            ctaUrl: "https://train2race.com/dashboard",
-            unsubUrl: unsubscribeUrl(user.id),
-          }),
-        });
-        digestEmails++;
-      } catch {}
+
+      if (user.email && !user.emailOptOut && !user.emailDigestOptOut) {
+        const listHtml = rows
+          .map(r => `<p style="margin:0 0 8px;"><strong style="color:#ede9e2;">${r.fromName}</strong> high fived your <strong style="color:#ede9e2;">${r.workoutName}</strong></p>`)
+          .join("");
+        try {
+          await resend.emails.send({
+            from: FROM,
+            to: user.email,
+            subject: "You got high fives today 🙌",
+            html: groupEmailHtml({
+              preheader: `${rows.length} high five${rows.length !== 1 ? "s" : ""} on your workouts today`,
+              heading: "You got high fives today 🙌",
+              body: listHtml,
+              cta: "View your dashboard",
+              ctaUrl: "https://train2race.com/dashboard",
+              unsubUrl: unsubscribeUrl(user.id),
+            }),
+          });
+          digestEmails++;
+        } catch {}
+      }
+
+      if (user.pushEnabled && !user.pushDigestOptOut) {
+        const message = rows.length === 1
+          ? `${rows[0].fromName} high fived your ${rows[0].workoutName}`
+          : `${rows.length} high fives on your workouts today`;
+        sendPush({ userId: user.id, title: "You got high fives today 🙌", message }).catch(() => {});
+      }
     }
   }
 
@@ -378,7 +398,7 @@ export async function GET(req: NextRequest) {
       try {
         const parts = await (prisma as any).platformChallengeParticipant.findMany({
           where: { challengeId: ch.id, optedOut: false },
-          select: { userId: true, user: { select: { name: true, email: true, emailOptOut: true } } },
+          select: { userId: true, user: { select: { name: true, email: true, emailOptOut: true, pushEnabled: true, pushChallengeOptOut: true } } },
         });
         const ids = parts.map(p => p.userId);
         const lb = await computeLeaderboard(ch, ids);
@@ -414,7 +434,8 @@ export async function GET(req: NextRequest) {
         });
         announcementsGenerated++;
 
-        // Send final announcement email to all opted-in participants
+        // Send final announcement to all opted-in participants (email + push)
+        const rankByUserId = new Map(finalAnnouncement.top5.map(e => [e.userId, e]));
         if (process.env.RESEND_API_KEY) {
           const medalsHtml = finalAnnouncement.top5.map(e => {
             const medal = e.rank===1?"🥇":e.rank===2?"🥈":e.rank===3?"🥉":`#${e.rank}`;
@@ -437,6 +458,13 @@ export async function GET(req: NextRequest) {
               });
             } catch {}
           }
+        }
+        for (const p of parts) {
+          if (!p.user.pushEnabled || p.user.pushChallengeOptOut) continue;
+          const mine = rankByUserId.get(p.userId);
+          const medal = mine ? (mine.rank===1?"🥇":mine.rank===2?"🥈":mine.rank===3?"🥉":`#${mine.rank}`) : null;
+          const message = mine ? `You finished ${medal} — ${mine.stat}!` : `See how the challenge wrapped up.`;
+          sendPush({ userId: p.userId, title: `🏆 ${ch.title} — Final Results!`, message }).catch(() => {});
         }
       } catch {}
     }

@@ -29,6 +29,10 @@ model User {
   emailDigestOptOut        Boolean   @default(false)
   emailWeeklyOptOut        Boolean   @default(false)
   emailChallengeOptOut     Boolean   @default(false)
+  pushEnabled              Boolean   @default(false)
+  pushDigestOptOut         Boolean   @default(false)
+  pushWeeklyOptOut         Boolean   @default(false)
+  pushChallengeOptOut      Boolean   @default(false)
   onboardingComplete  Boolean   @default(false)
   fitnessGoal         String?
   aiDailyMessage      String?

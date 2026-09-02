@@ -2,6 +2,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, groupEmailHtml } from "@/lib/email";
+import { sendPush } from "@/lib/oneSignal";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       userId: true,
       title: true,
       type: true,
-      user: { select: { name: true, email: true, emailOptOut: true } },
+      user: { select: { name: true, email: true, emailOptOut: true, pushEnabled: true, pushDigestOptOut: true } },
     },
   });
   if (!activity) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -38,25 +39,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const count = await (prisma as any).highFive.count({ where: { activityId } });
 
-  // Send email to workout owner (once per workout per day)
-  if (shouldEmail && activity.user.email && !activity.user.emailOptOut) {
+  // Notify workout owner (once per workout per day, across both channels)
+  if (shouldEmail) {
     const fromUser = await prisma.user.findUnique({
       where: { id: fromUserId },
       select: { name: true },
     });
     const fromName = fromUser?.name || "A teammate";
     const workoutName = activity.title || activity.type;
-    sendEmail({
-      to: activity.user.email,
-      subject: "Your teammate gave you a high five 🙌",
-      html: groupEmailHtml({
-        preheader: `${fromName} high fived your ${workoutName}!`,
-        heading: "You got a high five! 🙌",
-        body: `<p><strong style="color:#ede9e2;">${fromName}</strong> gave your <strong style="color:#ede9e2;">${workoutName}</strong> a high five. Keep up the great work!</p>`,
-        cta: "View your activity",
-        ctaUrl: "https://train2race.com/dashboard",
-      }),
-    }).catch(() => {});
+
+    if (activity.user.email && !activity.user.emailOptOut) {
+      sendEmail({
+        to: activity.user.email,
+        subject: "Your teammate gave you a high five 🙌",
+        html: groupEmailHtml({
+          preheader: `${fromName} high fived your ${workoutName}!`,
+          heading: "You got a high five! 🙌",
+          body: `<p><strong style="color:#ede9e2;">${fromName}</strong> gave your <strong style="color:#ede9e2;">${workoutName}</strong> a high five. Keep up the great work!</p>`,
+          cta: "View your activity",
+          ctaUrl: "https://train2race.com/dashboard",
+        }),
+      }).catch(() => {});
+    }
+
+    if (activity.user.pushEnabled && !activity.user.pushDigestOptOut) {
+      sendPush({
+        userId: activity.userId,
+        title: "You got a high five! 🙌",
+        message: `${fromName} high fived your ${workoutName}`,
+      }).catch(() => {});
+    }
   }
 
   return NextResponse.json({ ok: true, count });

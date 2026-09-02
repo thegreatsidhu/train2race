@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { sendEmail, groupEmailHtml, unsubscribeUrl } from "@/lib/email";
+import { sendPush } from "@/lib/oneSignal";
 import bcrypt from "bcryptjs";
 
 const FALLBACK_PASSWORD = "train2race2024";
@@ -159,27 +160,47 @@ ${challenge.description ? `<p style="margin:12px 0;color:#9aa3ab;">${challenge.d
         }),
       }).catch(() => {});
     }
+
+    const pushUsers = await (prisma as any).user.findMany({
+      where: { pushEnabled: true, pushChallengeOptOut: false },
+      select: { id: true },
+    });
+    for (const u of pushUsers) {
+      sendPush({
+        userId: u.id,
+        title: `New challenge: ${challenge.title} 🏆`,
+        message: `Starts ${startStr} — join before enrollment closes!`,
+      }).catch(() => {});
+    }
   }
 
-  // Send alert emails to opted-in users and then delete their alert
+  // Send alert notifications to opted-in users and then delete their alert
   const alertsToNotify = await (prisma as any).challengeAlert.findMany({
     where: { OR: [{ challengeType: type }, { challengeType: "all" }] },
-    select: { id: true, userId: true, user: { select: { email: true, name: true, emailOptOut: true } } },
+    select: { id: true, userId: true, user: { select: { email: true, name: true, emailOptOut: true, pushEnabled: true, pushChallengeOptOut: true } } },
   });
   for (const alert of alertsToNotify) {
-    if (!alert.user.email || alert.user.emailOptOut) continue;
-    sendEmail({
-      to: alert.user.email,
-      subject: `New challenge starting soon — ${challenge.title}`,
-      html: groupEmailHtml({
-        preheader: `${challenge.title} begins ${startStr}. Join now before enrollment closes!`,
-        heading: `New challenge: ${challenge.title} 🏆`,
-        body: `<p>A new platform challenge is starting soon — and you asked to be notified!</p><p style="margin-top:12px;"><strong style="color:#ede9e2;">${challenge.title}</strong> begins on <strong style="color:#ede9e2;">${startStr}</strong>. Join now before enrollment closes.</p>`,
-        cta: "Join the challenge →",
-        ctaUrl: challengeUrl,
-        unsubUrl: unsubscribeUrl(alert.userId),
-      }),
-    }).catch(() => {});
+    if (alert.user.email && !alert.user.emailOptOut) {
+      sendEmail({
+        to: alert.user.email,
+        subject: `New challenge starting soon — ${challenge.title}`,
+        html: groupEmailHtml({
+          preheader: `${challenge.title} begins ${startStr}. Join now before enrollment closes!`,
+          heading: `New challenge: ${challenge.title} 🏆`,
+          body: `<p>A new platform challenge is starting soon — and you asked to be notified!</p><p style="margin-top:12px;"><strong style="color:#ede9e2;">${challenge.title}</strong> begins on <strong style="color:#ede9e2;">${startStr}</strong>. Join now before enrollment closes.</p>`,
+          cta: "Join the challenge →",
+          ctaUrl: challengeUrl,
+          unsubUrl: unsubscribeUrl(alert.userId),
+        }),
+      }).catch(() => {});
+    }
+    if (alert.user.pushEnabled && !alert.user.pushChallengeOptOut) {
+      sendPush({
+        userId: alert.userId,
+        title: `New challenge starting soon — ${challenge.title}`,
+        message: `Begins ${startStr}. Join now before enrollment closes.`,
+      }).catch(() => {});
+    }
   }
   // Remove all triggered alerts (users must re-request each time)
   if (alertsToNotify.length > 0) {

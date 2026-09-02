@@ -59,3 +59,40 @@ export async function getHealthData(startDate: string, endDate: string): Promise
     return null;
   }
 }
+
+/**
+ * Associates this device with our own user ID (so server-side OneSignal REST calls can target
+ * it via include_aliases.external_id) and prompts for native push permission. Returns false
+ * outside the Median app, or if the user declines / the bridge fails.
+ */
+export async function registerPushNotifications(userId: string): Promise<boolean> {
+  if (!isMedianApp()) return false;
+  try {
+    await withTimeout(Median.onesignal.login(userId), BRIDGE_TIMEOUT_MS);
+    const result = await withTimeout(Median.onesignal.register(), BRIDGE_TIMEOUT_MS);
+    return !!result?.isSubscribed;
+  } catch {
+    return false;
+  }
+}
+
+/** Reads current push opt-in status. Returns null outside the Median app, or if the check fails. */
+export async function getPushOptedIn(): Promise<boolean | null> {
+  if (!isMedianApp()) return null;
+  try {
+    const info = await withTimeout(Median.onesignal.info(), BRIDGE_TIMEOUT_MS);
+    return !!info?.subscription?.optedIn;
+  } catch {
+    return null;
+  }
+}
+
+/** Disassociates this device's external user ID — call on sign-out or when disabling push. No-op outside the Median app. */
+export async function unregisterPushNotifications(): Promise<void> {
+  if (!isMedianApp()) return;
+  try {
+    await withTimeout(Median.onesignal.logout(), BRIDGE_TIMEOUT_MS);
+  } catch {
+    // best-effort
+  }
+}

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, groupEmailHtml } from "@/lib/email";
+import { sendPush } from "@/lib/oneSignal";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: activityId } = await params;
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id: activityId },
     select: {
       id: true, title: true, type: true, userId: true,
-      user: { select: { name: true, email: true, emailOptOut: true } },
+      user: { select: { name: true, email: true, emailOptOut: true, pushEnabled: true, pushDigestOptOut: true } },
     },
   });
   if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 });
@@ -68,8 +69,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     userName: commenter?.name || "Athlete",
   };
 
-  // Email notification — max one email per activity per 24h (fire-and-forget)
-  if (activity.userId !== userId && activity.user.email && !activity.user.emailOptOut) {
+  // Notify workout owner — max one per activity per 24h, across both channels (fire-and-forget)
+  if (activity.userId !== userId) {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const priorToday = await (prisma as any).activityComment.count({
       where: { activityId, createdAt: { gte: oneDayAgo }, id: { not: comment.id } },
@@ -77,17 +78,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (priorToday === 0) {
       const fromName = commenter?.name || "A teammate";
       const workoutName = activity.title || activity.type;
-      sendEmail({
-        to: activity.user.email,
-        subject: `💬 ${fromName} commented on your workout`,
-        html: groupEmailHtml({
-          preheader: `${fromName} commented on your ${workoutName}`,
-          heading: "New comment on your workout 💬",
-          body: `<p><strong style="color:#ede9e2;">${fromName}</strong> commented on your <strong style="color:#ede9e2;">${workoutName}</strong>:</p><p style="margin-top:12px;padding:12px;background:#1a1d23;border-radius:8px;color:#ede9e2;">"${content.trim()}"</p>`,
-          cta: "View activity feed",
-          ctaUrl: "https://train2race.com/dashboard/teams",
-        }),
-      }).catch(() => {});
+
+      if (activity.user.email && !activity.user.emailOptOut) {
+        sendEmail({
+          to: activity.user.email,
+          subject: `💬 ${fromName} commented on your workout`,
+          html: groupEmailHtml({
+            preheader: `${fromName} commented on your ${workoutName}`,
+            heading: "New comment on your workout 💬",
+            body: `<p><strong style="color:#ede9e2;">${fromName}</strong> commented on your <strong style="color:#ede9e2;">${workoutName}</strong>:</p><p style="margin-top:12px;padding:12px;background:#1a1d23;border-radius:8px;color:#ede9e2;">"${content.trim()}"</p>`,
+            cta: "View activity feed",
+            ctaUrl: "https://train2race.com/dashboard/teams",
+          }),
+        }).catch(() => {});
+      }
+
+      if (activity.user.pushEnabled && !activity.user.pushDigestOptOut) {
+        sendPush({
+          userId: activity.userId,
+          title: "New comment on your workout 💬",
+          message: `${fromName} commented on your ${workoutName}: "${content.trim().slice(0, 120)}"`,
+        }).catch(() => {});
+      }
     }
   }
 

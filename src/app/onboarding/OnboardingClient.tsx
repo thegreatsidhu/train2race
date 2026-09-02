@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { isMedianApp, registerPushNotifications } from "@/lib/median";
 
 interface Race {
   id: string;
@@ -96,6 +97,34 @@ export function OnboardingClient({ name }: { name: string }) {
     if (code) setPendingInviteCode(code);
   }, []);
   const hasPendingInvite = pendingInviteCode !== null;
+
+  // Push notification opt-in — only relevant inside the Median native app
+  const [showPushStep, setShowPushStep] = useState(false);
+  const [pushPromptDone, setPushPromptDone] = useState(false);
+  const [enablingPush, setEnablingPush] = useState(false);
+  useEffect(() => {
+    setShowPushStep(isMedianApp());
+  }, []);
+
+  async function enablePush() {
+    setEnablingPush(true);
+    try {
+      const meRes = await fetch("/api/push");
+      const me = await meRes.json().catch(() => ({}));
+      if (me.userId) {
+        const subscribed = await registerPushNotifications(me.userId);
+        if (subscribed) {
+          await fetch("/api/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pushEnabled: true }),
+          }).catch(() => {});
+        }
+      }
+    } catch {}
+    setEnablingPush(false);
+    setPushPromptDone(true);
+  }
 
   // Step 1 — Fitness goal
   const [fitnessGoal, setFitnessGoal] = useState("");
@@ -671,7 +700,31 @@ export function OnboardingClient({ name }: { name: string }) {
     );
   }
 
-  // Step 5 — Done
+  // Step 5a — Push notification opt-in (Median app only)
+  if (showPushStep && !pushPromptDone) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+        <div className="text-6xl mb-6">🔔</div>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Stay in the loop.</h1>
+        <p className="text-foreground-dim text-lg mb-10">Get notified for high fives, comments, and challenge results.</p>
+        <button
+          onClick={enablePush}
+          disabled={enablingPush}
+          className="px-8 py-3.5 rounded-full bg-signal text-background font-semibold text-base hover:bg-signal-dim transition-colors disabled:opacity-60 mb-3"
+        >
+          {enablingPush ? "Enabling…" : "Enable notifications"}
+        </button>
+        <button
+          onClick={() => setPushPromptDone(true)}
+          className="text-sm text-foreground-dim hover:text-foreground transition-colors"
+        >
+          Not now
+        </button>
+      </div>
+    );
+  }
+
+  // Step 5b — Done
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
       <div className="text-6xl mb-6">🏁</div>

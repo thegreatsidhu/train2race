@@ -1,12 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import { isMedianApp, registerPushNotifications, unregisterPushNotifications } from "@/lib/median";
 
 const TIMEZONES = ["America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Phoenix","America/Anchorage","Pacific/Honolulu","Europe/London","Europe/Paris","Europe/Berlin","Europe/Rome","Asia/Tokyo","Asia/Shanghai","Asia/Dubai","Australia/Sydney"];
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"personal"|"body"|"account">("personal");
   const [name, setName] = useState(""); const [dob, setDob] = useState(""); const [sex, setSex] = useState(""); const [city, setCity] = useState(""); const [bio, setBio] = useState(""); const [isPrivate, setIsPrivate] = useState(false); const [emailOptOut, setEmailOptOut] = useState(false); const [emailDigestOptOut, setEmailDigestOptOut] = useState(false); const [emailWeeklyOptOut, setEmailWeeklyOptOut] = useState(false); const [emailChallengeOptOut, setEmailChallengeOptOut] = useState(false); const [timezone, setTimezone] = useState("America/Los_Angeles");
+  const [showPushSection, setShowPushSection] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false); const [pushDigestOptOut, setPushDigestOptOut] = useState(false); const [pushWeeklyOptOut, setPushWeeklyOptOut] = useState(false); const [pushChallengeOptOut, setPushChallengeOptOut] = useState(false);
+  const [togglingPush, setTogglingPush] = useState(false);
+  useEffect(() => { setShowPushSection(isMedianApp()); }, []);
   const [weightLbs, setWeightLbs] = useState(""); const [heightFt, setHeightFt] = useState(""); const [heightIn, setHeightIn] = useState("");
   const [email, setEmail] = useState(""); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState(""); const [hasPassword, setHasPassword] = useState(false);
   const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(""); const [error, setError] = useState("");
@@ -33,6 +38,10 @@ export default function ProfilePage() {
       if (user.emailDigestOptOut != null) setEmailDigestOptOut(!!user.emailDigestOptOut);
       if (user.emailWeeklyOptOut != null) setEmailWeeklyOptOut(!!user.emailWeeklyOptOut);
       if (user.emailChallengeOptOut != null) setEmailChallengeOptOut(!!user.emailChallengeOptOut);
+      if (user.pushEnabled != null) setPushEnabled(!!user.pushEnabled);
+      if (user.pushDigestOptOut != null) setPushDigestOptOut(!!user.pushDigestOptOut);
+      if (user.pushWeeklyOptOut != null) setPushWeeklyOptOut(!!user.pushWeeklyOptOut);
+      if (user.pushChallengeOptOut != null) setPushChallengeOptOut(!!user.pushChallengeOptOut);
       if (user.timezone) setTimezone(user.timezone);
       if (user.weightKg) setWeightLbs(Math.round(user.weightKg*2.20462).toString());
       if (user.heightCm) { const t=Math.round(user.heightCm/2.54); setHeightFt(Math.floor(t/12).toString()); setHeightIn((t%12).toString()); }
@@ -45,7 +54,7 @@ export default function ProfilePage() {
 
   async function savePersonal() {
     setSaving(true); setError("");
-    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,bio:bio.trim()||null,isPrivate,emailOptOut,emailDigestOptOut,emailWeeklyOptOut,emailChallengeOptOut,timezone})});
+    const res = await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,dateOfBirth:dob||null,sex:sex||null,city:city||null,bio:bio.trim()||null,isPrivate,emailOptOut,emailDigestOptOut,emailWeeklyOptOut,emailChallengeOptOut,pushDigestOptOut,pushWeeklyOptOut,pushChallengeOptOut,timezone})});
     setSaving(false); if(res.ok) showSaved("Saved"); else setError("Failed to save");
   }
   async function saveBody() {
@@ -76,6 +85,36 @@ export default function ProfilePage() {
     setSaving(false);
     if(res.ok){showSaved("Password updated");setCurrentPassword("");setNewPassword("");setConfirmPassword("");setHasPassword(true);}
     else{const d=await res.json();setError(d.error||"Failed");}
+  }
+
+  async function enablePush() {
+    setTogglingPush(true); setError("");
+    try {
+      const meRes = await fetch("/api/push");
+      const me = await meRes.json().catch(() => ({}));
+      if (me.userId) {
+        const subscribed = await registerPushNotifications(me.userId);
+        if (subscribed) {
+          await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pushEnabled: true }) });
+          setPushEnabled(true);
+          showSaved("Push notifications enabled");
+        } else {
+          setError("Couldn't enable push notifications. Check your device notification settings.");
+        }
+      }
+    } catch { setError("Couldn't enable push notifications."); }
+    setTogglingPush(false);
+  }
+
+  async function disablePush() {
+    setTogglingPush(true); setError("");
+    try {
+      await unregisterPushNotifications();
+      await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pushEnabled: false }) });
+      setPushEnabled(false);
+      showSaved("Push notifications disabled");
+    } catch { setError("Couldn't disable push notifications."); }
+    setTogglingPush(false);
   }
 
   async function deleteAccount() {
@@ -126,7 +165,9 @@ export default function ProfilePage() {
           </label>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-3">Email preferences</label>
+          <label className="block text-sm font-medium mb-3">Notification preferences</label>
+
+          <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Email</p>
           <div className="space-y-3">
             {[
               { label: "Daily digest", desc: "High fives, comments, and activity notifications", value: emailDigestOptOut, set: setEmailDigestOptOut },
@@ -155,6 +196,43 @@ export default function ProfilePage() {
               </label>
             </div>
           </div>
+
+          {showPushSection && (
+            <div className="mt-5 pt-4 border-t border-border">
+              <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Push notifications</p>
+              {!pushEnabled ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-foreground-dim">Get notified on this device for high fives, comments, team summaries, and challenges.</p>
+                  <button onClick={enablePush} disabled={togglingPush} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60 shrink-0">{togglingPush ? "Enabling..." : "Enable"}</button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {[
+                    { label: "Daily digest", desc: "High fives, comments, and activity notifications", value: pushDigestOptOut, set: setPushDigestOptOut },
+                    { label: "Weekly team summary", desc: "Your team's weekly mileage recap", value: pushWeeklyOptOut, set: setPushWeeklyOptOut },
+                    { label: "Challenge announcements", desc: "New platform challenges and alerts", value: pushChallengeOptOut, set: setPushChallengeOptOut },
+                  ].map(({ label, desc, value, set }) => (
+                    <label key={label} className="flex items-start gap-3 cursor-pointer select-none">
+                      <div onClick={() => set(p => !p)} className={"relative w-10 h-5 rounded-full transition-colors shrink-0 mt-0.5 " + (!value ? "bg-signal" : "bg-border")}>
+                        <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (!value ? "left-5" : "left-0.5")} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{label}</p>
+                        <p className="text-xs text-foreground-dim">{desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                  <div className="pt-2 border-t border-border flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">Push notifications enabled</p>
+                      <p className="text-xs text-foreground-dim">Disable to stop all push notifications on this device.</p>
+                    </div>
+                    <button onClick={disablePush} disabled={togglingPush} className="px-4 py-2 rounded-full border border-border text-sm font-medium disabled:opacity-60 shrink-0">{togglingPush ? "..." : "Disable"}</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div><label className="block text-sm font-medium mb-1">Timezone</label><select value={timezone} onChange={e=>setTimezone(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm">{TIMEZONES.map(tz=><option key={tz} value={tz}>{tz.replace(/_/g," ")}</option>)}</select></div>
         <div className="flex items-center gap-3 pt-2"><button onClick={savePersonal} disabled={saving} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{saving?"Saving...":"Save"}</button>{saved&&<span className="text-sm text-signal">{saved} ✓</span>}{error&&<span className="text-sm text-red-400">{error}</span>}</div>
