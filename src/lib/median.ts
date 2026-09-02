@@ -96,3 +96,18 @@ export async function unregisterPushNotifications(): Promise<void> {
     // best-effort
   }
 }
+
+/**
+ * Sets the native status bar color to match the page background. Android renders the status
+ * bar outside the WebView by default (overlay: false), so it's a separate solid color from
+ * whatever our CSS draws underneath — without this, it shows up as a mismatched color block
+ * above the app's top nav bar. No-op outside the Median app.
+ */
+export function syncStatusBarColor(): void {
+  if (!isMedianApp()) return;
+  try {
+    Median.statusbar.matchBodyBackgroundColor({ active: true });
+  } catch {
+    // best-effort
+  }
+}

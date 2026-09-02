@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { PwaRegistration } from "@/components/PwaRegistration";
+import { MedianInit } from "@/components/MedianInit";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -79,6 +80,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>{children}</Providers>
         <PwaRegistration />
+        <MedianInit />
       </body>
     </html>
   );
