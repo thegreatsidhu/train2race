@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { isMedianApp, registerPushNotifications, unregisterPushNotifications } from "@/lib/median";
+import { Toggle } from "@/components/Toggle";
 
 const TIMEZONES = ["America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Phoenix","America/Anchorage","Pacific/Honolulu","Europe/London","Europe/Paris","Europe/Berlin","Europe/Rome","Asia/Tokyo","Asia/Shanghai","Asia/Dubai","Australia/Sydney"];
 
@@ -158,9 +159,7 @@ export default function ProfilePage() {
           <label className="block text-sm font-medium mb-1">Account privacy</label>
           <p className="text-xs text-foreground-dim mb-2">Private accounts are hidden from global leaderboards and member search.</p>
           <label className="flex items-center gap-3 cursor-pointer select-none">
-            <div onClick={()=>setIsPrivate(p=>!p)} className={"relative w-10 h-5 rounded-full transition-colors "+(isPrivate?"bg-signal":"bg-border")}>
-              <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform "+(isPrivate?"left-5":"left-0.5")} />
-            </div>
+            <Toggle checked={isPrivate} onChange={()=>setIsPrivate(p=>!p)} />
             <span className="text-sm">{isPrivate ? "Private — hidden from leaderboards and search" : "Public — visible on leaderboards"}</span>
           </label>
         </div>
@@ -175,9 +174,7 @@ export default function ProfilePage() {
               { label: "Challenge announcements", desc: "New platform challenges and alerts", value: emailChallengeOptOut, set: setEmailChallengeOptOut },
             ].map(({ label, desc, value, set }) => (
               <label key={label} className="flex items-start gap-3 cursor-pointer select-none">
-                <div onClick={() => set(p => !p)} className={"relative w-10 h-5 rounded-full transition-colors shrink-0 mt-0.5 " + (!value ? "bg-signal" : "bg-border")}>
-                  <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (!value ? "left-5" : "left-0.5")} />
-                </div>
+                <Toggle checked={!value} onChange={() => set(p => !p)} className="mt-0.5" />
                 <div>
                   <p className="text-sm font-medium">{label}</p>
                   <p className="text-xs text-foreground-dim">{desc}</p>
@@ -186,9 +183,7 @@ export default function ProfilePage() {
             ))}
             <div className="pt-2 border-t border-border">
               <label className="flex items-start gap-3 cursor-pointer select-none">
-                <div onClick={() => setEmailOptOut(p => !p)} className={"relative w-10 h-5 rounded-full transition-colors shrink-0 mt-0.5 " + (!emailOptOut ? "bg-signal" : "bg-border")}>
-                  <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (!emailOptOut ? "left-5" : "left-0.5")} />
-                </div>
+                <Toggle checked={!emailOptOut} onChange={() => setEmailOptOut(p => !p)} className="mt-0.5" />
                 <div>
                   <p className="text-sm font-medium">All emails (master switch)</p>
                   <p className="text-xs text-foreground-dim">Turn off all Train2Race emails. You'll still receive critical account emails like password resets.</p>
@@ -213,9 +208,7 @@ export default function ProfilePage() {
                     { label: "Challenge announcements", desc: "New platform challenges and alerts", value: pushChallengeOptOut, set: setPushChallengeOptOut },
                   ].map(({ label, desc, value, set }) => (
                     <label key={label} className="flex items-start gap-3 cursor-pointer select-none">
-                      <div onClick={() => set(p => !p)} className={"relative w-10 h-5 rounded-full transition-colors shrink-0 mt-0.5 " + (!value ? "bg-signal" : "bg-border")}>
-                        <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (!value ? "left-5" : "left-0.5")} />
-                      </div>
+                      <Toggle checked={!value} onChange={() => set(p => !p)} className="mt-0.5" />
                       <div>
                         <p className="text-sm font-medium">{label}</p>
                         <p className="text-xs text-foreground-dim">{desc}</p>

@@ -8,7 +8,10 @@ export async function GET(req, { params }) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
   const { id } = await params;
-  const activity = await prisma.activity.findUnique({ where: { id } });
+  const activity = await prisma.activity.findUnique({
+    where: { id },
+    select: { userId: true, type: true, title: true, startTime: true, distanceM: true, durationSec: true, raw: true },
+  });
   if (!activity || activity.userId !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ activity });
 }
@@ -18,7 +21,7 @@ export async function PATCH(req, { params }) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
   const { id } = await params;
-  const activity = await prisma.activity.findUnique({ where: { id } });
+  const activity = await prisma.activity.findUnique({ where: { id }, select: { userId: true, photos: true } });
   if (!activity || activity.userId !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const body = await req.json();
   // Photo-only update: remove a single photo from the activity
@@ -62,7 +65,7 @@ export async function DELETE(req, { params }) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
   const { id } = await params;
-  const activity = await prisma.activity.findUnique({ where: { id } });
+  const activity = await prisma.activity.findUnique({ where: { id }, select: { userId: true } });
   if (!activity || activity.userId !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await prisma.activity.delete({ where: { id } });
   return NextResponse.json({ ok: true });

@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TeamActivityFeed } from "@/components/TeamActivityFeed";
@@ -222,6 +222,34 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function leaveTeamRace(){if(!team?.majorRace?.id)return;setConfirmLeaveRace(false);setJoiningRace(true);const res=await fetch("/api/major-races/register",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({majorRaceId:team.majorRace.id})});if(res.ok){setRaceTabData(prev=>prev?{...prev,myJoined:false,members:prev.members.filter((m:any)=>m.userId!==myUserId)}:null);}setJoiningRace(false);}
   function onMetricChange(metric:string){const firstUnit=metric==="count"?countUnitsFor(challengeForm.type)[0]:METRIC_UNITS[metric]?.[0]??"mi";setChallengeForm(f=>({...f,metric,unit:firstUnit}));}
   async function saveName(){if(!nameInput.trim()||nameInput.trim()===team?.name){setEditingName(false);return;}setSavingName(true);const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:nameInput.trim()})});if(res.ok){setTeam((t:any)=>({...t,name:nameInput.trim()}));setEditingName(false);}setSavingName(false);}
+  const challengeExtras = useMemo(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const map: Record<string, { totals: Record<string, { name: string; total: number; todayTotal: number }>; sorted: [string, { name: string; total: number; todayTotal: number }][]; verifiedByUser: Record<string, boolean> }> = {};
+    for (const c of challenges) {
+      const isStepsChallenge = c.unit === "steps" && c.metric === "count";
+      const totals: Record<string, { name: string; total: number; todayTotal: number }> = {};
+      if (isStepsChallenge && c.stepsByUser) {
+        const nameMap: Record<string, string> = {};
+        c.entries.forEach((e: any) => { if (!nameMap[e.userId]) nameMap[e.userId] = e.user.name || "?"; });
+        Object.entries(c.stepsByUser as Record<string, { total: number; todayTotal: number }>).forEach(([uid, st]) => { totals[uid] = { name: nameMap[uid] || "?", total: st.total, todayTotal: st.todayTotal }; });
+      } else {
+        c.entries.forEach((e: any) => {
+          if (e.flagged) return;
+          if (!totals[e.userId]) totals[e.userId] = { name: e.user.name || "?", total: 0, todayTotal: 0 };
+          totals[e.userId].total += e.value;
+          const eDay = e.date ? new Date(e.date).toISOString().split("T")[0] : null;
+          if (eDay === todayStr) totals[e.userId].todayTotal += e.value;
+        });
+      }
+      const verifiedByUser: Record<string, boolean> = {};
+      if (c.requirePhotoVerification) {
+        c.entries.forEach((e: any) => { if (e.verified) verifiedByUser[e.userId] = true; });
+      }
+      const sorted = Object.entries(totals).sort((a, b) => c.goalPerDay ? (b[1].todayTotal - a[1].todayTotal) : (b[1].total - a[1].total));
+      map[c.id] = { totals, sorted, verifiedByUser };
+    }
+    return map;
+  }, [challenges]);
   if(!team)return<div className="max-w-3xl px-8 py-10"><p className="text-foreground-dim text-sm">Loading...</p></div>;
   const isCreator = myUserId && team.createdBy === myUserId;
   const isCaptain = isCreator || team.isAdmin;
@@ -564,27 +592,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           <div className="space-y-4">
             {challenges.map(c=>{
               const isPending=c.status==="pending";const isRejected=c.status==="rejected";
-              const isStepsChallenge=c.unit==="steps"&&c.metric==="count";
-              const totals:{[uid:string]:{name:string;total:number;todayTotal:number}}={};
-              const todayStr=new Date().toISOString().split("T")[0];
-              if(isStepsChallenge&&c.stepsByUser){
-                const nameMap:{[uid:string]:string}={};
-                c.entries.forEach((e:any)=>{if(!nameMap[e.userId])nameMap[e.userId]=e.user.name||"?";});
-                Object.entries(c.stepsByUser as Record<string,{total:number;todayTotal:number}>).forEach(([uid,st])=>{totals[uid]={name:nameMap[uid]||"?",total:st.total,todayTotal:st.todayTotal};});
-              }else{
-                c.entries.forEach((e:any)=>{
-                  if(e.flagged)return;
-                  if(!totals[e.userId])totals[e.userId]={name:e.user.name||"?",total:0,todayTotal:0};
-                  totals[e.userId].total+=e.value;
-                  const eDay=e.date?new Date(e.date).toISOString().split("T")[0]:null;
-                  if(eDay===todayStr)totals[e.userId].todayTotal+=e.value;
-                });
-              }
-              const verifiedByUser:{[uid:string]:boolean}={};
-              if(c.requirePhotoVerification){
-                c.entries.forEach((e:any)=>{if(e.verified)verifiedByUser[e.userId]=true;});
-              }
-              const sorted=Object.entries(totals).sort((a,b)=>c.goalPerDay?(b[1].todayTotal-a[1].todayTotal):(b[1].total-a[1].total));
+              const {totals,sorted,verifiedByUser}=challengeExtras[c.id]??{totals:{},sorted:[],verifiedByUser:{}};
               const myEntry=totals[myUserId??''];
               const myDisplayTotal=c.goalPerDay?(myEntry?.todayTotal??0):(myEntry?.total??0);
               const pct=c.goal?Math.min(100,Math.round((myDisplayTotal/c.goal)*100)):null;

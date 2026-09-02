@@ -168,6 +168,7 @@ model DailyMetrics {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, date, source])
   @@index([userId, date])
+  @@index([date])
   @@map("daily_metrics")
 }
 
@@ -272,6 +273,7 @@ model AdviceCard {
   createdAt DateTime @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, date])
+  @@index([createdAt])
   @@map("advice_cards")
 }
 
@@ -283,6 +285,7 @@ model ChatMessage {
   createdAt DateTime @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, createdAt])
+  @@index([createdAt])
   @@map("chat_messages")
 }
 
@@ -476,6 +479,7 @@ model TeamChallenge {
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   entries     TeamChallengeEntry[]
   @@index([teamId, endDate])
+  @@index([status, createdAt])
   @@map("team_challenges")
 }
 
@@ -549,6 +553,7 @@ model TeamMessage {
   replyTo     TeamMessage? @relation("teamReplies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies     TeamMessage[] @relation("teamReplies")
   @@index([teamId, createdAt])
+  @@index([createdAt])
   @@map("team_messages")
 }
 

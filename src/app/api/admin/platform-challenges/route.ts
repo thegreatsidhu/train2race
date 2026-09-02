@@ -5,37 +5,17 @@ import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { sendEmail, groupEmailHtml, unsubscribeUrl } from "@/lib/email";
 import { sendPush } from "@/lib/oneSignal";
-import bcrypt from "bcryptjs";
-
-const FALLBACK_PASSWORD = "train2race2024";
-
-async function verifyAdminPassword(password: string): Promise<boolean> {
-  try {
-    const setting = await (prisma as any).setting.findUnique({ where: { key: "adminPasswordHash" } });
-    if (setting?.value) return bcrypt.compare(password, setting.value);
-  } catch {}
-  return password === FALLBACK_PASSWORD;
-}
-
-async function isSuperAdmin(): Promise<boolean> {
-  try {
-    const session = await auth();
-    const userId = (session?.user as any)?.id;
-    if (!userId) return false;
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    return user?.role === "superadmin" || user?.role === "admin";
-  } catch { return false; }
-}
+import { isAdminAuthorized } from "@/lib/adminAuth";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const password = searchParams.get("password") ?? "";
 
-  const superAdmin = await isSuperAdmin();
+  const superAdmin = await isAdminAuthorized();
   if (!superAdmin) {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
     if (!checkRateLimit(`admin-pch:${ip}`, 10, 15 * 60 * 1000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    const valid = await verifyAdminPassword(password);
+    const valid = await isAdminAuthorized(password);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -101,11 +81,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { password } = body;
 
-  const superAdmin = await isSuperAdmin();
+  const superAdmin = await isAdminAuthorized();
   if (!superAdmin) {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
     if (!checkRateLimit(`admin-pch:${ip}`, 10, 15 * 60 * 1000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    const valid = await verifyAdminPassword(password);
+    const valid = await isAdminAuthorized(password);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -216,9 +196,9 @@ export async function DELETE(req: NextRequest) {
   const body = await req.json();
   const { password, challengeId } = body;
 
-  const superAdmin = await isSuperAdmin();
+  const superAdmin = await isAdminAuthorized();
   if (!superAdmin) {
-    const valid = await verifyAdminPassword(password);
+    const valid = await isAdminAuthorized(password);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

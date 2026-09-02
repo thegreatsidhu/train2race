@@ -4,36 +4,16 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { auth } from "@/lib/auth";
-
-const FALLBACK_PASSWORD = "train2race2024";
-
-async function verifyAdminPassword(password: string): Promise<boolean> {
-  try {
-    const setting = await (prisma as any).setting.findUnique({ where: { key: "adminPasswordHash" } });
-    if (setting?.value) return bcrypt.compare(password, setting.value);
-  } catch {}
-  return password === FALLBACK_PASSWORD;
-}
-
-async function isSuperAdmin(): Promise<boolean> {
-  try {
-    const session = await auth();
-    const userId = (session?.user as any)?.id;
-    if (!userId) return false;
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    return user?.role === "superadmin" || user?.role === "admin";
-  } catch { return false; }
-}
+import { isAdminAuthorized } from "@/lib/adminAuth";
 
 export async function POST(req: Request) {
   const body = await req.json();
   const { password, action } = body;
-  const superAdmin = await isSuperAdmin();
+  const superAdmin = await isAdminAuthorized();
   if (!superAdmin) {
     const ip = (req as any).headers?.get?.("x-forwarded-for") || "unknown";
     if (!checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
-    const valid = await verifyAdminPassword(password);
+    const valid = await isAdminAuthorized(password);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (action === "getData") {

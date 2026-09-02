@@ -15,16 +15,18 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const syncResult = await syncAllConnections();
   const metricsCutoff = new Date(Date.now()-90*24*60*60*1000);
-  const deletedMetrics = await prisma.dailyMetrics.deleteMany({ where: { date: { lt: metricsCutoff } } });
   const chatCutoff = new Date(Date.now()-30*24*60*60*1000);
-  const deletedChats = await prisma.chatMessage.deleteMany({ where: { createdAt: { lt: chatCutoff } } });
-  const deletedAdvice = await prisma.adviceCard.deleteMany({ where: { createdAt: { lt: chatCutoff } } });
   const teamCutoff = new Date(Date.now()-90*24*60*60*1000);
-  const deletedTeamMsgs = await prisma.teamMessage.deleteMany({ where: { createdAt: { lt: teamCutoff } } });
   const rejectedCutoff = new Date(Date.now()-7*24*60*60*1000);
-  const deletedRejected = await prisma.teamChallenge.deleteMany({ where: { status: "rejected", createdAt: { lt: rejectedCutoff } } });
+  const [syncResult, deletedMetrics, deletedChats, deletedAdvice, deletedTeamMsgs, deletedRejected] = await Promise.all([
+    syncAllConnections(),
+    prisma.dailyMetrics.deleteMany({ where: { date: { lt: metricsCutoff } } }),
+    prisma.chatMessage.deleteMany({ where: { createdAt: { lt: chatCutoff } } }),
+    prisma.adviceCard.deleteMany({ where: { createdAt: { lt: chatCutoff } } }),
+    prisma.teamMessage.deleteMany({ where: { createdAt: { lt: teamCutoff } } }),
+    prisma.teamChallenge.deleteMany({ where: { status: "rejected", createdAt: { lt: rejectedCutoff } } }),
+  ]);
 
   // Weekly team summary emails — controlled by admin settings
   let weeklyEmails = 0;

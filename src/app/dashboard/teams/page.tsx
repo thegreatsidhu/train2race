@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TeamInvitations } from "@/components/TeamInvitations";
 import { TeamAvatar } from "@/components/TeamAvatar";
+import { Toggle } from "@/components/Toggle";
 
 export default function TeamsPage() {
   const router = useRouter();
@@ -130,9 +131,7 @@ export default function TeamsPage() {
             <div><label className="block text-xs text-foreground-dim mb-1">Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="What is this team about?" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm resize-none" /></div>
             <div><label className="block text-xs text-foreground-dim mb-1">Target race (optional)</label><select value={selectedRace} onChange={e => setSelectedRace(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"><option value="">No specific race</option>{races.map((r: any) => <option key={r.id} value={r.id}>{r.name} · {new Date(r.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</option>)}</select></div>
             <label className="flex items-center gap-3 cursor-pointer select-none">
-              <div onClick={() => setIsPrivate(p => !p)} className={"relative w-10 h-5 rounded-full transition-colors " + (isPrivate ? "bg-border" : "bg-signal")}>
-                <div className={"absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform " + (isPrivate ? "left-0.5" : "left-5")} />
-              </div>
+              <Toggle checked={!isPrivate} onChange={() => setIsPrivate(p => !p)} />
               <span className="text-sm">{isPrivate ? "Private — invite code only" : "Public — discoverable by anyone"}</span>
             </label>
             {error && <p className="text-red-400 text-sm">{error}</p>}
