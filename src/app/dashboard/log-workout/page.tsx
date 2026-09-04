@@ -96,11 +96,18 @@ export default function LogWorkoutPage() {
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
-    const result = await getHealthData(startOfDay.toISOString(), endOfDay.toISOString());
+    // Steps are a running daily total (no clean per-workout boundary), so keep the "day"
+    // aggregate. Distance/exercise time are fetched as individual sessions instead — with
+    // multiple workouts in one day, a "day" aggregate would sum them all together, so we pull
+    // raw entries and take the most recent one to match "sync the workout I just finished."
+    const [dayResult, rawResult] = await Promise.all([
+      getHealthData(startOfDay.toISOString(), endOfDay.toISOString(), "day"),
+      getHealthData(startOfDay.toISOString(), endOfDay.toISOString(), "raw"),
+    ]);
 
-    const steps = extractHealthValue(result?.data?.steps);
-    const distanceM = extractHealthValue(result?.data?.distance);
-    const exerciseMin = extractHealthValue(result?.data?.exerciseTime);
+    const steps = extractHealthValue(dayResult?.data?.steps);
+    const distanceM = extractHealthValue(rawResult?.data?.distance);
+    const exerciseMin = extractHealthValue(rawResult?.data?.exerciseTime);
 
     if (!steps && !distanceM && !exerciseMin) {
       setHealthSyncMsg("No health data found for today - enter manually");

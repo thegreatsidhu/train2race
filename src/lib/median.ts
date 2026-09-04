@@ -46,14 +46,22 @@ export async function requestHealthPermissions(): Promise<HealthBridge.RequestPe
  * Extracts a numeric value from a single entry of a getHealthData() response (e.g. `data.steps`).
  * Median's own docs show these as arrays of `{start,end,value}` points, but the installed
  * median-js-bridge package's TypeScript types (and possibly some native versions) describe a
- * single `{value}` object instead. Handle both shapes rather than trust one over the other —
- * for a single-day "day" bucket query there's at most one real entry either way.
+ * single `{value}` object instead. Handle both shapes rather than trust one over the other.
+ *
+ * When given an array (e.g. a "raw"-bucket query with multiple entries — several workouts in
+ * one day), picks the entry with the latest end/start time rather than assuming array order,
+ * since that ordering isn't documented either way.
  */
 export function extractHealthValue(point: unknown): number | null {
   if (point == null) return null;
   if (Array.isArray(point)) {
-    const last = point[point.length - 1] as { value?: unknown } | undefined;
-    return typeof last?.value === "number" ? last.value : null;
+    if (point.length === 0) return null;
+    const latest = [...point].sort((a: any, b: any) => {
+      const aTime = new Date(a?.end ?? a?.start ?? 0).getTime();
+      const bTime = new Date(b?.end ?? b?.start ?? 0).getTime();
+      return aTime - bTime;
+    })[point.length - 1] as { value?: unknown } | undefined;
+    return typeof latest?.value === "number" ? latest.value : null;
   }
   const value = (point as { value?: unknown })?.value;
   return typeof value === "number" ? value : null;
@@ -68,13 +76,17 @@ export function extractHealthValue(point: unknown): number | null {
  * type lacks a granted permission — so a user who granted "steps" but not "distance" would
  * get nothing at all from a combined call, even though steps data was available. Requesting
  * types separately means a permission gap on one type doesn't sink the others.
+ *
+ * `bucket` defaults to "day" (one aggregated total per type — right for step counts, which are
+ * naturally a running daily total). Pass "raw" to get individual entries instead — e.g. distinct
+ * workout sessions — combined with extractHealthValue() picking the most recent one.
  */
-export async function getHealthData(startDate: string, endDate: string): Promise<HealthBridge.GetDataResponse | null> {
+export async function getHealthData(startDate: string, endDate: string, bucket: HealthBridge.GetDataParams["bucket"] = "day"): Promise<HealthBridge.GetDataResponse | null> {
   if (!isMedianApp()) return null;
   const results = await Promise.allSettled(
     HEALTH_DATA_TYPES.map((type) =>
       withTimeout(
-        Median.healthBridge.getData({ dataTypes: [type], startDate, endDate, bucket: "day" }),
+        Median.healthBridge.getData({ dataTypes: [type], startDate, endDate, bucket }),
         BRIDGE_TIMEOUT_MS
       )
     )
