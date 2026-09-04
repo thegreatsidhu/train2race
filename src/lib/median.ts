@@ -42,22 +42,31 @@ export async function requestHealthPermissions(): Promise<HealthBridge.RequestPe
   }
 }
 
-/** Fetches steps/distance/activeEnergy/exerciseTime for the given ISO date range. Returns null outside the Median app, or if the fetch fails. */
+/**
+ * Fetches steps/distance/activeEnergy/exerciseTime for the given ISO date range. Returns null
+ * outside the Median app, or if every type fails.
+ *
+ * Each data type is requested independently rather than in one combined call. On Android,
+ * Health Connect throws a SecurityException for the *entire* request if even one requested
+ * type lacks a granted permission — so a user who granted "steps" but not "distance" would
+ * get nothing at all from a combined call, even though steps data was available. Requesting
+ * types separately means a permission gap on one type doesn't sink the others.
+ */
 export async function getHealthData(startDate: string, endDate: string): Promise<HealthBridge.GetDataResponse | null> {
   if (!isMedianApp()) return null;
-  try {
-    return await withTimeout(
-      Median.healthBridge.getData({
-        dataTypes: HEALTH_DATA_TYPES,
-        startDate,
-        endDate,
-        bucket: "day",
-      }),
-      BRIDGE_TIMEOUT_MS
-    );
-  } catch {
-    return null;
+  const results = await Promise.allSettled(
+    HEALTH_DATA_TYPES.map((type) =>
+      withTimeout(
+        Median.healthBridge.getData({ dataTypes: [type], startDate, endDate, bucket: "day" }),
+        BRIDGE_TIMEOUT_MS
+      )
+    )
+  );
+  const merged: HealthBridge.GetDataResponse["data"] = {};
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value?.data) Object.assign(merged, result.value.data);
   }
+  return Object.keys(merged).length > 0 ? { data: merged } : null;
 }
 
 /**
