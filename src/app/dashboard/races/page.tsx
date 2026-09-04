@@ -371,7 +371,7 @@ export default function RacesPage() {
             ) : (
               <>
                 <p className="text-xs text-foreground-dim mb-2">{filtered.length} events</p>
-                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                <div className="space-y-2 md:max-h-[480px] md:overflow-y-auto pr-1">
                   {filtered.slice(0, racePage * 30).map((race: any) => {
                     const d = Math.ceil((new Date(race.raceDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                     const count = race._count?.registrations || 0;

@@ -62,3 +62,25 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Dashboard page-to-page crossfade (see dashboard/layout.tsx ViewTransition) */
+::view-transition-old(.page-fade-out) {
+  animation: 120ms ease-out both t2r-page-fade-out;
+}
+::view-transition-new(.page-fade-in) {
+  animation: 180ms ease-in 60ms both t2r-page-fade-in;
+}
+@keyframes t2r-page-fade-out {
+  to { opacity: 0; }
+}
+@keyframes t2r-page-fade-in {
+  from { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

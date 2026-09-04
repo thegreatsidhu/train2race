@@ -20,7 +20,7 @@ export default async function ConnectionsPage({
       <header className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight mb-2">Connections</h1>
         <p className="text-foreground-dim text-sm">
-          Connect any combination of these — Vitality merges them into one view.
+          Connect any combination of these — Train2Race merges them into one view.
         </p>
       </header>
 

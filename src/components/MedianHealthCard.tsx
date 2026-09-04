@@ -63,12 +63,12 @@ export function MedianHealthCard() {
           </p>
         )}
       </div>
-      {inMedianApp && status === "not-connected" && (
+      {inMedianApp && (connecting || status === "not-connected") && (
         <button onClick={handleConnect} disabled={connecting} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60 shrink-0">
           {connecting ? "Connecting..." : "Connect"}
         </button>
       )}
-      {inMedianApp && status === "connected" && (
+      {inMedianApp && !connecting && status === "connected" && (
         <button onClick={openAppSettings} className="text-xs text-foreground-dim hover:text-signal transition-colors shrink-0">
           Manage access
         </button>

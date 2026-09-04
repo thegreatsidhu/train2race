@@ -1,4 +1,5 @@
 ﻿import { redirect } from "next/navigation";
+import { ViewTransition } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SideNav } from "@/components/SideNav";
@@ -29,7 +30,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <PWAInstallBanner />
       </div>
 
-      <main className="flex-1 min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+      <main className="flex-1 min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
+        <ViewTransition enter="page-fade-in" exit="page-fade-out" default="none">
+          {children}
+        </ViewTransition>
+      </main>
 
       {/* FAB — mobile only, hidden on log-workout pages */}
       <LogWorkoutFAB />
