@@ -11,7 +11,18 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const requestHeaders = await headers();
+
+  // TEMPORARY diagnostic for the "logged out on every app reopen" investigation — remove once
+  // resolved. Logs whether the session cookie actually arrives on the request at all, so we can
+  // tell apart "cookie never sent" (native storage issue) from "cookie sent but rejected" (an
+  // auth-config issue) — Vercel's function logs will show this.
   const session = await auth();
+  const cookieHeader = requestHeaders.get("cookie") ?? "";
+  const hasSessionCookie = /(^|;\s*)(__Secure-)?authjs\.session-token=/.test(cookieHeader);
+  const cookieNames = cookieHeader.split(";").map((c) => c.trim().split("=")[0]).filter(Boolean);
+  console.log(`[auth-debug] authed=${!!session?.user} hasSessionCookie=${hasSessionCookie} cookieCount=${cookieNames.length} cookieNames=${JSON.stringify(cookieNames)} ua=${(requestHeaders.get("user-agent") ?? "").slice(0, 100)}`);
+
   if (!session?.user) redirect("/login");
   const userId = (session.user as { id: string }).id;
   const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { onboardingComplete: true } });
@@ -21,8 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // which draws edge-to-edge under a translucent status bar) — adding our own safe-area-inset
   // padding on top of that reserved space double-counts it, showing up as an empty gap above
   // the header. Detect Android server-side (via User-Agent) so there's no client-side flash.
-  const userAgent = (await headers()).get("user-agent") ?? "";
-  const isAndroid = /Android/i.test(userAgent);
+  const isAndroid = /Android/i.test(requestHeaders.get("user-agent") ?? "");
 
   return (
     <div className="flex-1 flex flex-col md:flex-row">
