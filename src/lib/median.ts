@@ -98,6 +98,22 @@ export async function unregisterPushNotifications(): Promise<void> {
 }
 
 /**
+ * Opens the OS-level settings screen for this app, where Health Connect / Health app access
+ * can be reviewed or revoked. There's no bridge method to grant/revoke health permissions
+ * directly — that's managed entirely by the OS (Health Connect on Android, Settings > Privacy
+ * > Health on iOS), so this is the closest thing to a "disconnect" action we can offer.
+ * No-op outside the Median app.
+ */
+export function openAppSettings(): void {
+  if (!isMedianApp()) return;
+  try {
+    Median.open.appSettings();
+  } catch {
+    // best-effort
+  }
+}
+
+/**
  * Sets the native status bar color to match the page background. Android renders the status
  * bar outside the WebView by default (overlay: false), so it's a separate solid color from
  * whatever our CSS draws underneath — without this, it shows up as a mismatched color block
