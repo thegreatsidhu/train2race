@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { isMedianApp, requestHealthPermissions, getHealthData } from "@/lib/median";
+import { isMedianApp, requestHealthPermissions, getHealthData, extractHealthValue } from "@/lib/median";
 
 export default function LogWorkoutPage() {
   const router = useRouter();
@@ -98,9 +98,9 @@ export default function LogWorkoutPage() {
     endOfDay.setHours(23, 59, 59, 999);
     const result = await getHealthData(startOfDay.toISOString(), endOfDay.toISOString());
 
-    const steps = result?.data?.steps?.value;
-    const distanceM = result?.data?.distance?.value;
-    const exerciseMin = result?.data?.exerciseTime?.value;
+    const steps = extractHealthValue(result?.data?.steps);
+    const distanceM = extractHealthValue(result?.data?.distance);
+    const exerciseMin = extractHealthValue(result?.data?.exerciseTime);
 
     if (!steps && !distanceM && !exerciseMin) {
       setHealthSyncMsg("No health data found for today - enter manually");

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { isMedianApp, requestHealthPermissions, getHealthData, openAppSettings } from "@/lib/median";
+import { isMedianApp, requestHealthPermissions, getHealthData, openAppSettings, extractHealthValue } from "@/lib/median";
 
 type Status = "checking" | "connected" | "not-connected";
 
@@ -9,7 +9,7 @@ async function hasHealthData(): Promise<boolean> {
   const end = new Date(); end.setHours(23, 59, 59, 999);
   const result = await getHealthData(start.toISOString(), end.toISOString());
   const d = result?.data;
-  return !!(d && Object.values(d).some(point => point && typeof point.value === "number"));
+  return !!(d && Object.values(d).some((point) => extractHealthValue(point) !== null));
 }
 
 export function MedianHealthCard() {

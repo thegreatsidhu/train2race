@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { isMedianApp, getHealthData } from "@/lib/median";
+import { isMedianApp, getHealthData, extractHealthValue } from "@/lib/median";
 
 export function TodaysStepsCard({ initialSteps = null, initialSourceLabel = null }: { initialSteps?: number | null; initialSourceLabel?: string | null }) {
   const [steps, setSteps] = useState<number | null>(initialSteps);
@@ -14,8 +14,8 @@ export function TodaysStepsCard({ initialSteps = null, initialSourceLabel = null
     const end = new Date(); end.setHours(23, 59, 59, 999);
     getHealthData(start.toISOString(), end.toISOString())
       .then(result => {
-        const value = result?.data?.steps?.value;
-        if (typeof value === "number") {
+        const value = extractHealthValue(result?.data?.steps);
+        if (value !== null) {
           setSteps(Math.round(value));
           setSourceLabel("your phone's Health app");
         }

@@ -43,6 +43,23 @@ export async function requestHealthPermissions(): Promise<HealthBridge.RequestPe
 }
 
 /**
+ * Extracts a numeric value from a single entry of a getHealthData() response (e.g. `data.steps`).
+ * Median's own docs show these as arrays of `{start,end,value}` points, but the installed
+ * median-js-bridge package's TypeScript types (and possibly some native versions) describe a
+ * single `{value}` object instead. Handle both shapes rather than trust one over the other —
+ * for a single-day "day" bucket query there's at most one real entry either way.
+ */
+export function extractHealthValue(point: unknown): number | null {
+  if (point == null) return null;
+  if (Array.isArray(point)) {
+    const last = point[point.length - 1] as { value?: unknown } | undefined;
+    return typeof last?.value === "number" ? last.value : null;
+  }
+  const value = (point as { value?: unknown })?.value;
+  return typeof value === "number" ? value : null;
+}
+
+/**
  * Fetches steps/distance/activeEnergy/exerciseTime for the given ISO date range. Returns null
  * outside the Median app, or if every type fails.
  *
