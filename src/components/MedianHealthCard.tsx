@@ -16,11 +16,13 @@ export function MedianHealthCard() {
   const [inMedianApp, setInMedianApp] = useState<boolean | null>(null);
   const [status, setStatus] = useState<Status>("checking");
   const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState("");
 
   const checkStatus = useCallback(async () => {
     setStatus("checking");
-    const found = await hasHealthData();
+    const found = await hasHealthData().catch((e) => { console.error("[health] status check failed", e); return false; });
     setStatus(found ? "connected" : "not-connected");
+    return found;
   }, []);
 
   useEffect(() => {
@@ -31,8 +33,18 @@ export function MedianHealthCard() {
 
   async function handleConnect() {
     setConnecting(true);
-    await requestHealthPermissions();
-    await checkStatus();
+    setConnectError("");
+    try {
+      const permResult = await requestHealthPermissions();
+      console.log("[health] requestPermissions result", permResult);
+      const found = await checkStatus();
+      if (!found) {
+        setConnectError("No health data found. Make sure Health Connect is installed and has a data source (like Google Fit) connected.");
+      }
+    } catch (e) {
+      console.error("[health] connect failed", e);
+      setConnectError("Something went wrong connecting. Try again.");
+    }
     setConnecting(false);
   }
 
@@ -62,6 +74,7 @@ export function MedianHealthCard() {
             Install the Train2Race app on your phone to sync directly from Apple Health or Google Health Connect.
           </p>
         )}
+        {connectError && <p className="text-xs text-alert mt-1">{connectError}</p>}
       </div>
       {inMedianApp && (connecting || status === "not-connected") && (
         <button onClick={handleConnect} disabled={connecting} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60 shrink-0">
