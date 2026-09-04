@@ -1,4 +1,5 @@
 ﻿import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { ViewTransition } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -16,13 +17,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { onboardingComplete: true } });
   if (!dbUser?.onboardingComplete) redirect("/onboarding");
 
+  // Android's Median WebView already reserves space for the status bar natively (unlike iOS,
+  // which draws edge-to-edge under a translucent status bar) — adding our own safe-area-inset
+  // padding on top of that reserved space double-counts it, showing up as an empty gap above
+  // the header. Detect Android server-side (via User-Agent) so there's no client-side flash.
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const isAndroid = /Android/i.test(userAgent);
+
   return (
     <div className="flex-1 flex flex-col md:flex-row">
       {/* Desktop sidebar */}
       <SideNav email={session.user.email ?? ""} role={(session.user as any).role} />
 
       {/* Mobile top bar */}
-      <div className="md:hidden flex flex-col pt-[env(safe-area-inset-top)] sticky top-0 z-20 bg-background">
+      <div className={"md:hidden flex flex-col sticky top-0 z-20 bg-background" + (isAndroid ? "" : " pt-[env(safe-area-inset-top)]")}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <Link href="/dashboard" className="flex items-center gap-2"><Image src="/logo.png" alt="Train2Race" width={28} height={28} className="rounded-md" /><span className="font-semibold tracking-tight text-lg">Train2Race</span></Link>
           <MobileNav email={session.user.email ?? ""} role={(session.user as any).role} />
