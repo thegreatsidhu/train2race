@@ -1,6 +1,3 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { ConnectionRow } from "@/components/ConnectionRow";
 import { MedianHealthCard } from "@/components/MedianHealthCard";
 import { HealthTroubleshooting } from "@/components/HealthTroubleshooting";
 
@@ -9,19 +6,14 @@ export default async function ConnectionsPage({
 }: {
   searchParams: Promise<{ connected?: string; disconnected?: string; error?: string }>;
 }) {
-  const session = await auth();
-  const userId = (session!.user as { id: string }).id;
   const params = await searchParams;
-
-  const connections = await prisma.deviceConnection.findMany({ where: { userId } });
-  const bySource = new Map(connections.map((c) => [c.source, c]));
 
   return (
     <div className="max-w-3xl px-8 py-10">
       <header className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight mb-2">Connections</h1>
         <p className="text-foreground-dim text-sm">
-          Connect any combination of these — Train2Race merges them into one view.
+          Sync your phone's Health app for automatic step tracking.
         </p>
       </header>
 
@@ -46,18 +38,6 @@ export default async function ConnectionsPage({
           <MedianHealthCard />
           <HealthTroubleshooting />
         </div>
-        <ConnectionRow
-          source="WHOOP"
-          label="Whoop"
-          description="Recovery, strain, sleep, and HRV."
-          connection={bySource.get("WHOOP")}
-        />
-        <ConnectionRow
-          source="STRAVA"
-          label="Strava"
-          description="Activities and workouts (no sleep/HRV — pair with Whoop for that)."
-          connection={bySource.get("STRAVA")}
-        />
       </div>
     </div>
   );

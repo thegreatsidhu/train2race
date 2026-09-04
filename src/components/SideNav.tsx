@@ -13,14 +13,14 @@ const NAV_LINKS = [
   { href: "/dashboard/leaderboard", label: "Leaderboard" },
   { href: "/dashboard/predict", label: "Predict" },
   { href: "/dashboard/nutrition", label: "Nutrition" },
+  { href: "/dashboard/connections", label: "Connections" },
   { href: "/dashboard/profile", label: "Profile" },
   { href: "/dashboard/support", label: "Help & Support" },
   { href: "/dashboard/feature-request", label: "Request a Feature" },
 ];
 
-export function SideNav({ email, role }: { email: string; role?: string }) {
+export function SideNav({ email }: { email: string; role?: string }) {
   const pathname = usePathname();
-  const showConnections = role === "test" || role === "admin" || role === "superadmin";
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
@@ -48,19 +48,6 @@ export function SideNav({ email, role }: { email: string; role?: string }) {
             {link.label}
           </Link>
         ))}
-        {showConnections && (
-          <Link
-            href="/dashboard/connections"
-            className={
-              "px-2 py-2 rounded-lg transition-colors " +
-              (isActive("/dashboard/connections")
-                ? "bg-signal/10 text-signal font-medium"
-                : "text-foreground-dim hover:text-foreground hover:bg-surface")
-            }
-          >
-            Connections
-          </Link>
-        )}
       </nav>
       <div className="px-2">
         <p className="text-xs text-foreground-dim mb-2 truncate">{email}</p>

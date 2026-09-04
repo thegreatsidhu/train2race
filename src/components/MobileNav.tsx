@@ -8,7 +8,6 @@ import { SignOutButton } from "@/components/SignOutButton";
 export function MobileNav({ email, role }: { email: string; role?: string }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const showConnections = role === "test" || role === "admin" || role === "superadmin";
   useEffect(() => { setOpen(false); }, [pathname]);
 
   return (
@@ -40,10 +39,10 @@ export function MobileNav({ email, role }: { email: string; role?: string }) {
               { href: "/dashboard/leaderboard", label: "Leaderboard" },
               { href: "/dashboard/predict", label: "Predict" },
               { href: "/dashboard/nutrition", label: "Nutrition" },
+              { href: "/dashboard/connections", label: "Connections" },
               { href: "/dashboard/profile", label: "Profile" },
               { href: "/dashboard/support", label: "Help & Support" },
               { href: "/dashboard/feature-request", label: "Request a Feature" },
-              ...(showConnections ? [{ href: "/dashboard/connections", label: "Connections" }] : []),
             ].map((link) => (
               <Link
                 key={link.href}
