@@ -1,8 +1,8 @@
 import Median from "median-js-bridge";
 import type { HealthBridge } from "median-js-bridge";
 
-const HEALTH_PERMISSION_TYPES: HealthBridge.DataType[] = ["steps", "distance", "activeEnergy", "exerciseTime", "heartRate"];
-const HEALTH_DATA_TYPES: HealthBridge.DataType[] = ["steps", "distance", "activeEnergy", "exerciseTime"];
+const HEALTH_PERMISSION_TYPES: HealthBridge.DataType[] = ["steps", "distance", "activeEnergy", "exerciseTime", "heartRate", "heartRateVariability", "restingHeartRate", "sleep"];
+const HEALTH_DATA_TYPES: HealthBridge.DataType[] = ["steps", "distance", "activeEnergy", "exerciseTime", "heartRateVariability", "restingHeartRate", "sleep"];
 const BRIDGE_TIMEOUT_MS = 15000;
 
 /**
@@ -170,15 +170,15 @@ export async function getRecentWorkouts(days = 14): Promise<HealthWorkout[]> {
     .sort((a, b) => new Date(b.end).getTime() - new Date(a.end).getTime());
 }
 
-export type DailySteps = { date: string; steps: number };
+export type DailyMetricPoint = { date: string; value: number };
 
 /**
- * Returns per-day step totals for the last `days` calendar days (oldest first), using
- * "day"-bucketed data — one entry per day rather than the per-workout raw entries
- * getRecentWorkouts() uses, since steps are a running daily total, not session-scoped.
- * Returns [] outside the Median app.
+ * Returns per-day values for a single data type over the last `days` calendar days (oldest
+ * first), using "day"-bucketed data — one entry per day. Works for any daily-total-style metric
+ * (steps, HRV, resting heart rate, sleep duration). Returns [] outside the Median app, or if the
+ * type isn't in HEALTH_DATA_TYPES / the native side never reports it.
  */
-export async function getRecentDailySteps(days = 7): Promise<DailySteps[]> {
+export async function getDailyMetricHistory(type: HealthBridge.DataType, days: number): Promise<DailyMetricPoint[]> {
   if (!isMedianApp()) return [];
   const end = new Date();
   end.setHours(23, 59, 59, 999);
@@ -187,13 +187,81 @@ export async function getRecentDailySteps(days = 7): Promise<DailySteps[]> {
   start.setHours(0, 0, 0, 0);
   const result = await getHealthData(start.toISOString(), end.toISOString(), "day");
 
-  return normalizeEntries(result?.data?.steps)
+  return normalizeEntries((result?.data as Record<string, unknown> | undefined)?.[type])
     .filter((e) => e.start || e.end)
     .map((e) => {
       const d = new Date(e.start ?? e.end!);
-      return { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, steps: Math.round(e.value) };
+      return { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, value: e.value };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export type DailySteps = { date: string; steps: number };
+
+/** Returns per-day step totals for the last `days` calendar days (oldest first). Returns [] outside the Median app. */
+export async function getRecentDailySteps(days = 7): Promise<DailySteps[]> {
+  const points = await getDailyMetricHistory("steps", days);
+  return points.map((p) => ({ date: p.date, steps: Math.round(p.value) }));
+}
+
+export type RecoveryEstimate = {
+  score: number;
+  label: string;
+  advice: string;
+  sourcesUsed: string[];
+};
+
+/**
+ * Rough recovery estimate from HRV/resting-heart-rate/sleep history, for users without a
+ * Whoop/Garmin connection (which provide a real, device-computed recovery score instead — always
+ * prefer that when available, this is a fallback). Compares the most recent day's values against
+ * a rolling baseline from the preceding days, since normal HRV/RHR vary enormously between
+ * people — there's no meaningful universal scale, only "better or worse than your own normal."
+ *
+ * Returns null if there's under 5 days of history to build a baseline from, or if none of the
+ * three metrics have any data at all (most phones without a paired wearable won't report HRV).
+ */
+export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null> {
+  if (!isMedianApp()) return null;
+  const [hrv, rhr, sleep] = await Promise.all([
+    getDailyMetricHistory("heartRateVariability", 30),
+    getDailyMetricHistory("restingHeartRate", 30),
+    getDailyMetricHistory("sleep", 30),
+  ]);
+
+  function scoreComponent(history: DailyMetricPoint[], higherIsBetter: boolean): { score: number; latestDate: string } | null {
+    if (history.length < 6) return null;
+    const latest = history[history.length - 1];
+    const baseline = history.slice(0, -1);
+    const baselineAvg = baseline.reduce((s, p) => s + p.value, 0) / baseline.length;
+    if (baselineAvg === 0) return null;
+    const ratio = higherIsBetter ? latest.value / baselineAvg : baselineAvg / latest.value;
+    return { score: Math.max(0, Math.min(100, 50 + (ratio - 1) * 200)), latestDate: latest.date };
+  }
+
+  const hrvResult = scoreComponent(hrv, true);
+  const rhrResult = scoreComponent(rhr, false);
+  const sleepLatest = sleep.length > 0 ? sleep[sleep.length - 1] : null;
+  const sleepResult = sleepLatest ? { score: Math.max(0, Math.min(100, (sleepLatest.value / (7.5 * 60)) * 100)) } : null;
+
+  const weighted: { score: number; weight: number; label: string }[] = [];
+  if (hrvResult) weighted.push({ score: hrvResult.score, weight: 0.4, label: "HRV" });
+  if (rhrResult) weighted.push({ score: rhrResult.score, weight: 0.35, label: "resting heart rate" });
+  if (sleepResult) weighted.push({ score: sleepResult.score, weight: 0.25, label: "sleep" });
+
+  if (weighted.length === 0) return null;
+
+  const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
+  const score = Math.round(weighted.reduce((s, w) => s + w.score * w.weight, 0) / totalWeight);
+
+  const label = score >= 67 ? "Well recovered" : score >= 34 ? "Moderate recovery" : "Low recovery";
+  const advice = score >= 67
+    ? "Good day to push harder if you want to."
+    : score >= 34
+    ? "Listen to your body — moderate effort is probably right."
+    : "Consider an easier day or rest.";
+
+  return { score, label, advice, sourcesUsed: weighted.map((w) => w.label) };
 }
 
 /**
