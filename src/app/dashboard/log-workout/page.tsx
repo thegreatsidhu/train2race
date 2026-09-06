@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { isMedianApp, requestHealthPermissions, getHealthData, extractHealthValue } from "@/lib/median";
+import { isMedianApp, requestHealthPermissions, getHealthData, extractHealthValue, getRecentWorkouts, type HealthWorkout } from "@/lib/median";
 
 export default function LogWorkoutPage() {
   const router = useRouter();
@@ -13,6 +13,9 @@ export default function LogWorkoutPage() {
   const [showHealthSync, setShowHealthSync] = useState(false);
   const [syncingHealth, setSyncingHealth] = useState(false);
   const [healthSyncMsg, setHealthSyncMsg] = useState("");
+  const [recentWorkouts, setRecentWorkouts] = useState<HealthWorkout[]>([]);
+  const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+  const [selectedHealthId, setSelectedHealthId] = useState<string | null>(null);
   const [micSupported, setMicSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [parsingVoice, setParsingVoice] = useState(false);
@@ -21,8 +24,44 @@ export default function LogWorkoutPage() {
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    setShowHealthSync(isMedianApp());
+    const native = isMedianApp();
+    setShowHealthSync(native);
+    if (!native) return;
+    (async () => {
+      setLoadingWorkouts(true);
+      await requestHealthPermissions();
+      const workouts = await getRecentWorkouts(14);
+      if (workouts.length === 0) { setLoadingWorkouts(false); return; }
+      try {
+        const res = await fetch("/api/activities/health-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ externalIds: workouts.map(w => w.externalId) }),
+        });
+        const { imported } = await res.json().catch(() => ({ imported: [] as string[] }));
+        const importedSet = new Set<string>(imported || []);
+        setRecentWorkouts(workouts.filter(w => !importedSet.has(w.externalId)).slice(0, 3));
+      } catch {
+        setRecentWorkouts(workouts.slice(0, 3));
+      }
+      setLoadingWorkouts(false);
+    })();
   }, []);
+
+  function applyWorkout(w: HealthWorkout) {
+    setSelectedHealthId(w.externalId);
+    const d = new Date(w.start);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setForm(f => ({
+      ...f,
+      date: dateStr,
+      durationHours: String(Math.floor(w.durationMin / 60)),
+      durationMins: String(Math.round(w.durationMin % 60)),
+      distance: w.distanceM ? (w.distanceM / 1609.34).toFixed(2) : f.distance,
+    }));
+    if (w.distanceM) setUnit("mi");
+    setHealthSyncMsg("Filled from your Health app — review the activity type and edit before saving.");
+  }
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -234,7 +273,7 @@ export default function LogWorkoutPage() {
     const res = await fetch("/api/activities/manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit, photos }),
+      body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit, photos, healthExternalId: selectedHealthId }),
     });
     setLoading(false);
     if (res.ok) {
@@ -249,7 +288,36 @@ export default function LogWorkoutPage() {
     <div className="max-w-lg px-8 py-10">
       <h1 className="text-2xl font-semibold mb-6">Log Workout</h1>
       <div className="flex flex-col gap-4">
-        {showHealthSync && (
+        {showHealthSync && loadingWorkouts && (
+          <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground-dim animate-pulse">
+            Checking your Health app for recent workouts...
+          </div>
+        )}
+        {showHealthSync && !loadingWorkouts && recentWorkouts.length > 0 && (
+          <div>
+            <label className="text-xs text-foreground-dim uppercase tracking-wide mb-2 block">Import a recent workout</label>
+            <div className="space-y-2">
+              {recentWorkouts.map(w => {
+                const d = new Date(w.start);
+                const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                const miles = w.distanceM ? `${(w.distanceM / 1609.34).toFixed(1)} mi` : null;
+                const selected = selectedHealthId === w.externalId;
+                return (
+                  <button key={w.externalId} onClick={() => applyWorkout(w)}
+                    className={"w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border text-left transition-colors " + (selected ? "border-signal bg-signal/10" : "border-border bg-surface hover:bg-surface-raised")}>
+                    <div>
+                      <p className="text-sm font-medium">{dateLabel} · {Math.round(w.durationMin)} min{miles ? ` · ${miles}` : ""}</p>
+                      <p className="text-xs text-foreground-dim">Tap to fill in the form below</p>
+                    </div>
+                    {selected && <span className="text-signal text-sm shrink-0">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+            {healthSyncMsg && <p className="text-xs text-signal mt-2">{healthSyncMsg}</p>}
+          </div>
+        )}
+        {showHealthSync && !loadingWorkouts && recentWorkouts.length === 0 && (
           <div>
             <button onClick={handleSyncHealth} disabled={syncingHealth}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-signal/50 bg-signal/5 text-signal text-sm font-medium hover:bg-signal/10 transition-colors disabled:opacity-60">

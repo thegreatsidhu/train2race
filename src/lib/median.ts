@@ -98,6 +98,78 @@ export async function getHealthData(startDate: string, endDate: string, bucket: 
   return Object.keys(merged).length > 0 ? { data: merged } : null;
 }
 
+type HealthEntry = { start?: string; end?: string; value: number };
+
+/** Normalizes a getData() field (single object or array, per the shape ambiguity noted above) into a plain array of entries. */
+function normalizeEntries(point: unknown): HealthEntry[] {
+  if (point == null) return [];
+  if (Array.isArray(point)) {
+    return point.filter((p): p is HealthEntry => typeof (p as any)?.value === "number");
+  }
+  const value = (point as { value?: unknown })?.value;
+  return typeof value === "number" ? [point as HealthEntry] : [];
+}
+
+export type HealthWorkout = {
+  /** Stable id derived from the workout's own start/end time — used to detect "already imported." */
+  externalId: string;
+  start: string;
+  end: string;
+  durationMin: number;
+  distanceM: number | null;
+  calories: number | null;
+};
+
+/**
+ * Returns individual workout sessions from the last `days` days, most recent first.
+ *
+ * The Health Bridge API has no "workout" concept — it only exposes separate metric arrays
+ * (steps, distance, activeEnergy, exerciseTime). Each "exerciseTime" entry is treated as one
+ * workout session (it's the metric that most closely maps to a discrete session, unlike steps
+ * or distance which can accumulate continuously outside of any workout), and distance/calories
+ * are attached by matching entries whose time window overlaps that session's.
+ *
+ * Returns [] outside the Median app, or if the native side never reports start/end times on its
+ * entries (in which case there's no way to tell individual workouts apart at all).
+ */
+export async function getRecentWorkouts(days = 14): Promise<HealthWorkout[]> {
+  if (!isMedianApp()) return [];
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+  const result = await getHealthData(start.toISOString(), end.toISOString(), "raw");
+
+  const exerciseEntries = normalizeEntries(result?.data?.exerciseTime);
+  const distanceEntries = normalizeEntries(result?.data?.distance);
+  const energyEntries = normalizeEntries(result?.data?.activeEnergy);
+
+  function overlapping(entries: HealthEntry[], winStart: number, winEnd: number): number | null {
+    for (const e of entries) {
+      const eStart = new Date(e.start ?? e.end ?? 0).getTime();
+      const eEnd = new Date(e.end ?? e.start ?? 0).getTime();
+      if (eStart <= winEnd && eEnd >= winStart) return e.value;
+    }
+    return null;
+  }
+
+  return exerciseEntries
+    .filter((e) => e.start || e.end)
+    .map((e) => {
+      const s = e.start ?? e.end!;
+      const en = e.end ?? e.start!;
+      const winStart = new Date(s).getTime();
+      const winEnd = new Date(en).getTime();
+      return {
+        externalId: `hb_${s}_${en}`,
+        start: s,
+        end: en,
+        durationMin: e.value,
+        distanceM: overlapping(distanceEntries, winStart, winEnd),
+        calories: overlapping(energyEntries, winStart, winEnd),
+      };
+    })
+    .sort((a, b) => new Date(b.end).getTime() - new Date(a.end).getTime());
+}
+
 /**
  * Associates this device with our own user ID (so server-side OneSignal REST calls can target
  * it via include_aliases.external_id) and prompts for native push permission. Returns false

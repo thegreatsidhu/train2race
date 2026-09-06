@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const userId = (session.user as { id: string }).id;
-    const { type, title, date, durationMin, distance, unit, notes, steps, photos } = await req.json();
+    const { type, title, date, durationMin, distance, unit, notes, steps, photos, healthExternalId } = await req.json();
 
     if (!date || !durationMin || Number(durationMin) <= 0) {
       return NextResponse.json({ error: "Date and duration are required" }, { status: 400 });
@@ -28,25 +28,38 @@ export async function POST(req: Request) {
       else distanceM = d * 1609.34;
     }
 
-    await prisma.activity.create({
-      data: {
-        userId,
-        source: "MANUAL",
-        externalId: `manual-${userId}-${Date.now()}`,
-        type,
-        title: title || type,
-        startTime,
-        durationSec: Math.round(Number(durationMin) * 60),
-        distanceM,
-        photos: Array.isArray(photos) ? photos.filter(u => typeof u === "string") : [],
-        raw: (() => {
-          const r: any = {};
-          if (notes) r.notes = notes;
-          if (steps && Number(steps) > 0) r.steps = Number(steps);
-          return Object.keys(r).length ? r : null;
-        })(),
-      },
-    });
+    const raw = (() => {
+      const r: any = {};
+      if (notes) r.notes = notes;
+      if (steps && Number(steps) > 0) r.steps = Number(steps);
+      return Object.keys(r).length ? r : null;
+    })();
+
+    // Imports from the "last 3 workouts" health-bridge picker are tagged with the source
+    // workout's own id so re-fetching later correctly recognizes it as already imported,
+    // instead of the usual per-submission synthetic id.
+    const data = {
+      userId,
+      source: healthExternalId ? "HEALTH_BRIDGE" : "MANUAL",
+      externalId: healthExternalId || `manual-${userId}-${Date.now()}`,
+      type,
+      title: title || type,
+      startTime,
+      durationSec: Math.round(Number(durationMin) * 60),
+      distanceM,
+      photos: Array.isArray(photos) ? photos.filter(u => typeof u === "string") : [],
+      raw,
+    };
+
+    if (healthExternalId) {
+      await prisma.activity.upsert({
+        where: { source_externalId: { source: "HEALTH_BRIDGE", externalId: healthExternalId } },
+        create: data,
+        update: data,
+      });
+    } else {
+      await prisma.activity.create({ data });
+    }
     const count = await prisma.activity.count({ where: { userId } });
     return NextResponse.json({ ok: true, isFirstWorkout: count === 1 });
   } catch (err: any) {
