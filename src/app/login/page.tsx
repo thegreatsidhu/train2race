@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { InviteRequestForm } from "@/components/InviteRequestForm";
+import { REMEMBER_TOKEN_STORAGE_KEY } from "@/lib/rememberTokenClient";
 
 function LoginForm() {
   const router = useRouter();
@@ -19,6 +20,28 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const failCount = useRef(0);
+
+  // If the app's native wrapper lost its session cookie (which happens on both iOS and Android
+  // after a full close, for reasons outside our control — see src/lib/rememberToken.ts), try a
+  // silent restore from a locally-stored remember token before ever showing the login form.
+  const [restoring, setRestoring] = useState(true);
+  useEffect(() => {
+    const token = localStorage.getItem(REMEMBER_TOKEN_STORAGE_KEY);
+    if (!token) { setRestoring(false); return; }
+    signIn("credentials", { rememberToken: token, redirect: false })
+      .then((res) => {
+        // Consumed either way (single-use) — clear it so RememberMeSync mints a fresh one on the
+        // dashboard, whether this attempt succeeded or the token had already gone stale.
+        localStorage.removeItem(REMEMBER_TOKEN_STORAGE_KEY);
+        if (res?.ok) { router.push(redirectTo); return; }
+        setRestoring(false);
+      })
+      .catch(() => {
+        localStorage.removeItem(REMEMBER_TOKEN_STORAGE_KEY);
+        setRestoring(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +60,14 @@ function LoginForm() {
       return;
     }
     router.push(redirectTo);
+  }
+
+  if (restoring) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-6 h-6 rounded-full border-2 border-signal border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   return (

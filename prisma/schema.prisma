@@ -53,6 +53,7 @@ model User {
   raceTargets     RaceTarget[]
   trainingPlans   TrainingPlan[]
   passwordResetTokens PasswordResetToken[]
+  rememberTokens  RememberToken[]
   raceRegistrations RaceRegistration[]
   eventMessages     EventMessage[]
   teamMembers              TeamMember[]
@@ -313,6 +314,22 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@map("password_reset_tokens")
+}
+
+// Long-lived, rotating token stored client-side (localStorage, not a cookie) to silently
+// restore a session when the native app wrapper's cookie storage doesn't survive a full app
+// close — a real issue on both iOS and Android that persists even with Median's own cookie
+// persistence settings on their default and explicitly extended (90-day) values. Stores only a
+// hash, single-use: consumed and replaced on every restore.
+model RememberToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("remember_tokens")
 }
 
 model TrainingPlan {

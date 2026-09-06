@@ -8,22 +8,13 @@ import { MobileNav } from "@/components/MobileNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { LogWorkoutFAB } from "@/components/LogWorkoutFAB";
 import { DailyStepsAutoLog } from "@/components/DailyStepsAutoLog";
+import { RememberMeSync } from "@/components/RememberMeSync";
 import Link from "next/link";
 import Image from "next/image";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const requestHeaders = await headers();
-
-  // TEMPORARY diagnostic for the "logged out on every app reopen" investigation — remove once
-  // resolved. Logs whether the session cookie actually arrives on the request at all, so we can
-  // tell apart "cookie never sent" (native storage issue) from "cookie sent but rejected" (an
-  // auth-config issue) — Vercel's function logs will show this.
   const session = await auth();
-  const cookieHeader = requestHeaders.get("cookie") ?? "";
-  const hasSessionCookie = /(^|;\s*)(__Secure-)?authjs\.session-token=/.test(cookieHeader);
-  const cookieNames = cookieHeader.split(";").map((c) => c.trim().split("=")[0]).filter(Boolean);
-  console.log(`[auth-debug] authed=${!!session?.user} hasSessionCookie=${hasSessionCookie} cookieCount=${cookieNames.length} cookieNames=${JSON.stringify(cookieNames)} ua=${(requestHeaders.get("user-agent") ?? "").slice(0, 100)}`);
-
   if (!session?.user) redirect("/login");
   const userId = (session.user as { id: string }).id;
   const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { onboardingComplete: true } });
@@ -59,6 +50,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <LogWorkoutFAB />
 
       <DailyStepsAutoLog />
+      <RememberMeSync />
     </div>
   );
 }
