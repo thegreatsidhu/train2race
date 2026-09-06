@@ -3,6 +3,20 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { isMedianApp, requestHealthPermissions, getHealthData, extractHealthValue, getRecentWorkouts, type HealthWorkout } from "@/lib/median";
 
+/**
+ * Health Connect / Apple Health via the bridge only give us metrics (distance, duration), not
+ * the workout's actual type — so this is a best-effort guess from average pace, not authoritative.
+ * Can't distinguish swim or strength at all (no distance signal), so it only guesses among
+ * ride/run/walk and leaves the type alone otherwise.
+ */
+function guessActivityType(distanceM: number | null, durationMin: number): string | null {
+  if (!distanceM || durationMin <= 0) return null;
+  const speedMps = distanceM / (durationMin * 60);
+  if (speedMps >= 4) return "ride";
+  if (speedMps >= 1.3) return "run";
+  return "walk";
+}
+
 export default function LogWorkoutPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -52,15 +66,19 @@ export default function LogWorkoutPage() {
     setSelectedHealthId(w.externalId);
     const d = new Date(w.start);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const guessedType = guessActivityType(w.distanceM, w.durationMin);
     setForm(f => ({
       ...f,
       date: dateStr,
+      type: guessedType || f.type,
       durationHours: String(Math.floor(w.durationMin / 60)),
       durationMins: String(Math.round(w.durationMin % 60)),
       distance: w.distanceM ? (w.distanceM / 1609.34).toFixed(2) : f.distance,
     }));
     if (w.distanceM) setUnit("mi");
-    setHealthSyncMsg("Filled from your Health app — review the activity type and edit before saving.");
+    setHealthSyncMsg(guessedType
+      ? "Filled from your Health app — type guessed from pace, double check it's right."
+      : "Filled from your Health app — no distance data, so pick the activity type yourself.");
   }
 
   useEffect(() => {
@@ -154,15 +172,19 @@ export default function LogWorkoutPage() {
       return;
     }
 
+    const guessedType = exerciseMin ? guessActivityType(distanceM, exerciseMin) : null;
     setForm(f => ({
       ...f,
+      type: guessedType || f.type,
       steps: steps ? String(Math.round(steps)) : f.steps,
       distance: distanceM ? (distanceM / 1609.34).toFixed(2) : f.distance,
       durationHours: exerciseMin ? String(Math.floor(exerciseMin / 60)) : f.durationHours,
       durationMins: exerciseMin ? String(Math.round(exerciseMin % 60)) : f.durationMins,
     }));
     if (distanceM) setUnit("mi");
-    setHealthSyncMsg("Synced from Health app — review and edit before saving.");
+    setHealthSyncMsg(guessedType
+      ? "Synced from Health app — type guessed from pace, double check it's right."
+      : "Synced from Health app — review and edit before saving.");
     setSyncingHealth(false);
   }
 
