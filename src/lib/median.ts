@@ -170,6 +170,32 @@ export async function getRecentWorkouts(days = 14): Promise<HealthWorkout[]> {
     .sort((a, b) => new Date(b.end).getTime() - new Date(a.end).getTime());
 }
 
+export type DailySteps = { date: string; steps: number };
+
+/**
+ * Returns per-day step totals for the last `days` calendar days (oldest first), using
+ * "day"-bucketed data — one entry per day rather than the per-workout raw entries
+ * getRecentWorkouts() uses, since steps are a running daily total, not session-scoped.
+ * Returns [] outside the Median app.
+ */
+export async function getRecentDailySteps(days = 7): Promise<DailySteps[]> {
+  if (!isMedianApp()) return [];
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  start.setHours(0, 0, 0, 0);
+  const result = await getHealthData(start.toISOString(), end.toISOString(), "day");
+
+  return normalizeEntries(result?.data?.steps)
+    .filter((e) => e.start || e.end)
+    .map((e) => {
+      const d = new Date(e.start ?? e.end!);
+      return { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, steps: Math.round(e.value) };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 /**
  * Associates this device with our own user ID (so server-side OneSignal REST calls can target
  * it via include_aliases.external_id) and prompts for native push permission. Returns false

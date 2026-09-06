@@ -7,6 +7,7 @@ import { SideNav } from "@/components/SideNav";
 import { MobileNav } from "@/components/MobileNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { LogWorkoutFAB } from "@/components/LogWorkoutFAB";
+import { DailyStepsAutoLog } from "@/components/DailyStepsAutoLog";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -56,6 +57,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       {/* FAB — mobile only, hidden on log-workout pages */}
       <LogWorkoutFAB />
+
+      <DailyStepsAutoLog />
     </div>
   );
 }
