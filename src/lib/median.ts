@@ -264,6 +264,58 @@ export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null
   return { score, label, advice, sourcesUsed: weighted.map((w) => w.label) };
 }
 
+export type StrainEstimate = {
+  /** e.g. 130 means "30% more effort than a typical day" — relative to the user's own baseline, not an absolute scale. */
+  relativePct: number;
+  label: string;
+  sourcesUsed: string[];
+};
+
+/**
+ * Rough "how hard today has been" estimate from active-energy and exercise-time history, for
+ * users without a Whoop/Garmin connection. Unlike recovery, Whoop's strain (0-21) and Garmin's
+ * training load use completely different, incompatible scales — there's no honest way to
+ * normalize a computed estimate onto either one. So this reports a plain "% of your typical day"
+ * instead of pretending to match either platform's number.
+ *
+ * Compares today's still-accumulating totals against the trailing 30-day baseline, so it reads
+ * low early in the day before a workout happens — that's an inherent tradeoff of a live, same-day
+ * estimate, not a bug.
+ *
+ * Returns null if there's under 6 days of history, or no active-energy/exercise-time data at all.
+ */
+export async function computeStrainEstimate(): Promise<StrainEstimate | null> {
+  if (!isMedianApp()) return null;
+  const [energy, exercise] = await Promise.all([
+    getDailyMetricHistory("activeEnergy", 30),
+    getDailyMetricHistory("exerciseTime", 30),
+  ]);
+
+  function relativeToBaseline(history: DailyMetricPoint[]): number | null {
+    if (history.length < 6) return null;
+    const latest = history[history.length - 1];
+    const baseline = history.slice(0, -1);
+    const baselineAvg = baseline.reduce((s, p) => s + p.value, 0) / baseline.length;
+    if (baselineAvg === 0) return null;
+    return (latest.value / baselineAvg) * 100;
+  }
+
+  const energyPct = relativeToBaseline(energy);
+  const exercisePct = relativeToBaseline(exercise);
+
+  const weighted: { pct: number; weight: number; label: string }[] = [];
+  if (energyPct != null) weighted.push({ pct: energyPct, weight: 0.6, label: "active calories" });
+  if (exercisePct != null) weighted.push({ pct: exercisePct, weight: 0.4, label: "exercise time" });
+
+  if (weighted.length === 0) return null;
+
+  const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
+  const relativePct = Math.round(weighted.reduce((s, w) => s + w.pct * w.weight, 0) / totalWeight);
+  const label = relativePct >= 130 ? "Higher effort than usual" : relativePct <= 70 ? "Lighter effort than usual" : "Typical effort";
+
+  return { relativePct, label, sourcesUsed: weighted.map((w) => w.label) };
+}
+
 /**
  * Associates this device with our own user ID (so server-side OneSignal REST calls can target
  * it via include_aliases.external_id) and prompts for native push permission. Returns false

@@ -17,6 +17,7 @@ import { HighFiveStrip } from "@/components/HighFiveStrip";
 import { TeamAvatar } from "@/components/TeamAvatar";
 import { TodaysStepsCard } from "@/components/TodaysStepsCard";
 import { RecoveryCard } from "@/components/RecoveryCard";
+import { StrainCard } from "@/components/StrainCard";
 
 const STEPS_SOURCE_LABEL: Record<string, string> = { GARMIN: "Garmin", APPLE_HEALTH: "Apple Health" };
 
@@ -80,7 +81,7 @@ export default async function TodayPage() {
   const now = new Date();
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
   const twoDaysAgo = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
-  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams, todayStepsMetric, recoveryMetric] = await Promise.all([
+  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams, todayStepsMetric, recoveryMetric, strainMetric] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,photos:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
@@ -94,6 +95,7 @@ export default async function TodayPage() {
     prisma.team.findMany({where:{members:{some:{userId}}},select:{id:true,name:true,logoUrl:true,logoStatus:true,isPrivate:true,_count:{select:{members:true}}},orderBy:{createdAt:"desc"},take:10}),
     prisma.dailyMetrics.findFirst({where:{userId,date:{gte:today,lt:tomorrow},steps:{not:null}},orderBy:{steps:"desc"},select:{steps:true,source:true}}),
     prisma.dailyMetrics.findFirst({where:{userId,source:{in:["WHOOP","GARMIN"]},bodyBatteryOrRecoveryPct:{not:null},date:{gte:twoDaysAgo}},orderBy:{date:"desc"},select:{bodyBatteryOrRecoveryPct:true,source:true}}),
+    prisma.dailyMetrics.findFirst({where:{userId,source:{in:["WHOOP","GARMIN"]},strainOrLoadScore:{not:null},date:{gte:twoDaysAgo}},orderBy:{date:"desc"},select:{strainOrLoadScore:true,source:true}}),
   ]);
 
   const teamsWithActivity = (userTeams as any[]).map((t: any) => ({
@@ -107,7 +109,22 @@ export default async function TodayPage() {
   const totalWorkouts = allWorkouts.length;
   const doneWorkouts = allWorkouts.filter(w=>w.completed).length;
   const pct = totalWorkouts>0?Math.round((doneWorkouts/totalWorkouts)*100):0;
-  const daysToRace = activeRace?Math.ceil((new Date(activeRace.raceDate).getTime()-today.getTime())/(1000*60*60*24)):0;
+  // "Next race" can come from either a personal training-plan target (RaceTarget) or a joined
+  // community race (MajorRace via RaceRegistration) — these are unrelated models, so without this
+  // the dashboard could show a later RaceTarget while ignoring a sooner joined race entirely.
+  const regMajorRace = (raceReg as any)?.majorRace ?? null;
+  const nextRace = (() => {
+    const targetDate = activeRace ? new Date(activeRace.raceDate) : null;
+    const regDate = regMajorRace ? new Date(regMajorRace.raceDate) : null;
+    if (activeRace && targetDate && (!regDate || targetDate <= regDate)) {
+      return { kind: "target" as const, id: activeRace.id, name: activeRace.raceName, date: targetDate };
+    }
+    if (regDate) {
+      return { kind: "registration" as const, id: regMajorRace.id, name: regMajorRace.name, date: regDate };
+    }
+    return null;
+  })();
+  const daysToRace = nextRace?Math.ceil((nextRace.date.getTime()-today.getTime())/(1000*60*60*24)):0;
   const thisWeekWorkouts = allWorkouts.filter(w=>{const d=new Date(w.date);return d>=weekStart&&d<=weekEnd;});
   const todaysWorkout = thisWeekWorkouts.find(w=>w.day===todayDay);
   const upcomingWorkouts = thisWeekWorkouts.filter(w=>{const d=new Date(w.date);d.setHours(0,0,0,0);return d>today&&!w.completed;}).slice(0,2);
@@ -119,7 +136,7 @@ export default async function TodayPage() {
   const displayCity = (user as any)?.city ?? timezoneCity ?? raceCity;
   const streak = computeStreak(recentForStreak, today);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
-  const isNewUser = !hasConnection && !activeRace && recentActivities.length === 0;
+  const isNewUser = !hasConnection && !nextRace && recentActivities.length === 0;
   const stepsSourceLabel = todayStepsMetric?.source ? (STEPS_SOURCE_LABEL[todayStepsMetric.source] ?? null) : null;
   const profileIncomplete = !(user as any)?.dateOfBirth || !(user as any)?.sex;
   const workoutItems = completedWorkouts.map((w: any) => ({
@@ -172,6 +189,9 @@ export default async function TodayPage() {
 
       {/* ── Recovery — real Whoop/Garmin score when connected, otherwise a Health Bridge estimate ── */}
       <RecoveryCard initialScore={recoveryMetric?.bodyBatteryOrRecoveryPct ?? null} initialSource={recoveryMetric?.source ?? null} />
+
+      {/* ── Strain/training load — real Whoop/Garmin score when connected, otherwise a Health Bridge estimate ── */}
+      <StrainCard initialScore={strainMetric?.strainOrLoadScore ?? null} initialSource={strainMetric?.source ?? null} />
 
       {/* ── Log Workout CTA + High Five strip — desktop only ── */}
       <div className="hidden md:block w-full max-w-[280px] mb-8">
@@ -244,74 +264,88 @@ export default async function TodayPage() {
       <ActiveChallengesSection />
 
       {/* ── Race countdown ── */}
-      {activeRace ? (
+      {nextRace ? (
         <section className="mb-6">
           <div className="rounded-2xl border border-border bg-surface overflow-hidden">
             {/* Hero row */}
             <div className="px-5 py-5 flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-foreground-dim uppercase tracking-[0.12em] mb-1.5">Your next race</p>
-                <h2 className="font-semibold text-lg leading-tight truncate">{activeRace.raceName}</h2>
-                <p className="text-xs text-foreground-dim mt-2">Race day: {new Date(activeRace.raceDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+                <Link
+                  href={nextRace.kind === "target" ? "/dashboard/races/" + nextRace.id : "/dashboard/races?tab=events&event=" + nextRace.id}
+                  className="font-semibold text-lg leading-tight truncate block hover:text-signal transition-colors"
+                >
+                  {nextRace.name}
+                </Link>
+                <p className="text-xs text-foreground-dim mt-2">Race day: {nextRace.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-5xl font-data font-bold text-signal leading-none">{daysToRace}</p>
                 <p className="text-xs text-foreground-dim mt-1.5">{daysToRace===1?"day":"days"} to go</p>
               </div>
             </div>
-            {/* Plan progress */}
-            {totalWorkouts > 0 && doneWorkouts > 0 && (
-              <div className="px-5 py-3 border-t border-border/50">
-                <div className="flex justify-between text-xs text-foreground-dim mb-1.5">
-                  <span>{doneWorkouts} of {totalWorkouts} workouts complete</span>
-                  <span className={pct>=75?"text-signal":pct>=50?"text-yellow-400":""}>{pct}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-border rounded-full">
-                  <div className={"h-1.5 rounded-full transition-all "+(pct>=75?"bg-signal":pct>=50?"bg-yellow-400":"bg-foreground-dim/40")} style={{width:pct+"%"}}/>
-                </div>
-              </div>
-            )}
-            {/* Today's workout */}
-            <div className="px-5 py-4 border-t border-border/50">
-              {(!plan||totalWorkouts===0)?(
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-foreground-dim">No training plan yet.</p>
-                  <Link href={"/dashboard/races/"+activeRace.id} className="text-xs text-signal hover:underline ml-4 shrink-0">Build plan →</Link>
-                </div>
-              ):todaysWorkout?(
-                <div>
-                  <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">On the plan today</p>
-                  <div className={"rounded-xl border p-3 "+(TYPE_COLORS[todaysWorkout.type]||"bg-surface border-border")+(todaysWorkout.completed?" opacity-50":"")}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{todaysWorkout.title}</p>
-                        <p className="text-xs mt-0.5 opacity-75">
-                          {todaysWorkout.distanceKm?(todaysWorkout.distanceKm/1.60934).toFixed(1)+" mi":""}
-                          {todaysWorkout.durationMin?" · "+todaysWorkout.durationMin+" min":""}
-                        </p>
-                      </div>
-                      {todaysWorkout.completed
-                        ?<span className="text-xs bg-signal/20 text-signal px-2 py-1 rounded-full">Done ✓</span>
-                        :<Link href={"/dashboard/races/"+activeRace.id} className="text-xs bg-background/30 px-3 py-1.5 rounded-full border border-current">Log it</Link>}
+            {nextRace.kind === "target" ? (
+              <>
+                {/* Plan progress */}
+                {totalWorkouts > 0 && doneWorkouts > 0 && (
+                  <div className="px-5 py-3 border-t border-border/50">
+                    <div className="flex justify-between text-xs text-foreground-dim mb-1.5">
+                      <span>{doneWorkouts} of {totalWorkouts} workouts complete</span>
+                      <span className={pct>=75?"text-signal":pct>=50?"text-yellow-400":""}>{pct}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-border rounded-full">
+                      <div className={"h-1.5 rounded-full transition-all "+(pct>=75?"bg-signal":pct>=50?"bg-yellow-400":"bg-foreground-dim/40")} style={{width:pct+"%"}}/>
                     </div>
                   </div>
-                </div>
-              ):(
-                <p className="text-sm text-foreground-dim">Rest day — recovery is part of the plan.</p>
-              )}
-              {upcomingWorkouts.length>0&&(
-                <div className="mt-3 flex gap-2 flex-wrap">
-                  {upcomingWorkouts.map(w=>(
-                    <div key={w.id} className="flex items-center gap-1.5 text-xs bg-surface-raised border border-border rounded-lg px-2.5 py-1.5">
-                      <span className="text-foreground-dim">{w.day.slice(0,3)}</span>
-                      <span className="font-medium">{w.title}</span>
-                      {w.distanceKm&&<span className="text-foreground-dim">{(w.distanceKm/1.60934).toFixed(1)}mi</span>}
+                )}
+                {/* Today's workout */}
+                <div className="px-5 py-4 border-t border-border/50">
+                  {(!plan||totalWorkouts===0)?(
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-foreground-dim">No training plan yet.</p>
+                      <Link href={"/dashboard/races/"+nextRace.id} className="text-xs text-signal hover:underline ml-4 shrink-0">Build plan →</Link>
                     </div>
-                  ))}
+                  ):todaysWorkout?(
+                    <div>
+                      <p className="text-xs text-foreground-dim uppercase tracking-wide mb-2">On the plan today</p>
+                      <div className={"rounded-xl border p-3 "+(TYPE_COLORS[todaysWorkout.type]||"bg-surface border-border")+(todaysWorkout.completed?" opacity-50":"")}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{todaysWorkout.title}</p>
+                            <p className="text-xs mt-0.5 opacity-75">
+                              {todaysWorkout.distanceKm?(todaysWorkout.distanceKm/1.60934).toFixed(1)+" mi":""}
+                              {todaysWorkout.durationMin?" · "+todaysWorkout.durationMin+" min":""}
+                            </p>
+                          </div>
+                          {todaysWorkout.completed
+                            ?<span className="text-xs bg-signal/20 text-signal px-2 py-1 rounded-full">Done ✓</span>
+                            :<Link href={"/dashboard/races/"+nextRace.id} className="text-xs bg-background/30 px-3 py-1.5 rounded-full border border-current">Log it</Link>}
+                        </div>
+                      </div>
+                    </div>
+                  ):(
+                    <p className="text-sm text-foreground-dim">Rest day — recovery is part of the plan.</p>
+                  )}
+                  {upcomingWorkouts.length>0&&(
+                    <div className="mt-3 flex gap-2 flex-wrap">
+                      {upcomingWorkouts.map(w=>(
+                        <div key={w.id} className="flex items-center gap-1.5 text-xs bg-surface-raised border border-border rounded-lg px-2.5 py-1.5">
+                          <span className="text-foreground-dim">{w.day.slice(0,3)}</span>
+                          <span className="font-medium">{w.title}</span>
+                          {w.distanceKm&&<span className="text-foreground-dim">{(w.distanceKm/1.60934).toFixed(1)}mi</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Link href={"/dashboard/races/"+nextRace.id} className="block mt-3 text-xs text-foreground-dim hover:text-signal transition-colors">Full plan →</Link>
                 </div>
-              )}
-              <Link href={"/dashboard/races/"+activeRace.id} className="block mt-3 text-xs text-foreground-dim hover:text-signal transition-colors">Full plan →</Link>
-            </div>
+              </>
+            ) : (
+              <div className="px-5 py-4 border-t border-border/50 flex items-center justify-between">
+                <p className="text-sm text-foreground-dim">Joined via the race community.</p>
+                <Link href={"/dashboard/races?tab=events&event="+nextRace.id} className="text-xs text-signal hover:underline shrink-0">View / leave race →</Link>
+              </div>
+            )}
           </div>
         </section>
       ) : !isNewUser && (

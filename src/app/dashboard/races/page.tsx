@@ -106,6 +106,17 @@ export default function RacesPage() {
     if (tab === "submit") { setSubsLoaded(false); loadMySubmissions(); }
   }, [tab, showPast]);
 
+  // Deep-link support: /dashboard/races?tab=events&event=<majorRaceId> pre-selects that race's
+  // detail panel (e.g. from the dashboard's "Your next race" card) once the events list loads.
+  useEffect(() => {
+    if (events.length === 0) return;
+    const sp = new URLSearchParams(window.location.search);
+    const eventId = sp.get("event");
+    if (!eventId) return;
+    const match = events.find((e: any) => e.id === eventId);
+    if (match) { setSelEvent(match); setGoalH(""); setGoalM(""); setPub(true); }
+  }, [events]);
+
   async function handleReg(race: any) {
     setReging(true);
     const sec = (goalH || goalM) ? parseInt(goalH || "0") * 3600 + parseInt(goalM || "0") * 60 : null;
