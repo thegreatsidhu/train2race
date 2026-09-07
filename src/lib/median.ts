@@ -204,22 +204,40 @@ export async function getRecentDailySteps(days = 7): Promise<DailySteps[]> {
   return points.map((p) => ({ date: p.date, steps: Math.round(p.value) }));
 }
 
+export type RecoveryComponentDetail = {
+  label: string;
+  todayValue: number;
+  baselineValue: number;
+  unit: string;
+  daysOfHistory: number;
+  usedInScore: boolean;
+};
+
 export type RecoveryEstimate = {
-  score: number;
+  /** null when there isn't enough history for a trustworthy number — show "not enough information," not a guessed label. */
+  score: number | null;
   label: string;
   advice: string;
   sourcesUsed: string[];
+  /** Every metric checked, whether or not it had enough history to count — for a transparent "how this was calculated" view. */
+  details: RecoveryComponentDetail[];
 };
+
+const MIN_BASELINE_DAYS = 7;
 
 /**
  * Rough recovery estimate from HRV/resting-heart-rate/sleep history, for users without a
  * Whoop/Garmin connection (which provide a real, device-computed recovery score instead — always
  * prefer that when available, this is a fallback). Compares the most recent day's values against
- * a rolling baseline from the preceding days, since normal HRV/RHR vary enormously between
+ * a rolling baseline from the preceding days, since normal HRV/RHR/sleep vary enormously between
  * people — there's no meaningful universal scale, only "better or worse than your own normal."
+ * Sleep is compared the same baseline-relative way as HRV/RHR (not a fixed hours target), since a
+ * fixed target doesn't account for someone whose normal sleep genuinely isn't 7.5 hours.
  *
- * Returns null if there's under 5 days of history to build a baseline from, or if none of the
- * three metrics have any data at all (most phones without a paired wearable won't report HRV).
+ * Returns null outside the Median app. Otherwise always returns an estimate object — `score` is
+ * null when there's under MIN_BASELINE_DAYS of baseline for every metric that has any data at
+ * all, so the UI can say "not enough information" instead of presenting a guess from 2-3 days of
+ * data as if it were a confident "Low recovery."
  */
 export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null> {
   if (!isMedianApp()) return null;
@@ -229,27 +247,43 @@ export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null
     getDailyMetricHistory("sleep", 30),
   ]);
 
-  function scoreComponent(history: DailyMetricPoint[], higherIsBetter: boolean): { score: number; latestDate: string } | null {
-    if (history.length < 6) return null;
+  function scoreComponent(label: string, unit: string, history: DailyMetricPoint[], higherIsBetter: boolean): { detail: RecoveryComponentDetail; score: number | null } | null {
+    if (history.length === 0) return null;
     const latest = history[history.length - 1];
     const baseline = history.slice(0, -1);
-    const baselineAvg = baseline.reduce((s, p) => s + p.value, 0) / baseline.length;
-    if (baselineAvg === 0) return null;
-    const ratio = higherIsBetter ? latest.value / baselineAvg : baselineAvg / latest.value;
-    return { score: Math.max(0, Math.min(100, 50 + (ratio - 1) * 200)), latestDate: latest.date };
+    const baselineAvg = baseline.length > 0 ? baseline.reduce((s, p) => s + p.value, 0) / baseline.length : 0;
+    const enoughHistory = baseline.length >= MIN_BASELINE_DAYS && baselineAvg > 0;
+    const score = enoughHistory
+      ? Math.max(0, Math.min(100, 50 + ((higherIsBetter ? latest.value / baselineAvg : baselineAvg / latest.value) - 1) * 200))
+      : null;
+    return {
+      score,
+      detail: { label, unit, todayValue: latest.value, baselineValue: baselineAvg, daysOfHistory: baseline.length, usedInScore: enoughHistory },
+    };
   }
 
-  const hrvResult = scoreComponent(hrv, true);
-  const rhrResult = scoreComponent(rhr, false);
-  const sleepLatest = sleep.length > 0 ? sleep[sleep.length - 1] : null;
-  const sleepResult = sleepLatest ? { score: Math.max(0, Math.min(100, (sleepLatest.value / (7.5 * 60)) * 100)) } : null;
+  const hrvResult = scoreComponent("HRV", "ms", hrv, true);
+  const rhrResult = scoreComponent("Resting heart rate", "bpm", rhr, false);
+  const sleepResult = scoreComponent("Sleep", "min", sleep, true);
+
+  const details = [hrvResult, rhrResult, sleepResult].filter((r): r is NonNullable<typeof r> => r !== null).map((r) => r.detail);
 
   const weighted: { score: number; weight: number; label: string }[] = [];
-  if (hrvResult) weighted.push({ score: hrvResult.score, weight: 0.4, label: "HRV" });
-  if (rhrResult) weighted.push({ score: rhrResult.score, weight: 0.35, label: "resting heart rate" });
-  if (sleepResult) weighted.push({ score: sleepResult.score, weight: 0.25, label: "sleep" });
+  if (hrvResult?.score != null) weighted.push({ score: hrvResult.score, weight: 0.4, label: "HRV" });
+  if (rhrResult?.score != null) weighted.push({ score: rhrResult.score, weight: 0.35, label: "resting heart rate" });
+  if (sleepResult?.score != null) weighted.push({ score: sleepResult.score, weight: 0.25, label: "sleep" });
 
-  if (weighted.length === 0) return null;
+  if (weighted.length === 0) {
+    return {
+      score: null,
+      label: "Not enough information",
+      advice: details.length > 0
+        ? `Need at least ${MIN_BASELINE_DAYS} days of history to compare against — check back after a bit more data builds up.`
+        : "No HRV, resting heart rate, or sleep data found yet.",
+      sourcesUsed: [],
+      details,
+    };
+  }
 
   const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
   const score = Math.round(weighted.reduce((s, w) => s + w.score * w.weight, 0) / totalWeight);
@@ -261,7 +295,7 @@ export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null
     ? "Listen to your body — moderate effort is probably right."
     : "Consider an easier day or rest.";
 
-  return { score, label, advice, sourcesUsed: weighted.map((w) => w.label) };
+  return { score, label, advice, sourcesUsed: weighted.map((w) => w.label), details };
 }
 
 export type StrainEstimate = {
