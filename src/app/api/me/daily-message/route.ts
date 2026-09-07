@@ -13,24 +13,37 @@ async function generateMessage(userId: string): Promise<string> {
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay() + 1);
 
-  const [user, weeklyActivities, activeRace, teams, lastActivity] = await Promise.all([
+  const [user, weeklyActivities, raceTarget, raceReg, teams, lastActivity] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
     prisma.activity.findMany({ where: { userId, startTime: { gte: weekStart } }, select: { distanceM: true } }),
     prisma.raceTarget.findFirst({ where: { userId, raceDate: { gte: today } }, orderBy: { raceDate: "asc" }, select: { raceName: true, raceDate: true } }),
+    prisma.raceRegistration.findFirst({ where: { userId, majorRace: { raceDate: { gte: today }, status: "active" } }, orderBy: { majorRace: { raceDate: "asc" } }, select: { majorRace: { select: { name: true, raceDate: true } } } }),
     prisma.team.findMany({ where: { members: { some: { userId } } }, select: { name: true }, take: 3 }),
     prisma.activity.findFirst({ where: { userId }, orderBy: { startTime: "desc" }, select: { type: true, title: true } }),
   ]);
 
+  // "Next race" can come from either a personal training-plan target (RaceTarget) or a joined
+  // community race (MajorRace via RaceRegistration) — same fix as the dashboard's race card,
+  // since these are unrelated models and whichever is chronologically sooner should win.
+  const regRace = raceReg?.majorRace ?? null;
+  const nextRace = (() => {
+    const targetDate = raceTarget ? new Date(raceTarget.raceDate) : null;
+    const regDate = regRace ? new Date(regRace.raceDate) : null;
+    if (raceTarget && targetDate && (!regDate || targetDate <= regDate)) return { name: raceTarget.raceName, date: targetDate };
+    if (regRace && regDate) return { name: regRace.name, date: regDate };
+    return null;
+  })();
+
   const firstName = user?.name?.split(" ")[0] ?? "Athlete";
   const weeklyMiles = weeklyActivities.reduce((s, a) => s + (a.distanceM || 0) / 1609.34, 0);
-  const daysToRace = activeRace ? Math.ceil((new Date(activeRace.raceDate).getTime() - Date.now()) / 86400000) : null;
+  const daysToRace = nextRace ? Math.ceil((nextRace.date.getTime() - Date.now()) / 86400000) : null;
   const teamNames = teams.map(t => t.name).join(", ") || null;
   const lastWorkout = lastActivity ? (lastActivity.title || lastActivity.type) : null;
 
   const contextParts = [
     `Athlete name: ${firstName}`,
     weeklyMiles > 0 ? `Weekly miles so far: ${weeklyMiles.toFixed(1)} mi` : "No workouts this week yet",
-    daysToRace != null ? `Days until ${activeRace!.raceName}: ${daysToRace}` : null,
+    daysToRace != null ? `Days until ${nextRace!.name}: ${daysToRace}` : null,
     teamNames ? `Teams: ${teamNames}` : null,
     lastWorkout ? `Most recent workout: ${lastWorkout}` : null,
   ].filter(Boolean).join("\n");

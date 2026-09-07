@@ -3,15 +3,32 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { isMedianApp, requestHealthPermissions, getHealthData, extractHealthValue, getRecentWorkouts, type HealthWorkout } from "@/lib/median";
 
+type PaceProfileEntry = { type: string; avgSpeedMps: number };
+
 /**
  * Health Connect / Apple Health via the bridge only give us metrics (distance, duration), not
  * the workout's actual type — so this is a best-effort guess from average pace, not authoritative.
  * Can't distinguish swim or strength at all (no distance signal), so it only guesses among
  * ride/run/walk and leaves the type alone otherwise.
+ *
+ * When the user has enough of their own logged history, matches against THEIR typical pace per
+ * type instead of fixed generic thresholds — a fast runner and a casual cyclist can have nearly
+ * identical average speed, so no one-size-fits-all cutoff works for everyone, but comparing
+ * against someone's own actual runs vs. their own actual rides does.
  */
-function guessActivityType(distanceM: number | null, durationMin: number): string | null {
+function guessActivityType(distanceM: number | null, durationMin: number, paceProfile: PaceProfileEntry[] = []): string | null {
   if (!distanceM || durationMin <= 0) return null;
   const speedMps = distanceM / (durationMin * 60);
+
+  const relevant = paceProfile.filter(p => p.type === "run" || p.type === "ride" || p.type === "walk");
+  if (relevant.length > 0) {
+    let closest = relevant[0];
+    for (const p of relevant) {
+      if (Math.abs(p.avgSpeedMps - speedMps) < Math.abs(closest.avgSpeedMps - speedMps)) closest = p;
+    }
+    return closest.type;
+  }
+
   if (speedMps >= 4) return "ride";
   if (speedMps >= 1.3) return "run";
   return "walk";
@@ -30,12 +47,17 @@ export default function LogWorkoutPage() {
   const [recentWorkouts, setRecentWorkouts] = useState<HealthWorkout[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
   const [selectedHealthId, setSelectedHealthId] = useState<string | null>(null);
+  const [paceProfile, setPaceProfile] = useState<PaceProfileEntry[]>([]);
   const [micSupported, setMicSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [parsingVoice, setParsingVoice] = useState(false);
   const [voiceError, setVoiceError] = useState("");
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    fetch("/api/activities/pace-profile").then(r => r.json()).then(d => setPaceProfile(d.profile || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const native = isMedianApp();
@@ -66,7 +88,7 @@ export default function LogWorkoutPage() {
     setSelectedHealthId(w.externalId);
     const d = new Date(w.start);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const guessedType = guessActivityType(w.distanceM, w.durationMin);
+    const guessedType = guessActivityType(w.distanceM, w.durationMin, paceProfile);
     setForm(f => ({
       ...f,
       date: dateStr,
@@ -172,7 +194,7 @@ export default function LogWorkoutPage() {
       return;
     }
 
-    const guessedType = exerciseMin ? guessActivityType(distanceM, exerciseMin) : null;
+    const guessedType = exerciseMin ? guessActivityType(distanceM, exerciseMin, paceProfile) : null;
     setForm(f => ({
       ...f,
       type: guessedType || f.type,
