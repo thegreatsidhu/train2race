@@ -33,7 +33,13 @@ function LoginForm() {
         // Consumed either way (single-use) — clear it so RememberMeSync mints a fresh one on the
         // dashboard, whether this attempt succeeded or the token had already gone stale.
         localStorage.removeItem(REMEMBER_TOKEN_STORAGE_KEY);
-        if (res?.ok) { router.push(redirectTo); return; }
+        if (res?.ok) {
+          // A full reload, not router.push() — Next.js can otherwise serve a cached
+          // "not authenticated" response for the destination from before the cookie was
+          // refreshed, leaving the user stuck on this page instead of landing on the dashboard.
+          window.location.href = redirectTo;
+          return;
+        }
         setRestoring(false);
       })
       .catch(() => {
