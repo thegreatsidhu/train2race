@@ -247,7 +247,13 @@ export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null
     getDailyMetricHistory("sleep", 30),
   ]);
 
-  function scoreComponent(label: string, unit: string, history: DailyMetricPoint[], higherIsBetter: boolean): { detail: RecoveryComponentDetail; score: number | null } | null {
+  // Overnight metrics can produce absurd values when a native day-bucket boundary splits a
+  // session that spans midnight (e.g. an 11pm-7am sleep session reporting as "2 minutes" for one
+  // of the two days it crosses). Filtering these out before they're used as either "today's"
+  // value or part of the baseline average prevents a confident-looking score from garbage data —
+  // a day like that is treated as no data for that day, not as a real (terrible) reading.
+  function scoreComponent(label: string, unit: string, rawHistory: DailyMetricPoint[], higherIsBetter: boolean, minPlausible: number): { detail: RecoveryComponentDetail; score: number | null } | null {
+    const history = rawHistory.filter((p) => p.value >= minPlausible);
     if (history.length === 0) return null;
     const latest = history[history.length - 1];
     const baseline = history.slice(0, -1);
@@ -262,9 +268,11 @@ export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null
     };
   }
 
-  const hrvResult = scoreComponent("HRV", "ms", hrv, true);
-  const rhrResult = scoreComponent("Resting heart rate", "bpm", rhr, false);
-  const sleepResult = scoreComponent("Sleep", "min", sleep, true);
+  const hrvResult = scoreComponent("HRV", "ms", hrv, true, 1);
+  const rhrResult = scoreComponent("Resting heart rate", "bpm", rhr, false, 1);
+  // A real full night's sleep is virtually never under an hour — anything less is almost
+  // certainly a midnight-boundary split artifact, not an accurate reading of that night.
+  const sleepResult = scoreComponent("Sleep", "min", sleep, true, 60);
 
   const details = [hrvResult, rhrResult, sleepResult].filter((r): r is NonNullable<typeof r> => r !== null).map((r) => r.detail);
 
