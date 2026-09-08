@@ -283,12 +283,13 @@ export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null
 
   if (weighted.length === 0) {
     const daysAvailable = details.length > 0 ? Math.max(...details.map((d) => d.daysOfHistory)) : 0;
+    const daysRemaining = MIN_BASELINE_DAYS - daysAvailable;
     return {
       score: null,
       label: "Not enough information",
       advice: details.length > 0
-        ? `${daysAvailable} of ${MIN_BASELINE_DAYS} days of history so far — check back once more data builds up.`
-        : "No HRV, resting heart rate, or sleep data found yet.",
+        ? `${daysAvailable} of ${MIN_BASELINE_DAYS} days so far — keep your Health app syncing daily and it'll be ready in about ${daysRemaining} more day${daysRemaining === 1 ? "" : "s"}.`
+        : "No HRV, resting heart rate, or sleep data found yet — wear a device that tracks one of these (like an Apple Watch or other synced wearable), and make sure Health access is granted on the Connections page.",
       sourcesUsed: [],
       details,
     };
