@@ -274,11 +274,12 @@ export async function computeRecoveryEstimate(): Promise<RecoveryEstimate | null
   if (sleepResult?.score != null) weighted.push({ score: sleepResult.score, weight: 0.25, label: "sleep" });
 
   if (weighted.length === 0) {
+    const daysAvailable = details.length > 0 ? Math.max(...details.map((d) => d.daysOfHistory)) : 0;
     return {
       score: null,
       label: "Not enough information",
       advice: details.length > 0
-        ? `Need at least ${MIN_BASELINE_DAYS} days of history to compare against — check back after a bit more data builds up.`
+        ? `${daysAvailable} of ${MIN_BASELINE_DAYS} days of history so far — check back once more data builds up.`
         : "No HRV, resting heart rate, or sleep data found yet.",
       sourcesUsed: [],
       details,
