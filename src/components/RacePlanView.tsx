@@ -16,6 +16,21 @@ const WORKOUT_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+const WORKOUT_TYPE_INFO: Record<string, string> = {
+  easy_run: "A comfortable, conversational pace — you should be able to talk in full sentences. About 60-90 sec/mile slower than race pace. E.g. \"Easy 4 miles.\"",
+  long_run: "Your longest run of the week, at an easy, sustainable pace, to build endurance. E.g. \"Long run 10 miles, easy pace.\"",
+  tempo: "A comfortably hard, sustained effort — a pace you could hold for about an hour. You can speak in short phrases, not full sentences. E.g. \"3 miles at tempo pace.\"",
+  intervals: "Short, fast repeats at a hard effort with recovery jogs in between, to build speed. E.g. \"6 x 400m fast, 90 sec jog rest.\"",
+  cross_train: "Low-impact exercise that isn't running — cycling, swimming, elliptical, rowing — to build fitness while giving your legs a break. E.g. \"30 min easy bike or elliptical.\"",
+  swim: "Pool or open-water swimming, usually for triathlon training.",
+  bike: "Cycling — indoor trainer or outdoor ride, usually for triathlon training.",
+  strength: "Weight training or bodyweight exercises to build muscle and help prevent injury. E.g. \"Full-body strength, 30 min.\"",
+  brick: "A bike ride immediately followed by a run, to practice the leg transition for triathlon. E.g. \"20 mile bike, then 2 mile run off the bike.\"",
+  rest: "A full day off from structured exercise to recover.",
+  race: "Your goal event — race day itself.",
+  other: "Anything that doesn't fit the categories above.",
+};
+
 function AddWorkoutForm({ raceId, onAdded, onCancel }: { raceId: string; onAdded: () => void; onCancel?: () => void }) {
   const [form, setForm] = useState({ date: "", type: "easy_run", title: "", distance: "", durationHours: "", durationMins: "", description: "" });
   const [saving, setSaving] = useState(false);
@@ -59,6 +74,7 @@ function AddWorkoutForm({ raceId, onAdded, onCancel }: { raceId: string; onAdded
             value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
             {WORKOUT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
+          {WORKOUT_TYPE_INFO[form.type] && <p className="text-xs text-foreground-dim mt-1">{WORKOUT_TYPE_INFO[form.type]}</p>}
         </div>
         <div className="col-span-2">
           <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label>
@@ -148,6 +164,7 @@ function EditWorkoutModal({ workout, onClose, onSaved }: { workout: any; onClose
               value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
               {WORKOUT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
+            {WORKOUT_TYPE_INFO[form.type] && <p className="text-xs text-foreground-dim mt-1">{WORKOUT_TYPE_INFO[form.type]}</p>}
           </div>
           <div className="col-span-2">
             <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label>
@@ -281,6 +298,7 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
                   value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}>
                   {WORKOUT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
+                {WORKOUT_TYPE_INFO[editForm.type] && <p className="text-xs text-foreground-dim mt-1">{WORKOUT_TYPE_INFO[editForm.type]}</p>}
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-foreground-dim uppercase tracking-wide mb-1 block">Title</label>

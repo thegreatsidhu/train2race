@@ -6,6 +6,31 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
 
+// Best-effort repair for a JSON response truncated by hitting max_tokens — closes any
+// unterminated string and any open brackets/braces so JSON.parse has a chance to succeed.
+function repairJsonTail(text: string): string {
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+  for (const ch of text) {
+    if (escape) { escape = false; continue; }
+    if (ch === "\\") { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  let repaired = text;
+  if (inString) repaired += '"';
+  repaired = repaired.replace(/,\s*$/, "");
+  while (stack.length) repaired += stack.pop() === "{" ? "}" : "]";
+  return repaired;
+}
+
+function parseModelJson(cleaned: string): any {
+  try { return JSON.parse(cleaned); } catch { return JSON.parse(repairJsonTail(cleaned)); }
+}
+
 const DAY_MAP: Record<number, string> = {
   2: "Tuesday, Thursday",
   3: "Monday, Wednesday, Friday",
@@ -59,13 +84,13 @@ Rules:
 
   const res = await anthropic.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 4096,
+    max_tokens: 8000,
     messages: [{ role: "user", content: prompt }],
   });
 
   const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
   const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  return JSON.parse(cleaned);
+  return parseModelJson(cleaned);
 }
 
 async function buildNutrition(goal: string, currentFitness: string, daysPerWeek: number): Promise<any> {
@@ -101,7 +126,7 @@ Keep tips actionable, simple, and tailored to the user's specific goal.`;
 
   const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
   const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  return JSON.parse(cleaned);
+  return parseModelJson(cleaned);
 }
 
 export async function GET() {
@@ -150,6 +175,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ plan });
   } catch (err) {
     console.error("fitness-plan generate error:", err);
-    return NextResponse.json({ error: "Failed to generate plan" }, { status: 500 });
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Failed to generate plan: ${detail}` }, { status: 500 });
   }
 }

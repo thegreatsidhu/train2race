@@ -22,6 +22,19 @@ const TYPE_LABELS: Record<string, string> = {
   cross_train: "Cross Train", swim: "Swim", bike: "Bike", brick: "Brick", rest: "Rest", race: "Race",
 };
 
+const TYPE_INFO: Record<string, string> = {
+  easy_run: "A comfortable, conversational pace — you should be able to talk in full sentences. About 60-90 sec/mile slower than race pace.",
+  long_run: "Your longest run of the week, at an easy, sustainable pace, to build endurance.",
+  tempo: "A comfortably hard, sustained effort — a pace you could hold for about an hour. You can speak in short phrases, not full sentences.",
+  intervals: "Short, fast repeats at a hard effort with recovery jogs in between, to build speed.",
+  cross_train: "Low-impact exercise that isn't running — cycling, swimming, elliptical, rowing — to build fitness while giving your legs a break.",
+  swim: "Pool or open-water swimming, usually for triathlon training.",
+  bike: "Cycling — indoor trainer or outdoor ride, usually for triathlon training.",
+  brick: "A bike ride immediately followed by a run, to practice the leg transition for triathlon.",
+  rest: "A full day off from structured exercise to recover.",
+  race: "Your goal event — race day itself.",
+};
+
 // ── Fitness plan constants ────────────────────────────────────
 const FIT_COLORS: Record<string, string> = {
   strength: "bg-blue-900/50 text-blue-300 border-blue-700",
@@ -304,14 +317,17 @@ function PlanPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...fitnessAns, includeNutrition: wantsNutrition }),
       });
-      if (!res.ok) throw new Error("failed");
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "failed");
+      }
       const { plan } = await res.json();
       setFitnessPlan(plan);
       setFitnessStep(0);
       setFitnessTab("workout");
       setFitExpWeeks(new Set([1]));
-    } catch {
-      setFitnessErr("Something went wrong. Please try again.");
+    } catch (e: any) {
+      setFitnessErr(e?.message && e.message !== "failed" ? e.message : "Something went wrong. Please try again.");
       setFitnessStep(5);
     }
     setGenerating(false);
@@ -599,6 +615,7 @@ function PlanPageInner() {
                                           className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none focus:border-signal">
                                           {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                                         </select>
+                                        {TYPE_INFO[editForm.type] && <p className="text-xs text-foreground-dim mt-1">{TYPE_INFO[editForm.type]}</p>}
                                       </div>
                                       <div>
                                         <label className="text-xs text-foreground-dim mb-1 block">Date</label>
