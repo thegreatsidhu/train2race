@@ -162,6 +162,9 @@ function PlanPageInner() {
   const [confirmDelFit, setConfirmDelFit] = useState(false);
   const [deletingFit, setDeletingFit] = useState(false);
 
+  const joinMajorRaceId = searchParams.get("majorRaceId");
+  const [joinMajorRace, setJoinMajorRace] = useState<any>(null);
+
   useEffect(() => {
     if (searchParams.get("start") === "fitness") setFitnessStep(1);
   }, [searchParams]);
@@ -185,9 +188,18 @@ function PlanPageInner() {
         const firstPlan = p.find((pl: any) => pl.raceId === firstId);
         if (firstPlan) setExpandedWeeks(new Set([currentWeekNum(firstPlan)]));
       }
+      // Arrived from "Build a plan" on a joined race — open the add-race form pre-filled,
+      // or if a plan already exists, surface the race name so we can explain why not.
+      if (joinMajorRaceId) {
+        fetch("/api/major-races/register").then(res => res.json()).then(rd2 => {
+          const match = (rd2.registrations || []).find((reg: any) => reg.majorRaceId === joinMajorRaceId);
+          if (match) setJoinMajorRace(match.majorRace);
+          if (r.length === 0) setShowAddForm(true);
+        }).catch(() => {});
+      }
     }).catch(() => {});
     return () => ac.abort();
-  }, []);
+  }, [joinMajorRaceId]);
 
   // Race functions
   function selectRace(raceId: string) {
@@ -425,8 +437,18 @@ function PlanPageInner() {
           {/* Add race form */}
           {showAddForm && races.length === 0 && (
             <div className="mb-6">
-              <NewRaceForm />
+              <NewRaceForm initialMajorRaceId={joinMajorRaceId} />
               <button onClick={() => setShowAddForm(false)} className="mt-3 text-sm text-foreground-dim hover:text-foreground">Cancel</button>
+            </div>
+          )}
+
+          {/* Arrived here to build a plan for a joined race, but already have an active one */}
+          {joinMajorRace && races.length > 0 && (
+            <div className="rounded-2xl border border-signal/30 bg-signal/5 p-4 mb-6">
+              <p className="text-sm font-medium">You already have an active race plan</p>
+              <p className="text-xs text-foreground-dim mt-1">
+                To build a plan for <span className="font-medium">{joinMajorRace.name}</span>, delete your current race below, then hit &ldquo;Add race&rdquo; and pick it from your joined races.
+              </p>
             </div>
           )}
 

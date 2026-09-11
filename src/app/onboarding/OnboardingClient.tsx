@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { isMedianApp, registerPushNotifications } from "@/lib/median";
+import { MedianHealthCard } from "@/components/MedianHealthCard";
+import { HealthTroubleshooting } from "@/components/HealthTroubleshooting";
 
 interface Race {
   id: string;
@@ -97,6 +99,13 @@ export function OnboardingClient({ name }: { name: string }) {
     if (code) setPendingInviteCode(code);
   }, []);
   const hasPendingInvite = pendingInviteCode !== null;
+
+  // Health connection setup — only relevant inside the Median native app
+  const [showHealthStep, setShowHealthStep] = useState(false);
+  const [healthPromptDone, setHealthPromptDone] = useState(false);
+  useEffect(() => {
+    setShowHealthStep(isMedianApp());
+  }, []);
 
   // Push notification opt-in — only relevant inside the Median native app
   const [showPushStep, setShowPushStep] = useState(false);
@@ -700,7 +709,28 @@ export function OnboardingClient({ name }: { name: string }) {
     );
   }
 
-  // Step 5a — Push notification opt-in (Median app only)
+  // Step 5a — Health connection setup (Median app only)
+  if (showHealthStep && !healthPromptDone) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+        <div className="text-6xl mb-6">❤️</div>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Connect your health app.</h1>
+        <p className="text-foreground-dim text-lg mb-8">Sync steps, workouts, and recovery automatically from Apple Health or Google Health Connect.</p>
+        <div className="w-full max-w-md text-left">
+          <MedianHealthCard />
+          <HealthTroubleshooting />
+        </div>
+        <button
+          onClick={() => setHealthPromptDone(true)}
+          className="mt-8 px-8 py-3.5 rounded-full bg-signal text-background font-semibold text-base hover:bg-signal-dim transition-colors"
+        >
+          Continue
+        </button>
+      </div>
+    );
+  }
+
+  // Step 5b — Push notification opt-in (Median app only)
   if (showPushStep && !pushPromptDone) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
@@ -724,7 +754,7 @@ export function OnboardingClient({ name }: { name: string }) {
     );
   }
 
-  // Step 5b — Done
+  // Step 5c — Done
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
       <div className="text-6xl mb-6">🏁</div>

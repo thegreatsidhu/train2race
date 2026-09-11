@@ -16,6 +16,7 @@ import { DailyAIMessage } from "@/components/DailyAIMessage";
 import { HighFiveStrip } from "@/components/HighFiveStrip";
 import { TeamAvatar } from "@/components/TeamAvatar";
 import { TodaysStepsCard } from "@/components/TodaysStepsCard";
+import { ConnectionAlertBanner } from "@/components/ConnectionAlertBanner";
 import { RecoveryCard } from "@/components/RecoveryCard";
 import { StrainCard } from "@/components/StrainCard";
 
@@ -183,6 +184,9 @@ export default async function TodayPage() {
           <WeatherBadge city={displayCity} timezone={user?.timezone ?? null} />
         </div>
       </header>
+
+      {/* ── Broken Health Bridge connection — only shown if it was working before ── */}
+      <ConnectionAlertBanner />
 
       {/* ── Today's steps — shown only if a connected source reports steps ── */}
       <TodaysStepsCard initialSteps={todayStepsMetric?.steps ?? null} initialSourceLabel={stepsSourceLabel} />

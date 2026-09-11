@@ -9,7 +9,7 @@ function distanceToKey(m: number): string {
   if(m<=5500)return"5K";if(m<=11000)return"10K";if(m<=22000)return"Half Marathon";if(m<=43000)return"Marathon";if(m<=55000)return"Ultra (50K)";if(m<=30000)return"Sprint Triathlon";if(m<=60000)return"Olympic Triathlon";if(m<=120000)return"70.3 Half Ironman";return"140.6 Full Ironman";
 }
 
-export function NewRaceForm() {
+export function NewRaceForm({ initialMajorRaceId }: { initialMajorRaceId?: string | null } = {}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [raceName, setRaceName] = useState("");
@@ -22,6 +22,19 @@ export function NewRaceForm() {
   const [searching, setSearching] = useState(false);
   const [selectedMajorRace, setSelectedMajorRace] = useState<any>(null);
   const [showSearch, setShowSearch] = useState(true);
+  const [joinedRaces, setJoinedRaces] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/major-races/register").then(r=>r.json()).then(d => {
+      const upcoming = (d.registrations||[]).map((r:any)=>r.majorRace).filter((r:any)=>r && new Date(r.raceDate) >= new Date());
+      setJoinedRaces(upcoming);
+      if (initialMajorRaceId) {
+        const match = upcoming.find((r:any)=>r.id === initialMajorRaceId);
+        if (match) selectMajorRace(match);
+      }
+    }).catch(()=>{});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMajorRaceId]);
 
   useEffect(() => {
     if (!search || search.length < 2) { setSearchResults([]); return; }
@@ -58,6 +71,21 @@ export function NewRaceForm() {
   return (
     <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
       <h2 className="text-sm font-medium">Add a race</h2>
+      {!selectedMajorRace && joinedRaces.length > 0 && (
+        <div>
+          <label className="block text-xs text-foreground-dim mb-1">Build a plan for a race you've already joined</label>
+          <div className="space-y-1.5">
+            {joinedRaces.map(race=>(
+              <button key={race.id} onClick={()=>selectMajorRace(race)}
+                className="w-full text-left px-4 py-3 rounded-xl border border-border hover:border-signal/50 hover:bg-surface-raised transition-colors">
+                <p className="text-sm font-medium">{race.name}</p>
+                <p className="text-xs text-foreground-dim">{race.city}, {race.country} · {new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-foreground-dim mt-2">Or search for a different race below.</p>
+        </div>
+      )}
       {showSearch && (
         <div className="relative">
           <label className="block text-xs text-foreground-dim mb-1">Search major races</label>

@@ -40,14 +40,20 @@ export async function POST(req, { params }) {
   const recentPlan = await prisma.trainingPlan.findFirst({ where: { raceId: race.id, createdAt: { gte: new Date(Date.now()-5*60*1000) } }, select: { id: true } });
   if (recentPlan) return NextResponse.json({ error: "Please wait 5 minutes before regenerating" }, { status: 429 });
   const body = await req.json();
-  const { weeklyMileageKm, weeklyHours, trackingMethod, athleteLevel, recentRaceTime, trainingDaysPerWeek, hardDays, longRunDay, injuryConcerns, fitnessNotes, prioritize } = body;
+  const { weeklyMileageKm, weeklyHours, trackingMethod, athleteLevel, recentRaceTime, trainingDaysPerWeek, startDate, hardDays, longRunDay, injuryConcerns, fitnessNotes, prioritize } = body;
   const isTriathlon = race.isTriathlon || false;
   const isTimeBased = trackingMethod === "time" && !isTriathlon;
   const category = getCategory(race.distanceM, isTriathlon);
   const g = RACE_GUIDELINES[category];
   const days = Number(trainingDaysPerWeek) || 5;
-  const actualWeeks = Math.round((new Date(race.raceDate).getTime() - Date.now()) / (7*24*60*60*1000));
-  if (actualWeeks < g.minWeeks) return NextResponse.json({ error: `Need at least ${g.minWeeks} weeks for a ${category}. Your race is ${actualWeeks} weeks away.` }, { status: 400 });
+
+  // User-chosen plan start date, falling back to today if missing/invalid/in the past.
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  let planStart = startDate ? new Date(startDate + "T12:00:00") : new Date();
+  if (isNaN(planStart.getTime()) || planStart < todayMidnight) planStart = new Date();
+
+  const actualWeeks = Math.round((new Date(race.raceDate).getTime() - planStart.getTime()) / (7*24*60*60*1000));
+  if (actualWeeks < g.minWeeks) return NextResponse.json({ error: `Need at least ${g.minWeeks} weeks for a ${category}. From your chosen start date, the race is ${actualWeeks} weeks away.` }, { status: 400 });
   const weeks = Math.min(Math.max(4, actualWeeks), g.maxWeeks);
   const distanceMiles = (race.distanceM / 1609.34).toFixed(1);
   const goalTime = race.goalTimeSec ? `${Math.floor(race.goalTimeSec/3600)}h ${Math.floor((race.goalTimeSec%3600)/60)}m` : "finish";
@@ -127,7 +133,9 @@ Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlo
       return {...w, distanceMiles:d, durationMin:dur};
     });
     await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
-    const start = new Date();
+    // Snap the chosen start date to the Monday of that week, since workouts are assigned by
+    // weekday offset from this anchor.
+    const start = new Date(planStart);
     start.setDate(start.getDate() - start.getDay() + 1);
     const dm = { Monday:0, Tuesday:1, Wednesday:2, Thursday:3, Friday:4, Saturday:5, Sunday:6 };
     await prisma.trainingPlan.create({ data: { userId, raceId: race.id, workouts: { create: validated.map(w => { const d = new Date(start); d.setDate(start.getDate()+(w.week-1)*7+(dm[w.day]||0)); return { week:w.week, day:w.day, date:d, type:w.type, title:w.title, description:w.description, distanceKm:w.distanceMiles?w.distanceMiles*1.60934:null, durationMin:w.durationMin||null }; }) } } });

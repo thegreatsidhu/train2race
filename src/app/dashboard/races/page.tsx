@@ -282,6 +282,8 @@ export default function RacesPage() {
                 {isReg(selEvent.id) ? (
                   <div className="space-y-3">
                     <p className="text-xs text-signal font-medium">You are registered for this event</p>
+                    <a href={`/dashboard/plan?majorRaceId=${selEvent.id}`}
+                      className="block w-full py-2 rounded-full border border-teal-500 text-teal-400 text-sm font-medium text-center hover:bg-teal-500/10 transition-colors">Build a plan →</a>
                     <a href={`/dashboard/community?race=${selEvent.id}`}
                       className="block w-full py-2 rounded-full bg-signal text-background text-sm font-medium text-center">View community →</a>
                     {confirmLeave === selEvent.id ? (
@@ -458,6 +460,10 @@ export default function RacesPage() {
                       {reg.goalTimeSec && <p className="text-xs text-foreground-dim mt-0.5">Goal: {fmtGoal(reg.goalTimeSec)}</p>}
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
+                      <a href={`/dashboard/plan?majorRaceId=${reg.majorRaceId}`}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-teal-500 text-teal-400 hover:bg-teal-500/10 transition-colors">
+                        Build a plan
+                      </a>
                       <button onClick={() => toggleCommunity(reg.majorRaceId)}
                         className={"text-xs font-medium px-3 py-1.5 rounded-full transition-colors " + (isOpen ? "bg-signal text-background" : "border border-signal text-signal hover:bg-signal/10")}>
                         {isOpen ? "Close" : "Find community"}
