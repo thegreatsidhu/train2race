@@ -398,6 +398,48 @@ export async function unregisterPushNotifications(): Promise<void> {
 }
 
 /**
+ * Associates this device with our internal user ID (Median.onesignal.login) so server-side
+ * sendPush() calls can target it via include_aliases.external_id — without prompting for push
+ * permission the way registerPushNotifications() does. Call this whenever a session is
+ * established (see MedianInit.tsx) so the association stays correct even for users who haven't
+ * gone through the explicit push opt-in step, or who log in as a different user on the same
+ * device. Safe to call opportunistically — swallows its own errors. No-op outside the Median app.
+ */
+export async function setPushExternalUserId(userId: string): Promise<void> {
+  if (!isMedianApp()) return;
+  try {
+    await withTimeout(Median.onesignal.login(userId), BRIDGE_TIMEOUT_MS);
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Registers a callback fired when the user taps a push notification (the `data` argument is
+ * whatever custom `data` object the server's sendPush() call included, delivered as-is — see
+ * src/lib/oneSignal.ts). Returns a listener id to pass to removePushOpenedListener() for cleanup,
+ * or null outside the Median app.
+ */
+export function addPushOpenedListener(callback: (data: Record<string, any>) => void): string | null {
+  if (!isMedianApp()) return null;
+  try {
+    return Median.onesignal.pushOpened.addListener(callback);
+  } catch {
+    return null;
+  }
+}
+
+/** Removes a listener registered via addPushOpenedListener(). No-op outside the Median app or with a null id. */
+export function removePushOpenedListener(listenerId: string | null): void {
+  if (!isMedianApp() || !listenerId) return;
+  try {
+    Median.onesignal.pushOpened.removeListener(listenerId);
+  } catch {
+    // best-effort
+  }
+}
+
+/**
  * Opens the OS-level settings screen for this app, where Health Connect / Health app access
  * can be reviewed or revoked. There's no bridge method to grant/revoke health permissions
  * directly — that's managed entirely by the OS (Health Connect on Android, Settings > Privacy

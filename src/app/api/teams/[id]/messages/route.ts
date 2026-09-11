@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSuperUser } from "@/lib/superuser";
+import { sendPush } from "@/lib/oneSignal";
 
 const MSG_INCLUDE = {
   user: { select: { id: true, name: true } },
@@ -71,6 +72,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
     include: MSG_INCLUDE,
   });
+
+  // Notify other team members via push
+  const [team, members] = await Promise.all([
+    prisma.team.findUnique({ where: { id }, select: { name: true } }),
+    prisma.teamMember.findMany({
+      where: { teamId: id, userId: { not: userId } },
+      select: { user: { select: { id: true, pushEnabled: true, pushDigestOptOut: true } } },
+    }),
+  ]);
+  const targets = members.map(m => m.user).filter(u => u.pushEnabled && !u.pushDigestOptOut).map(u => u.id);
+  if (team && targets.length > 0) {
+    sendPush({
+      userId: targets,
+      title: `New message in ${team.name}`,
+      message: `${message.user?.name || "A teammate"}: ${content.trim().slice(0, 100)}`,
+      data: { type: "chat_message", teamId: id },
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ message });
 }
 

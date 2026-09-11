@@ -78,9 +78,11 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <MedianInit />
+        </Providers>
         <PwaRegistration />
-        <MedianInit />
       </body>
     </html>
   );
