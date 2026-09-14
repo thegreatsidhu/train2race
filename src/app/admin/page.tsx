@@ -241,6 +241,13 @@ export default function AdminPage() {
   const [platformChLogs, setPlatformChLogs] = useState({});
   const [loadingPChLogs, setLoadingPChLogs] = useState(null);
 
+  // Team challenge editing (admin panel)
+  const [editingTeamCh, setEditingTeamCh] = useState(null);
+  const [editTChForm, setEditTChForm] = useState({title:"",description:"",goal:"",goalPerDay:false,lockEnrollmentAtStart:true,startDate:"",startTime:"",endDate:"",endTime:""});
+  const [savingTCh, setSavingTCh] = useState(false);
+  const [editTChError, setEditTChError] = useState("");
+  const [confirmShortenTCh, setConfirmShortenTCh] = useState(null);
+
   const [stats, setStats] = useState(null);
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -527,6 +534,36 @@ export default function AdminPage() {
     await fetch("/api/admin/challenges", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, challengeId, status }) });
     setAllChallenges(prev => prev.map(c => c.id === challengeId ? { ...c, status } : c));
     setApprovingChallenge(null);
+  }
+
+  async function saveTeamChallengeEdit(challengeId, force = false) {
+    setSavingTCh(true); setEditTChError("");
+    const res = await fetch("/api/admin/challenges", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        password, challengeId,
+        title: editTChForm.title,
+        description: editTChForm.description,
+        goal: editTChForm.goal,
+        goalPerDay: editTChForm.goalPerDay,
+        lockEnrollmentAtStart: editTChForm.lockEnrollmentAtStart,
+        startDate: combineDateTime(editTChForm.startDate, editTChForm.startTime, false, "12:00"),
+        endDate: combineDateTime(editTChForm.endDate, editTChForm.endTime, true),
+        force,
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSavingTCh(false);
+    if (res.ok) {
+      setAllChallenges(prev => prev.map(c => c.id === challengeId ? { ...c, ...d.challenge } : c));
+      setEditingTeamCh(null);
+      setConfirmShortenTCh(null);
+    } else if (res.status === 409 && d.requiresForce) {
+      setConfirmShortenTCh(challengeId);
+    } else {
+      setEditTChError(d.error || "Failed to save.");
+    }
   }
 
   async function reviewChallengeEntry(entryId, entryAction) {
@@ -2275,6 +2312,7 @@ export default function AdminPage() {
             ) : (
               <div className="space-y-3">
                 {filteredChallengesSearched.map((c) => {
+                  const hasStarted = new Date(c.startDate) <= new Date();
                   const isActive = c.status === "approved" && new Date() < new Date(c.endDate);
                   const isEnded = c.status === "approved" && new Date() >= new Date(c.endDate);
                   const isPending = c.status === "pending";
@@ -2310,6 +2348,23 @@ export default function AdminPage() {
                             <button onClick={() => setExpandedChallengeId(isExpanded ? null : c.id)} className="text-xs px-2.5 py-1 rounded-full border border-border hover:bg-surface-raised transition-colors">
                               {isExpanded ? "Collapse" : `Participants (${c.participants.length})`}
                             </button>
+                            {editingTeamCh !== c.id && (
+                              <button onClick={() => {
+                                setEditingTeamCh(c.id);
+                                setEditTChError(""); setConfirmShortenTCh(null);
+                                setEditTChForm({
+                                  title: c.title,
+                                  description: c.description || "",
+                                  goal: c.goal != null ? String(c.goal) : "",
+                                  goalPerDay: !!c.goalPerDay,
+                                  lockEnrollmentAtStart: c.lockEnrollmentAtStart !== false,
+                                  startDate: new Date(c.startDate).toISOString().split("T")[0],
+                                  startTime: new Date(c.startDate).toISOString().slice(11,16),
+                                  endDate: new Date(c.endDate).toISOString().split("T")[0],
+                                  endTime: new Date(c.endDate).toISOString().slice(11,16),
+                                });
+                              }} className="text-xs px-2.5 py-1 rounded-full border border-signal/40 text-signal hover:bg-signal/10 transition-colors">Edit</button>
+                            )}
                             {confirmDeleteChallengeId === c.id ? (
                               <>
                                 <button onClick={() => deleteChallenge(c.id)} disabled={deletingChallengeId === c.id} className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-white disabled:opacity-50">
@@ -2327,6 +2382,57 @@ export default function AdminPage() {
                         {c.description && <p className="text-xs text-foreground-dim mt-2">{c.description}</p>}
                         {c.creator && <p className="text-xs text-foreground-dim mt-1">Created by: {c.creator.name || "Unknown"} ({c.creator.email})</p>}
                       </div>
+
+                      {/* Edit form */}
+                      {editingTeamCh === c.id && (
+                        <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+                          <p className="text-xs font-medium text-foreground-dim">Edit challenge — type, metric, and unit cannot be changed</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={editTChForm.title} onChange={e => setEditTChForm(f => ({...f, title: e.target.value}))} placeholder="Title *" className="col-span-2 px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none" />
+                            <textarea value={editTChForm.description} onChange={e => setEditTChForm(f => ({...f, description: e.target.value}))} placeholder="Description" rows={2} className="col-span-2 px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none resize-none" />
+                            <div>
+                              <label className="text-xs text-foreground-dim mb-1 block">Start date{hasStarted ? " (locked)" : ""}</label>
+                              <div className="flex gap-1">
+                                <input type="date" disabled={hasStarted} value={editTChForm.startDate} onChange={e => setEditTChForm(f => ({...f, startDate: e.target.value}))} className={"px-3 py-1.5 rounded-lg bg-background border border-border text-sm outline-none w-full " + (hasStarted ? "opacity-50 cursor-not-allowed" : "focus:border-signal")} />
+                                <input type="time" disabled={hasStarted} title="Start time (optional, defaults to noon)" value={editTChForm.startTime} onChange={e => setEditTChForm(f => ({...f, startTime: e.target.value}))} className={"px-2 py-1.5 rounded-lg bg-background border border-border text-sm outline-none w-[6rem] " + (hasStarted ? "opacity-50 cursor-not-allowed" : "focus:border-signal")} />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-xs text-foreground-dim mb-1 block">End date</label>
+                              <div className="flex gap-1">
+                                <input type="date" value={editTChForm.endDate} onChange={e => { setEditTChForm(f => ({...f, endDate: e.target.value})); setConfirmShortenTCh(null); }} className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none w-full" />
+                                <input type="time" title="End time (optional, defaults to end of day)" value={editTChForm.endTime} onChange={e => { setEditTChForm(f => ({...f, endTime: e.target.value})); setConfirmShortenTCh(null); }} className="px-2 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none w-[6rem]" />
+                              </div>
+                              {isActive && editTChForm.endDate && new Date(combineDateTime(editTChForm.endDate, editTChForm.endTime, true)) < new Date(c.endDate) && (
+                                <p className="text-xs text-amber-400 mt-0.5">⚠️ Shortening an active challenge will affect participant progress</p>
+                              )}
+                            </div>
+                            <input value={editTChForm.goal} onChange={e => setEditTChForm(f => ({...f, goal: e.target.value}))} type="number" min="0" placeholder={`Goal (${c.unit}, optional)`} className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm focus:border-signal outline-none" />
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground-dim">
+                              <input type="checkbox" checked={editTChForm.goalPerDay} onChange={e => setEditTChForm(f => ({...f, goalPerDay: e.target.checked}))} className="accent-signal" />
+                              Goal applies per day
+                            </label>
+                            <label className="col-span-2 flex items-center gap-2 cursor-pointer text-xs text-foreground-dim">
+                              <input type="checkbox" checked={editTChForm.lockEnrollmentAtStart} onChange={e => setEditTChForm(f => ({...f, lockEnrollmentAtStart: e.target.checked}))} className="accent-signal" />
+                              Lock enrollment once the challenge starts
+                            </label>
+                          </div>
+                          {editTChError && <p className="text-xs text-red-400">{editTChError}</p>}
+                          {confirmShortenTCh === c.id ? (
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-amber-400 flex-1">This shortens an active challenge. Confirm?</p>
+                              <button onClick={() => saveTeamChallengeEdit(c.id, true)} disabled={savingTCh} className="text-xs px-3 py-1.5 rounded-lg bg-amber-600 text-white disabled:opacity-50">{savingTCh ? "Saving…" : "Yes, shorten"}</button>
+                              <button onClick={() => setConfirmShortenTCh(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border">Cancel</button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <button onClick={() => saveTeamChallengeEdit(c.id)} disabled={savingTCh || !editTChForm.title} className="text-xs px-3 py-1.5 rounded-lg bg-signal text-background font-medium disabled:opacity-50">{savingTCh ? "Saving…" : "Save changes"}</button>
+                              <button onClick={() => { setEditingTeamCh(null); setEditTChError(""); setConfirmShortenTCh(null); }} className="text-xs px-3 py-1.5 rounded-lg border border-border">Cancel</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {isExpanded && (
                         <div className="border-t border-border px-4 pb-4 pt-3">
                           <p className="text-xs font-medium text-foreground-dim mb-2">Participants ({c.participants.length})</p>

@@ -1,8 +1,21 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+
+async function resolveAdminEditor(): Promise<{ userId: string; name: string }> {
+  try {
+    const session = await auth();
+    const userId = (session?.user as any)?.id;
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+      return { userId, name: user?.name || "Admin" };
+    }
+  } catch {}
+  return { userId: "admin", name: "Admin" };
+}
 
 async function rateLimited(req: NextRequest): Promise<boolean> {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -68,11 +81,100 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
-  const { password, challengeId, status } = await req.json();
+  const body = await req.json();
+  const { password, challengeId } = body;
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["approved", "rejected"].includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-  const updated = await prisma.teamChallenge.update({ where: { id: challengeId }, data: { status } });
-  return NextResponse.json({ challenge: updated });
+  if (!challengeId) return NextResponse.json({ error: "challengeId required" }, { status: 400 });
+
+  const challenge = await prisma.teamChallenge.findUnique({ where: { id: challengeId } });
+  if (!challenge) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Status-only update (approve/reject) — existing simple flow, no audit log needed for this.
+  const otherKeys = Object.keys(body).filter(k => !["password", "challengeId", "status"].includes(k));
+  if (body.status !== undefined && otherKeys.length === 0) {
+    if (!["approved", "rejected"].includes(body.status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    const updated = await prisma.teamChallenge.update({ where: { id: challengeId }, data: { status: body.status } });
+    return NextResponse.json({ challenge: updated });
+  }
+
+  // Full field edit
+  const { title, goal, goalPerDay, lockEnrollmentAtStart, startDate, endDate, description, force } = body;
+  const now = new Date();
+  const hasStarted = challenge.startDate <= now;
+  const isActive = challenge.status === "approved" && hasStarted && challenge.endDate > now;
+
+  if (startDate !== undefined && hasStarted) {
+    const newStart = new Date(startDate);
+    if (newStart.getTime() !== challenge.startDate.getTime()) {
+      return NextResponse.json({ error: "Cannot change start date — challenge has already started." }, { status: 422 });
+    }
+  }
+  if (endDate !== undefined && isActive) {
+    const newEnd = new Date(endDate);
+    if (newEnd < challenge.endDate && !force) {
+      return NextResponse.json({ error: "Shortening an active challenge will affect participant progress.", requiresForce: true }, { status: 409 });
+    }
+  }
+
+  const changes: { field: string; from: any; to: any }[] = [];
+  const data: any = {};
+
+  if (title !== undefined && title !== challenge.title) {
+    changes.push({ field: "title", from: challenge.title, to: title });
+    data.title = title;
+  }
+  if (description !== undefined && (description || null) !== challenge.description) {
+    changes.push({ field: "description", from: challenge.description ?? "", to: description ?? "" });
+    data.description = description || null;
+  }
+  if (goal !== undefined) {
+    const newGoal = goal != null && goal !== "" ? parseFloat(goal) : null;
+    if (newGoal !== challenge.goal) {
+      changes.push({ field: "goal", from: challenge.goal, to: newGoal });
+      data.goal = newGoal;
+    }
+  }
+  if (goalPerDay !== undefined && goalPerDay !== challenge.goalPerDay) {
+    changes.push({ field: "goalPerDay", from: challenge.goalPerDay, to: goalPerDay === true });
+    data.goalPerDay = goalPerDay === true;
+  }
+  if (lockEnrollmentAtStart !== undefined && lockEnrollmentAtStart !== challenge.lockEnrollmentAtStart) {
+    changes.push({ field: "lockEnrollmentAtStart", from: challenge.lockEnrollmentAtStart, to: lockEnrollmentAtStart !== false });
+    data.lockEnrollmentAtStart = lockEnrollmentAtStart !== false;
+  }
+  if (startDate !== undefined && !hasStarted) {
+    const newStart = new Date(startDate);
+    if (newStart.getTime() !== challenge.startDate.getTime()) {
+      changes.push({ field: "startDate", from: challenge.startDate.toISOString(), to: newStart.toISOString() });
+      data.startDate = newStart;
+    }
+  }
+  if (endDate !== undefined) {
+    const newEnd = new Date(endDate);
+    if (newEnd.getTime() !== challenge.endDate.getTime()) {
+      changes.push({ field: "endDate", from: challenge.endDate.toISOString(), to: newEnd.toISOString() });
+      data.endDate = newEnd;
+    }
+  }
+
+  if (changes.length === 0) return NextResponse.json({ challenge, noChanges: true });
+
+  const updated = await prisma.teamChallenge.update({ where: { id: challengeId }, data });
+
+  const { userId: editorId, name: editorName } = await resolveAdminEditor();
+  await (prisma as any).challengeEditLog.create({
+    data: {
+      challengeType: "team",
+      challengeId,
+      challengeTitle: updated.title,
+      editedBy: editorId,
+      editedByName: editorName,
+      changes,
+      notified: false,
+    },
+  });
+
+  return NextResponse.json({ challenge: updated, changes });
 }
 
 export async function DELETE(req: NextRequest) {
