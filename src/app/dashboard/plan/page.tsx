@@ -222,6 +222,9 @@ function PlanPageInner() {
         setSelRaceId(firstId);
         const firstPlan = p.find((pl: any) => pl.raceId === firstId);
         if (firstPlan) setExpandedWeeks(new Set([currentWeekNum(firstPlan)]));
+        // You can't have a race plan and a Get in Shape plan at once — if a ?start=fitness
+        // deep link opened the questionnaire before we knew a race already existed, back out.
+        setFitnessStep(0);
       }
       // Arrived from "Build a plan" on a joined race — open the add-race form pre-filled,
       // or if a plan already exists, surface the race name so we can explain why not.
@@ -229,7 +232,7 @@ function PlanPageInner() {
         fetch("/api/major-races/register").then(res => res.json()).then(rd2 => {
           const match = (rd2.registrations || []).find((reg: any) => reg.majorRaceId === joinMajorRaceId);
           if (match) setJoinMajorRace(match.majorRace);
-          if (r.length === 0) setShowAddForm(true);
+          if (r.length === 0 && !fd.plan) setShowAddForm(true);
         }).catch(() => {});
       }
     }).catch(() => {});
@@ -477,7 +480,7 @@ function PlanPageInner() {
           <h1 className="text-3xl font-semibold tracking-tight mb-1">My Plan</h1>
           <p className="text-foreground-dim text-sm">Your races and training schedule.</p>
         </div>
-        {!showAddForm && races.length === 0 && !showTwoCards && (
+        {!showAddForm && races.length === 0 && !showTwoCards && !fitnessPlan && (
           <button onClick={() => setShowAddForm(true)}
             className="px-4 py-2 rounded-full border border-signal text-signal text-sm font-medium hover:bg-signal hover:text-background transition-colors shrink-0">
             + Add race
@@ -513,10 +516,19 @@ function PlanPageInner() {
       {!showTwoCards && (
         <>
           {/* Add race form */}
-          {showAddForm && races.length === 0 && (
+          {showAddForm && races.length === 0 && !fitnessPlan && (
             <div className="mb-6">
               <NewRaceForm initialMajorRaceId={joinMajorRaceId} />
               <button onClick={() => setShowAddForm(false)} className="mt-3 text-sm text-foreground-dim hover:text-foreground">Cancel</button>
+            </div>
+          )}
+
+          {/* Can't add a race while a Get in Shape plan is active */}
+          {showAddForm && races.length === 0 && fitnessPlan && (
+            <div className="rounded-2xl border border-teal-500/30 bg-teal-500/5 p-4 mb-6">
+              <p className="text-sm font-medium">You have an active Get in Shape plan</p>
+              <p className="text-xs text-foreground-dim mt-1">You can only follow one plan at a time. Delete your fitness plan below to add a race instead.</p>
+              <button onClick={() => setShowAddForm(false)} className="mt-2 text-xs text-foreground-dim hover:text-foreground">Cancel</button>
             </div>
           )}
 
@@ -531,11 +543,19 @@ function PlanPageInner() {
           )}
 
           {/* Race empty state — only when no fitness section is taking over */}
-          {races.length === 0 && !showAddForm && fitnessStep === 0 && !generating && (
+          {races.length === 0 && !showAddForm && fitnessStep === 0 && !generating && !fitnessPlan && (
             <div className="rounded-2xl border border-border bg-surface p-10 text-center mb-8">
               <p className="font-medium mb-2">No races yet</p>
               <p className="text-sm text-foreground-dim mb-5">Add your first race to build a training plan.</p>
               <button onClick={() => setShowAddForm(true)} className="px-5 py-2.5 rounded-full bg-signal text-background text-sm font-medium">Add a race</button>
+            </div>
+          )}
+
+          {/* Have a fitness plan instead — race section is blocked, not empty */}
+          {races.length === 0 && !showAddForm && fitnessStep === 0 && !generating && fitnessPlan && (
+            <div className="rounded-2xl border border-border bg-surface p-10 text-center mb-8">
+              <p className="font-medium mb-2">You have an active Get in Shape plan</p>
+              <p className="text-sm text-foreground-dim">You can only follow one plan at a time. Delete it below to add a race instead.</p>
             </div>
           )}
 
@@ -781,7 +801,7 @@ function PlanPageInner() {
             </div>
 
             {/* Option card */}
-            {!fitnessPlan && fitnessStep === 0 && !generating && (
+            {!fitnessPlan && fitnessStep === 0 && !generating && races.length === 0 && (
               <div className="rounded-2xl border border-teal-500/40 bg-surface p-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
                 <div className="text-4xl">💪</div>
                 <div className="flex-1 min-w-0">
@@ -792,6 +812,14 @@ function PlanPageInner() {
                   className="shrink-0 px-5 py-2.5 rounded-full border border-teal-500 text-teal-400 text-sm font-medium hover:bg-teal-500/10 transition-colors">
                   Get started →
                 </button>
+              </div>
+            )}
+
+            {/* Have an active race plan instead — Get in Shape is blocked, not offered */}
+            {!fitnessPlan && fitnessStep === 0 && !generating && races.length > 0 && (
+              <div className="rounded-2xl border border-border bg-surface p-6 text-center">
+                <p className="font-medium mb-1">You have an active race plan</p>
+                <p className="text-sm text-foreground-dim">You can only follow one plan at a time. Delete your race above to build a Get in Shape plan instead.</p>
               </div>
             )}
 
