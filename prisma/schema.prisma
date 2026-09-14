@@ -72,6 +72,7 @@ model User {
   highFivesGiven   HighFive[]       @relation("HighFivesGiven")
   activityComments ActivityComment[]
   fitnessPlans     FitnessPlan[]
+  weightCheckIns   WeightCheckIn[]
   platformParticipants PlatformChallengeParticipant[]
   challengeAlerts      ChallengeAlert[]
   @@map("users")
@@ -669,9 +670,33 @@ model FitnessPlan {
   nutritionContent    Json?
   completedWorkoutIds String[] @default([])
   createdAt           DateTime @default(now())
+  // Weight-loss safety fields — only populated when goal === "Lose weight"
+  startWeightKg       Float?
+  startHeightCm       Float?
+  bmr                 Float?
+  tdee                Float?
+  dailyCalorieTarget  Int?
+  weeklyLossTargetLbs Float?
+  lastAdjustmentNote  String?
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns            WeightCheckIn[]
   @@index([userId])
   @@map("fitness_plans")
+}
+
+model WeightCheckIn {
+  id            String   @id @default(cuid())
+  fitnessPlanId String
+  userId        String
+  weightKg      Float
+  source        String   @default("manual") // manual | connected
+  severity      String   @default("none")   // none | moderate | severe
+  message       String?
+  createdAt     DateTime @default(now())
+  plan          FitnessPlan @relation(fields: [fitnessPlanId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([fitnessPlanId, createdAt])
+  @@map("weight_check_ins")
 }
 
 model PlatformChallenge {

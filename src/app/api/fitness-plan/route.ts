@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { computeCalorieTarget } from "@/lib/health/weightLoss";
 
 const anthropic = new Anthropic();
 
@@ -93,14 +94,14 @@ Rules:
   return parseModelJson(cleaned);
 }
 
-async function buildNutrition(goal: string, currentFitness: string, daysPerWeek: number): Promise<any> {
+async function buildNutrition(goal: string, currentFitness: string, daysPerWeek: number, fixedCalorieTarget?: number): Promise<any> {
   const prompt = `You are a registered dietitian providing general wellness guidance. Generate simple nutrition tips.
 
 User profile:
 - Goal: ${goal}
 - Current activity level: ${currentFitness}
 - Workout days per week: ${daysPerWeek}
-
+${fixedCalorieTarget ? `\nThis user's daily calorie target has already been calculated from their BMR/TDEE at ${fixedCalorieTarget} kcal/day for a safe ~1 lb/week loss pace. Build your tips and food guidance around that exact number — do not suggest a different calorie target.\n` : ""}
 Return ONLY valid JSON (no markdown, no extra text):
 {
   "dailyCalorieRange": "1800-2200",
@@ -147,15 +148,48 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as any).id;
 
-  const { goal, location, currentFitness, daysPerWeek, includeNutrition } = await req.json();
+  const { goal, location, currentFitness, daysPerWeek, includeNutrition, weightKg: bodyWeightKg, heightCm: bodyHeightCm } = await req.json();
   if (!goal || !location || !currentFitness || !daysPerWeek) {
     return NextResponse.json({ error: "All fields required" }, { status: 400 });
+  }
+
+  const isWeightLoss = goal === "Lose weight";
+  let weightLossFields: {
+    startWeightKg: number; startHeightCm: number; bmr: number; tdee: number;
+    dailyCalorieTarget: number; weeklyLossTargetLbs: number;
+  } | null = null;
+
+  if (isWeightLoss) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { weightKg: true, heightCm: true, sex: true, dateOfBirth: true } });
+
+    let weightKg = bodyWeightKg != null ? Number(bodyWeightKg) : user?.weightKg;
+    let heightCm = bodyHeightCm != null ? Number(bodyHeightCm) : user?.heightCm;
+
+    if (weightKg == null || heightCm == null || isNaN(weightKg) || isNaN(heightCm)) {
+      return NextResponse.json({ error: "Height and weight are required to build a weight-loss plan." }, { status: 400 });
+    }
+    if (weightKg < 10 || weightKg > 500) return NextResponse.json({ error: "Weight must be between 10 and 500 kg" }, { status: 400 });
+    if (heightCm < 50 || heightCm > 300) return NextResponse.json({ error: "Height must be between 50 and 300 cm" }, { status: 400 });
+
+    // Keep the profile in sync if the user just entered fresh numbers in the questionnaire gate.
+    const profileUpdate: any = {};
+    if (bodyWeightKg != null) profileUpdate.weightKg = weightKg;
+    if (bodyHeightCm != null) profileUpdate.heightCm = heightCm;
+    if (Object.keys(profileUpdate).length > 0) {
+      await prisma.user.update({ where: { id: userId }, data: profileUpdate });
+    }
+
+    const { bmr, tdee, dailyCalorieTarget, weeklyLossTargetLbs } = computeCalorieTarget({
+      weightKg, heightCm, dateOfBirth: user?.dateOfBirth, sex: user?.sex, currentFitness,
+    });
+
+    weightLossFields = { startWeightKg: weightKg, startHeightCm: heightCm, bmr, tdee, dailyCalorieTarget, weeklyLossTargetLbs };
   }
 
   try {
     const tasks: [Promise<any>, Promise<any> | null] = [
       buildPlan(goal, location, currentFitness, Number(daysPerWeek)),
-      includeNutrition ? buildNutrition(goal, currentFitness, Number(daysPerWeek)) : null,
+      includeNutrition ? buildNutrition(goal, currentFitness, Number(daysPerWeek), weightLossFields?.dailyCalorieTarget) : null,
     ];
 
     const [planContent, nutritionContent] = await Promise.all(tasks);
@@ -169,6 +203,7 @@ export async function POST(req: Request) {
         daysPerWeek: Number(daysPerWeek),
         planContent,
         nutritionContent: nutritionContent ?? undefined,
+        ...(weightLossFields ?? {}),
       },
     });
 

@@ -2,6 +2,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { NewRaceForm } from "@/components/NewRaceForm";
+import { WeightLossDisclaimer } from "@/components/WeightLossDisclaimer";
+import { WeightLossTracker } from "@/components/WeightLossTracker";
 
 // ── Race plan constants ───────────────────────────────────────
 const TYPE_COLORS: Record<string, string> = {
@@ -175,12 +177,29 @@ function PlanPageInner() {
   const [confirmDelFit, setConfirmDelFit] = useState(false);
   const [deletingFit, setDeletingFit] = useState(false);
 
+  // Weight-loss body-metrics gate (only shown when goal === "Lose weight" and the profile
+  // doesn't already have both values — see AGENTS request for the blocking data requirement)
+  const [profileBody, setProfileBody] = useState<{ weightKg: number | null; heightCm: number | null } | null>(null);
+  const [syncedWeight, setSyncedWeight] = useState<{ weightKg: number; date: string } | null>(null);
+  const [bodyWeightLbs, setBodyWeightLbs] = useState("");
+  const [bodyHeightFt, setBodyHeightFt] = useState("");
+  const [bodyHeightIn, setBodyHeightIn] = useState("");
+
   const joinMajorRaceId = searchParams.get("majorRaceId");
   const [joinMajorRace, setJoinMajorRace] = useState<any>(null);
 
   useEffect(() => {
     if (searchParams.get("start") === "fitness") setFitnessStep(1);
   }, [searchParams]);
+
+  useEffect(() => {
+    fetch("/api/profile").then(r => r.json()).then(d => {
+      setProfileBody({ weightKg: d.user?.weightKg ?? null, heightCm: d.user?.heightCm ?? null });
+    }).catch(() => setProfileBody({ weightKg: null, heightCm: null }));
+    fetch("/api/health/latest-weight").then(r => r.json()).then(d => {
+      if (d.weightKg != null) setSyncedWeight({ weightKg: d.weightKg, date: d.date });
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -312,10 +331,15 @@ function PlanPageInner() {
     setGenerating(true);
     setFitnessErr("");
     try {
+      const payload: any = { ...fitnessAns, includeNutrition: wantsNutrition };
+      if (fitnessAns.goal === "Lose weight" && bodyWeightLbs && bodyMetricsTotalIn > 0) {
+        payload.weightKg = parseFloat(bodyWeightLbs) / 2.20462;
+        payload.heightCm = bodyMetricsTotalIn * 2.54;
+      }
       const res = await fetch("/api/fitness-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...fitnessAns, includeNutrition: wantsNutrition }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -326,6 +350,7 @@ function PlanPageInner() {
       setFitnessStep(0);
       setFitnessTab("workout");
       setFitExpWeeks(new Set([1]));
+      setBodyWeightLbs(""); setBodyHeightFt(""); setBodyHeightIn("");
     } catch (e: any) {
       setFitnessErr(e?.message && e.message !== "failed" ? e.message : "Something went wrong. Please try again.");
       setFitnessStep(5);
@@ -385,6 +410,16 @@ function PlanPageInner() {
       setLogged(new Set());
     } catch {}
     setDeletingFit(false);
+  }
+
+  const needsBodyMetrics = fitnessAns.goal === "Lose weight" && !(profileBody?.weightKg && profileBody?.heightCm);
+  const bodyMetricsTotalIn = parseInt(bodyHeightFt || "0") * 12 + parseInt(bodyHeightIn || "0");
+  const bodyMetricsValid = !!bodyWeightLbs && parseFloat(bodyWeightLbs) > 0 && bodyMetricsTotalIn > 0;
+  const fitnessDotTotal = needsBodyMetrics ? 6 : 5;
+  function fitnessDotIndex(step: number) {
+    if (step <= 4) return step;
+    if (step === 4.5) return 5;
+    return needsBodyMetrics ? 6 : 5; // step 5
   }
 
   if (loading) return (
@@ -738,8 +773,8 @@ function PlanPageInner() {
               <div className="rounded-2xl border border-teal-500/40 bg-surface p-6">
                 {/* Step indicator */}
                 <div className="flex items-center gap-1.5 mb-5">
-                  {[1, 2, 3, 4, 5].map(s => (
-                    <div key={s} className={"h-1 flex-1 rounded-full transition-colors " + (s <= fitnessStep ? "bg-teal-500" : "bg-border")} />
+                  {Array.from({ length: fitnessDotTotal }, (_, i) => i + 1).map(s => (
+                    <div key={s} className={"h-1 flex-1 rounded-full transition-colors " + (s <= fitnessDotIndex(fitnessStep) ? "bg-teal-500" : "bg-border")} />
                   ))}
                 </div>
 
@@ -747,7 +782,7 @@ function PlanPageInner() {
                 {fitnessStep === 1 && (
                   <div>
                     <p className="font-semibold mb-1">What's your main goal?</p>
-                    <p className="text-sm text-foreground-dim mb-4">Step 1 of 5</p>
+                    <p className="text-sm text-foreground-dim mb-4">Step 1 of {fitnessDotTotal}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {Q1.map(({ v, i }) => (
                         <button key={v} onClick={() => { setFitnessAns(a => ({ ...a, goal: v })); setFitnessStep(2); }}
@@ -764,7 +799,7 @@ function PlanPageInner() {
                 {fitnessStep === 2 && (
                   <div>
                     <p className="font-semibold mb-1">Where do you work out?</p>
-                    <p className="text-sm text-foreground-dim mb-4">Step 2 of 5</p>
+                    <p className="text-sm text-foreground-dim mb-4">Step 2 of {fitnessDotTotal}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {Q2.map(({ v, i }) => (
                         <button key={v} onClick={() => { setFitnessAns(a => ({ ...a, location: v })); setFitnessStep(3); }}
@@ -781,7 +816,7 @@ function PlanPageInner() {
                 {fitnessStep === 3 && (
                   <div>
                     <p className="font-semibold mb-1">How active are you right now?</p>
-                    <p className="text-sm text-foreground-dim mb-4">Step 3 of 5</p>
+                    <p className="text-sm text-foreground-dim mb-4">Step 3 of {fitnessDotTotal}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {Q3.map(({ v, i }) => (
                         <button key={v} onClick={() => { setFitnessAns(a => ({ ...a, currentFitness: v })); setFitnessStep(4); }}
@@ -798,10 +833,10 @@ function PlanPageInner() {
                 {fitnessStep === 4 && (
                   <div>
                     <p className="font-semibold mb-1">How many days per week can you commit?</p>
-                    <p className="text-sm text-foreground-dim mb-4">Step 4 of 5</p>
+                    <p className="text-sm text-foreground-dim mb-4">Step 4 of {fitnessDotTotal}</p>
                     <div className="grid grid-cols-4 gap-2">
                       {Q4.map(d => (
-                        <button key={d} onClick={() => { setFitnessAns(a => ({ ...a, daysPerWeek: d })); setFitnessStep(5); }}
+                        <button key={d} onClick={() => { setFitnessAns(a => ({ ...a, daysPerWeek: d })); setFitnessStep(needsBodyMetrics ? 4.5 : 5); }}
                           className="py-4 rounded-xl border border-border hover:border-teal-500 hover:bg-teal-500/5 text-center font-semibold text-lg transition-colors">
                           {d}
                           <span className="block text-xs font-normal text-foreground-dim mt-0.5">days</span>
@@ -812,11 +847,56 @@ function PlanPageInner() {
                   </div>
                 )}
 
+                {/* Step 4.5: Body metrics (weight-loss goal only, blocking) */}
+                {fitnessStep === 4.5 && (
+                  <div>
+                    <p className="font-semibold mb-1">What's your current weight and height?</p>
+                    <p className="text-sm text-foreground-dim mb-4">Step 5 of {fitnessDotTotal} · Needed to calculate a safe calorie target for your plan.</p>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs text-foreground-dim mb-1.5 block">Weight</label>
+                        <div className="flex items-center gap-2">
+                          <input type="number" placeholder="175" value={bodyWeightLbs} onChange={e => setBodyWeightLbs(e.target.value)}
+                            className="w-32 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
+                          <span className="text-sm text-foreground-dim">lbs</span>
+                        </div>
+                        {syncedWeight && (
+                          <button onClick={() => setBodyWeightLbs(Math.round(syncedWeight.weightKg * 2.20462).toString())}
+                            className="text-xs text-signal hover:underline mt-1.5 block">
+                            Use synced weight from your connected health app: {Math.round(syncedWeight.weightKg * 2.20462)} lbs
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs text-foreground-dim mb-1.5 block">Height</label>
+                        <div className="flex items-center gap-2">
+                          <input type="number" placeholder="5" value={bodyHeightFt} onChange={e => setBodyHeightFt(e.target.value)}
+                            className="w-20 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
+                          <span className="text-sm text-foreground-dim">ft</span>
+                          <input type="number" placeholder="10" min="0" max="11" value={bodyHeightIn} onChange={e => setBodyHeightIn(e.target.value)}
+                            className="w-20 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
+                          <span className="text-sm text-foreground-dim">in</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-5">
+                      <button onClick={() => setFitnessStep(5)} disabled={!bodyMetricsValid}
+                        className="px-5 py-2.5 rounded-full bg-teal-500 text-background text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+                        Continue →
+                      </button>
+                    </div>
+                    <button onClick={() => setFitnessStep(4)} className="mt-4 text-xs text-foreground-dim hover:text-foreground">← Back</button>
+                  </div>
+                )}
+
                 {/* Step 5: Nutrition */}
                 {fitnessStep === 5 && (
                   <div>
                     <p className="font-semibold mb-1">Would you like simple nutrition tips?</p>
-                    <p className="text-sm text-foreground-dim mb-4">Step 5 of 5 · Claude will add a personalised nutrition guide alongside your workout plan.</p>
+                    <p className="text-sm text-foreground-dim mb-4">Step {fitnessDotTotal} of {fitnessDotTotal} · Claude will add a personalised nutrition guide alongside your workout plan.</p>
+                    {fitnessAns.goal === "Lose weight" && (
+                      <div className="mb-4"><WeightLossDisclaimer /></div>
+                    )}
                     {fitnessErr && <p className="text-sm text-red-400 mb-3">{fitnessErr}</p>}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button onClick={() => startGenerating(true)}
@@ -832,7 +912,7 @@ function PlanPageInner() {
                         <span className="text-xs text-foreground-dim mt-0.5">Workout plan only — you can always start over to add it later</span>
                       </button>
                     </div>
-                    <button onClick={() => setFitnessStep(4)} className="mt-4 text-xs text-foreground-dim hover:text-foreground">← Back</button>
+                    <button onClick={() => setFitnessStep(needsBodyMetrics ? 4.5 : 4)} className="mt-4 text-xs text-foreground-dim hover:text-foreground">← Back</button>
                   </div>
                 )}
               </div>
@@ -850,6 +930,12 @@ function PlanPageInner() {
             {/* Plan display */}
             {fitnessPlan && !generating && (
               <div>
+                {fitnessPlan.goal === "Lose weight" && (
+                  <div className="mb-4 space-y-4">
+                    <WeightLossDisclaimer />
+                    <WeightLossTracker plan={fitnessPlan} onPlanUpdate={updated => setFitnessPlan((prev: any) => ({ ...prev, ...updated }))} />
+                  </div>
+                )}
                 {/* Tabs */}
                 <div className="flex gap-0 mb-5 border-b border-border">
                   <button onClick={() => setFitnessTab("workout")}
@@ -1005,8 +1091,11 @@ function PlanPageInner() {
                     {/* Daily targets */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl border border-border bg-surface p-4 text-center">
-                        <p className="text-2xl font-bold text-teal-400">{nutrition.dailyCalorieRange}</p>
+                        <p className="text-2xl font-bold text-teal-400">{fitnessPlan.dailyCalorieTarget ?? nutrition.dailyCalorieRange}</p>
                         <p className="text-xs text-foreground-dim mt-1">kcal / day</p>
+                        {fitnessPlan.dailyCalorieTarget != null && (
+                          <p className="text-[10px] text-foreground-dim mt-1">Calculated from your BMR/TDEE for a safe ~1 lb/week pace</p>
+                        )}
                       </div>
                       <div className="rounded-2xl border border-border bg-surface p-4 text-center">
                         <p className="text-2xl font-bold text-teal-400">{nutrition.proteinTargetG}g</p>
