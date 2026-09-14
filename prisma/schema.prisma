@@ -598,6 +598,19 @@ model Setting {
   @@map("settings")
 }
 
+// Backs the admin-panel rate limiter (src/lib/rateLimit.ts) in Postgres instead of in-memory,
+// so it holds up across Vercel's serverless instances/cold starts, with an escalating lockout
+// for repeat offenders instead of a flat "wait out the window and try again".
+model AdminAuthAttempt {
+  key         String    @id // e.g. "admin:<ip>" — same shape as the old in-memory key
+  count       Int       @default(0)
+  windowStart DateTime  @default(now())
+  strikes     Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+  @@map("admin_auth_attempts")
+}
+
 model SupportTicket {
   id            String   @id @default(cuid())
   userId        String

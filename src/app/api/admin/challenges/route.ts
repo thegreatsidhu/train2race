@@ -4,13 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
 
-function rateLimited(req: NextRequest): boolean {
+async function rateLimited(req: NextRequest): Promise<boolean> {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
-  return !checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000);
+  return !(await checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000));
 }
 
 export async function GET(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const password = req.nextUrl.searchParams.get("password") || "";
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, challengeId, status } = await req.json();
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["approved", "rejected"].includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, challengeId } = await req.json();
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!challengeId) return NextResponse.json({ error: "challengeId required" }, { status: 400 });
@@ -86,7 +86,7 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const body = await req.json();
   const { password, action, challengeId, userId } = body;
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

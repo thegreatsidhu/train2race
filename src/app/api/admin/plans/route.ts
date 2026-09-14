@@ -4,13 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { isAdminAuthorized } from "@/lib/adminAuth";
 import { checkRateLimit } from "@/lib/rateLimit";
 
-function rateLimited(req: NextRequest) {
+async function rateLimited(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
-  return !checkRateLimit(`admin:${ip}`, 30, 15 * 60 * 1000);
+  return !(await checkRateLimit(`admin:${ip}`, 30, 15 * 60 * 1000));
 }
 
 export async function GET(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   const { searchParams } = new URL(req.url);
   const password = searchParams.get("password") || "";
   const userId = searchParams.get("userId") || "";
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   const body = await req.json();
   const { password, action } = body;
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

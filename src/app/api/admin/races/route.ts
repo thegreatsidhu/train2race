@@ -5,13 +5,13 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
 import { discoverRacesFromRunSignup, clearPendingRunSignupRaces } from "@/lib/raceDiscovery";
 
-function rateLimited(req: NextRequest): boolean {
+async function rateLimited(req: NextRequest): Promise<boolean> {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
-  return !checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000);
+  return !(await checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000));
 }
 
 export async function GET(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { searchParams } = new URL(req.url);
   if (!(await isAdminAuthorized(searchParams.get("password") || ""))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const [pending, active] = await Promise.all([
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const body = await req.json();
   const { password, raceId, action, name, city, country, raceDate, distanceM, website, isTriathlon, sport, series } = body;
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, raceId, name, city, country, raceDate, distanceM, website, isTriathlon } = await req.json();
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const data: any = {};
@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  if (await rateLimited(req)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   const { password, raceId } = await req.json();
   if (!(await isAdminAuthorized(password))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await prisma.majorRace.delete({ where: { id: raceId } });

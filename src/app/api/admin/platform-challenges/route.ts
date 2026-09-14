@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const superAdmin = await isAdminAuthorized();
   if (!superAdmin) {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(`admin-pch:${ip}`, 10, 15 * 60 * 1000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    if (!(await checkRateLimit(`admin-pch:${ip}`, 10, 15 * 60 * 1000))) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     const valid = await isAdminAuthorized(password);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
   const superAdmin = await isAdminAuthorized();
   if (!superAdmin) {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(`admin-pch:${ip}`, 10, 15 * 60 * 1000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    if (!(await checkRateLimit(`admin-pch:${ip}`, 10, 15 * 60 * 1000))) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     const valid = await isAdminAuthorized(password);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

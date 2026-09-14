@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const adminCheck = await isSuperAdmin();
   if (!adminCheck.ok) {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(`admin-pch-edit:${ip}`, 10, 15 * 60 * 1000)) {
+    if (!(await checkRateLimit(`admin-pch-edit:${ip}`, 10, 15 * 60 * 1000))) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
     const valid = await verifyAdminPassword(password ?? "");
@@ -161,7 +161,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const adminCheck = await isSuperAdmin();
   if (!adminCheck.ok) {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(`admin-pch-log:${ip}`, 20, 15 * 60 * 1000)) {
+    if (!(await checkRateLimit(`admin-pch-log:${ip}`, 20, 15 * 60 * 1000))) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
     const valid = await verifyAdminPassword(password);

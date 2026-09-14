@@ -6,7 +6,7 @@ import { syncConnection } from "@/lib/sync/engine";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
-  if (!checkRateLimit(`admin-sync:${ip}`, 30, 60 * 1000)) {
+  if (!(await checkRateLimit(`admin-sync:${ip}`, 30, 60 * 1000))) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
   const { password, connectionId } = await req.json();

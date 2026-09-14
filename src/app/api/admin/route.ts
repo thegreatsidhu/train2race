@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
 
 export async function POST(req: Request) {
@@ -12,9 +12,10 @@ export async function POST(req: Request) {
   const superAdmin = await isAdminAuthorized();
   if (!superAdmin) {
     const ip = (req as any).headers?.get?.("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000)) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    if (!(await checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000))) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
     const valid = await isAdminAuthorized(password);
     if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await clearRateLimit(`admin:${ip}`);
   }
   if (action === "getData") {
     try {
