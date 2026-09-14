@@ -144,6 +144,11 @@ export default function AdminPage() {
   const [creatingUser, setCreatingUser] = useState(false);
   const [createUserMsg, setCreateUserMsg] = useState({ text: "", ok: false });
 
+  // Approvals tab — approve-all across categories (excludes invite code requests, which send
+  // an email per request and stay individually reviewed)
+  const [confirmApproveAll, setConfirmApproveAll] = useState(false);
+  const [approvingAll, setApprovingAll] = useState(false);
+
   // Race management
   const [allRaces, setAllRaces] = useState([]);
   const [allRacesLoaded, setAllRacesLoaded] = useState(false);
@@ -763,6 +768,21 @@ export default function AdminPage() {
     }
   }
 
+  // Approves every pending item across the Approvals tab in one go — team logos, team
+  // challenges, community requests, and race submissions. Invite code requests are excluded
+  // since fulfilling one sends an email to a specific person and deserves individual review.
+  async function approveAllPending() {
+    setApprovingAll(true);
+    await Promise.all([
+      ...pendingTeamLogos.map(t => reviewTeamLogo(t.id, "approve")),
+      ...pendingTeamChallenges.map(c => approveChallenge(c.id, "approved")),
+      ...pendingCommRequests.map(r => approveRequest(r.id)),
+      ...pendingRacesList.map(r => approveRace(r.id, "approve")),
+    ]);
+    setApprovingAll(false);
+    setConfirmApproveAll(false);
+  }
+
   async function rejectRequest(id) {
     setRejectingReqId(id);
     await fetch("/api/admin/community-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "reject" }) });
@@ -1027,6 +1047,7 @@ export default function AdminPage() {
   const pendingCommRequests = commRequests.filter(r => r.status === "pending");
   const pendingInviteReqs = inviteRequests.filter(r => r.status === "pending");
   const totalPendingApprovals = pendingRacesList.length + pendingTeamChallenges.length + pendingTeamLogos.length + pendingCommRequests.length + pendingInviteReqs.length;
+  const bulkApprovableCount = pendingRacesList.length + pendingTeamChallenges.length + pendingTeamLogos.length + pendingCommRequests.length;
 
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
@@ -1137,8 +1158,28 @@ export default function AdminPage() {
 
         {activeTab === "approvals" && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="font-medium">Approvals {totalPendingApprovals > 0 && <span className="text-foreground-dim font-normal">({totalPendingApprovals} pending)</span>}</h2>
+              {bulkApprovableCount > 0 && (
+                confirmApproveAll ? (
+                  <div className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 px-4 py-2.5 flex items-center gap-3 flex-wrap">
+                    <p className="text-xs text-yellow-200">
+                      Approve all {bulkApprovableCount} item{bulkApprovableCount !== 1 ? "s" : ""} below? Invite code requests aren't included — those send an email and stay reviewed individually.
+                    </p>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={approveAllPending} disabled={approvingAll}
+                        className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium disabled:opacity-50">
+                        {approvingAll ? "Approving…" : "Confirm"}
+                      </button>
+                      <button onClick={() => setConfirmApproveAll(false)} disabled={approvingAll} className="px-3 py-1.5 rounded-full border border-border text-xs">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmApproveAll(true)} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs font-medium">
+                    Approve All ({bulkApprovableCount})
+                  </button>
+                )
+              )}
             </div>
             {totalPendingApprovals === 0 ? (
               <p className="text-sm text-foreground-dim">🎉 Nothing waiting on you right now.</p>
