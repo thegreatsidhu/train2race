@@ -678,6 +678,12 @@ model FitnessPlan {
   dailyCalorieTarget  Int?
   weeklyLossTargetLbs Float?
   lastAdjustmentNote  String?
+  // Optional user-chosen goal — lets someone target a faster-than-default pace while we
+  // still surface whether that pace is considered safe (see evaluateGoalPace)
+  targetWeightKg      Float?
+  targetDate          DateTime?
+  paceSafety          String?  // safe | aggressive | unsafe
+  paceSafetyMessage   String?
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   checkIns            WeightCheckIn[]
   @@index([userId])

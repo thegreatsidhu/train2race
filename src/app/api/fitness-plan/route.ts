@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { computeCalorieTarget } from "@/lib/health/weightLoss";
+import { computeCalorieTarget, evaluateGoalPace } from "@/lib/health/weightLoss";
 
 const anthropic = new Anthropic();
 
@@ -94,14 +94,14 @@ Rules:
   return parseModelJson(cleaned);
 }
 
-async function buildNutrition(goal: string, currentFitness: string, daysPerWeek: number, fixedCalorieTarget?: number): Promise<any> {
+async function buildNutrition(goal: string, currentFitness: string, daysPerWeek: number, fixedCalorieTarget?: number, weeklyLossTargetLbs?: number): Promise<any> {
   const prompt = `You are a registered dietitian providing general wellness guidance. Generate simple nutrition tips.
 
 User profile:
 - Goal: ${goal}
 - Current activity level: ${currentFitness}
 - Workout days per week: ${daysPerWeek}
-${fixedCalorieTarget ? `\nThis user's daily calorie target has already been calculated from their BMR/TDEE at ${fixedCalorieTarget} kcal/day for a safe ~1 lb/week loss pace. Build your tips and food guidance around that exact number — do not suggest a different calorie target.\n` : ""}
+${fixedCalorieTarget ? `\nThis user's daily calorie target has already been calculated from their BMR/TDEE at ${fixedCalorieTarget} kcal/day for a ~${weeklyLossTargetLbs ?? 1} lb/week loss pace. Build your tips and food guidance around that exact number — do not suggest a different calorie target.\n` : ""}
 Return ONLY valid JSON (no markdown, no extra text):
 {
   "dailyCalorieRange": "1800-2200",
@@ -148,7 +148,11 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as any).id;
 
-  const { goal, location, currentFitness, daysPerWeek, includeNutrition, weightKg: bodyWeightKg, heightCm: bodyHeightCm } = await req.json();
+  const {
+    goal, location, currentFitness, daysPerWeek, includeNutrition,
+    weightKg: bodyWeightKg, heightCm: bodyHeightCm,
+    targetWeightKg: rawTargetWeightKg, targetDate: rawTargetDate,
+  } = await req.json();
   if (!goal || !location || !currentFitness || !daysPerWeek) {
     return NextResponse.json({ error: "All fields required" }, { status: 400 });
   }
@@ -157,6 +161,7 @@ export async function POST(req: Request) {
   let weightLossFields: {
     startWeightKg: number; startHeightCm: number; bmr: number; tdee: number;
     dailyCalorieTarget: number; weeklyLossTargetLbs: number;
+    targetWeightKg?: number; targetDate?: Date; paceSafety?: string; paceSafetyMessage?: string | null;
   } | null = null;
 
   if (isWeightLoss) {
@@ -179,17 +184,51 @@ export async function POST(req: Request) {
       await prisma.user.update({ where: { id: userId }, data: profileUpdate });
     }
 
+    // Optional user-chosen goal (target weight + date) — lets someone target a faster-than-
+    // default pace. We still cap the actual deficit at a safe floor and surface whether the
+    // requested pace is safe, but we don't block on it — only the weight/height gate blocks.
+    let desiredWeeklyLossLbs: number | undefined;
+    let targetWeightKg: number | undefined;
+    let targetDate: Date | undefined;
+    let paceSafety: string | undefined;
+    let paceSafetyMessage: string | null | undefined;
+
+    if (rawTargetWeightKg != null && rawTargetDate) {
+      const tw = Number(rawTargetWeightKg);
+      const td = new Date(rawTargetDate);
+      if (!isNaN(tw) && tw > 0 && tw < weightKg && !isNaN(td.getTime())) {
+        const pace = evaluateGoalPace({ startWeightKg: weightKg, targetWeightKg: tw, targetDate: td });
+        desiredWeeklyLossLbs = pace.impliedWeeklyLossLbs;
+        targetWeightKg = tw;
+        targetDate = td;
+        paceSafety = pace.safety;
+        paceSafetyMessage = pace.message;
+      }
+    }
+
     const { bmr, tdee, dailyCalorieTarget, weeklyLossTargetLbs } = computeCalorieTarget({
-      weightKg, heightCm, dateOfBirth: user?.dateOfBirth, sex: user?.sex, currentFitness,
+      weightKg, heightCm, dateOfBirth: user?.dateOfBirth, sex: user?.sex, currentFitness, desiredWeeklyLossLbs,
     });
 
-    weightLossFields = { startWeightKg: weightKg, startHeightCm: heightCm, bmr, tdee, dailyCalorieTarget, weeklyLossTargetLbs };
+    // If the calorie floor capped the deficit below what the goal actually needs, say so —
+    // otherwise the pace-safety message (based on the requested pace) would overstate what
+    // the plan can actually deliver via diet alone.
+    if (desiredWeeklyLossLbs != null && weeklyLossTargetLbs < desiredWeeklyLossLbs - 0.15) {
+      const cappedNote = `Note: to stay at a safe minimum calorie intake, your plan is actually set up for about ${weeklyLossTargetLbs} lb/week rather than the ${desiredWeeklyLossLbs} lb/week this goal would need — you may not reach your target by this date through diet alone.`;
+      paceSafetyMessage = paceSafetyMessage ? `${paceSafetyMessage} ${cappedNote}` : cappedNote;
+      if (paceSafety === "safe" || !paceSafety) paceSafety = "aggressive";
+    }
+
+    weightLossFields = {
+      startWeightKg: weightKg, startHeightCm: heightCm, bmr, tdee, dailyCalorieTarget, weeklyLossTargetLbs,
+      targetWeightKg, targetDate, paceSafety, paceSafetyMessage,
+    };
   }
 
   try {
     const tasks: [Promise<any>, Promise<any> | null] = [
       buildPlan(goal, location, currentFitness, Number(daysPerWeek)),
-      includeNutrition ? buildNutrition(goal, currentFitness, Number(daysPerWeek), weightLossFields?.dailyCalorieTarget) : null,
+      includeNutrition ? buildNutrition(goal, currentFitness, Number(daysPerWeek), weightLossFields?.dailyCalorieTarget, weightLossFields?.weeklyLossTargetLbs) : null,
     ];
 
     const [planContent, nutritionContent] = await Promise.all(tasks);

@@ -21,6 +21,10 @@ interface Plan {
   weeklyLossTargetLbs: number | null;
   lastAdjustmentNote: string | null;
   createdAt: string;
+  targetWeightKg?: number | null;
+  targetDate?: string | null;
+  paceSafety?: "safe" | "aggressive" | "unsafe" | null;
+  paceSafetyMessage?: string | null;
 }
 
 function daysSince(dateStr: string) {
@@ -113,10 +117,29 @@ export function WeightLossTracker({ plan, onPlanUpdate }: { plan: Plan; onPlanUp
           <p className="text-lg font-semibold">{plan.dailyCalorieTarget ? `${plan.dailyCalorieTarget}` : "—"} <span className="text-xs font-normal text-foreground-dim">kcal/day</span></p>
         </div>
         <div>
-          <p className="text-xs text-foreground-dim">Target pace</p>
-          <p className="text-lg font-semibold">~{plan.weeklyLossTargetLbs ?? 1} <span className="text-xs font-normal text-foreground-dim">lb/wk (max 1-2)</span></p>
+          <p className="text-xs text-foreground-dim">Pace</p>
+          <p className="text-lg font-semibold">~{plan.weeklyLossTargetLbs ?? 1} <span className="text-xs font-normal text-foreground-dim">lb/wk{plan.paceSafety && plan.paceSafety !== "safe" ? " (your goal)" : " (max 1-2)"}</span></p>
         </div>
+        {plan.targetWeightKg != null && (
+          <div>
+            <p className="text-xs text-foreground-dim">Goal</p>
+            <p className="text-lg font-semibold">{kgToLbs(plan.targetWeightKg)} lb {plan.targetDate ? <span className="text-xs font-normal text-foreground-dim">by {fmtDate(plan.targetDate)}</span> : null}</p>
+          </div>
+        )}
       </div>
+
+      {plan.paceSafety === "unsafe" && plan.paceSafetyMessage && (
+        <div className="rounded-xl border-2 border-alert/60 bg-alert/15 p-3 mb-3">
+          <p className="text-sm font-semibold text-alert">⚠️ This goal isn't considered safe</p>
+          <p className="text-xs text-foreground mt-1 leading-relaxed">{plan.paceSafetyMessage}</p>
+        </div>
+      )}
+      {plan.paceSafety === "aggressive" && plan.paceSafetyMessage && (
+        <div className="rounded-xl border border-amber-600/50 bg-amber-900/15 p-3 mb-3">
+          <p className="text-sm font-semibold text-amber-400">This goal is faster than recommended</p>
+          <p className="text-xs text-foreground-dim mt-1 leading-relaxed">{plan.paceSafetyMessage}</p>
+        </div>
+      )}
 
       {plan.lastAdjustmentNote && (
         <div className="rounded-xl border border-signal/30 bg-signal/5 p-3 mb-3">

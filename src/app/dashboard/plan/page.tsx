@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { NewRaceForm } from "@/components/NewRaceForm";
 import { WeightLossDisclaimer } from "@/components/WeightLossDisclaimer";
 import { WeightLossTracker } from "@/components/WeightLossTracker";
+import { evaluateGoalPace } from "@/lib/health/weightLoss";
 
 // ── Race plan constants ───────────────────────────────────────
 const TYPE_COLORS: Record<string, string> = {
@@ -184,6 +185,8 @@ function PlanPageInner() {
   const [bodyWeightLbs, setBodyWeightLbs] = useState("");
   const [bodyHeightFt, setBodyHeightFt] = useState("");
   const [bodyHeightIn, setBodyHeightIn] = useState("");
+  const [targetWeightLbs, setTargetWeightLbs] = useState("");
+  const [targetDateStr, setTargetDateStr] = useState("");
 
   const joinMajorRaceId = searchParams.get("majorRaceId");
   const [joinMajorRace, setJoinMajorRace] = useState<any>(null);
@@ -332,9 +335,16 @@ function PlanPageInner() {
     setFitnessErr("");
     try {
       const payload: any = { ...fitnessAns, includeNutrition: wantsNutrition };
-      if (fitnessAns.goal === "Lose weight" && bodyWeightLbs && bodyMetricsTotalIn > 0) {
-        payload.weightKg = parseFloat(bodyWeightLbs) / 2.20462;
-        payload.heightCm = bodyMetricsTotalIn * 2.54;
+      if (fitnessAns.goal === "Lose weight") {
+        if (bodyWeightLbs && bodyMetricsTotalIn > 0) {
+          payload.weightKg = parseFloat(bodyWeightLbs) / 2.20462;
+          payload.heightCm = bodyMetricsTotalIn * 2.54;
+        }
+        const tw = parseFloat(targetWeightLbs);
+        if (targetWeightLbs && tw > 0 && targetDateStr) {
+          payload.targetWeightKg = tw / 2.20462;
+          payload.targetDate = targetDateStr;
+        }
       }
       const res = await fetch("/api/fitness-plan", {
         method: "POST",
@@ -350,7 +360,7 @@ function PlanPageInner() {
       setFitnessStep(0);
       setFitnessTab("workout");
       setFitExpWeeks(new Set([1]));
-      setBodyWeightLbs(""); setBodyHeightFt(""); setBodyHeightIn("");
+      setBodyWeightLbs(""); setBodyHeightFt(""); setBodyHeightIn(""); setTargetWeightLbs(""); setTargetDateStr("");
     } catch (e: any) {
       setFitnessErr(e?.message && e.message !== "failed" ? e.message : "Something went wrong. Please try again.");
       setFitnessStep(5);
@@ -412,14 +422,31 @@ function PlanPageInner() {
     setDeletingFit(false);
   }
 
-  const needsBodyMetrics = fitnessAns.goal === "Lose weight" && !(profileBody?.weightKg && profileBody?.heightCm);
+  const isWeightLossGoal = fitnessAns.goal === "Lose weight";
+  const needsBodyMetrics = isWeightLossGoal && !(profileBody?.weightKg && profileBody?.heightCm);
   const bodyMetricsTotalIn = parseInt(bodyHeightFt || "0") * 12 + parseInt(bodyHeightIn || "0");
   const bodyMetricsValid = !!bodyWeightLbs && parseFloat(bodyWeightLbs) > 0 && bodyMetricsTotalIn > 0;
-  const fitnessDotTotal = needsBodyMetrics ? 6 : 5;
+  const fitnessDotTotal = isWeightLossGoal ? 6 : 5;
   function fitnessDotIndex(step: number) {
     if (step <= 4) return step;
     if (step === 4.5) return 5;
-    return needsBodyMetrics ? 6 : 5; // step 5
+    return isWeightLossGoal ? 6 : 5; // step 5
+  }
+
+  // Live preview of the pace implied by an optional target weight + date, so the user sees
+  // whether their goal is considered safe before generating the plan (never blocks — see
+  // evaluateGoalPace / the moderate+severe check-in warnings for the ongoing-plan version).
+  const currentWeightLbsForPace = bodyWeightLbs ? parseFloat(bodyWeightLbs) : (profileBody?.weightKg ? profileBody.weightKg * 2.20462 : null);
+  let goalPacePreview: ReturnType<typeof evaluateGoalPace> | null = null;
+  if (currentWeightLbsForPace && targetWeightLbs && targetDateStr) {
+    const tw = parseFloat(targetWeightLbs);
+    if (tw > 0 && tw < currentWeightLbsForPace) {
+      goalPacePreview = evaluateGoalPace({
+        startWeightKg: currentWeightLbsForPace / 2.20462,
+        targetWeightKg: tw / 2.20462,
+        targetDate: targetDateStr,
+      });
+    }
   }
 
   if (loading) return (
@@ -836,7 +863,7 @@ function PlanPageInner() {
                     <p className="text-sm text-foreground-dim mb-4">Step 4 of {fitnessDotTotal}</p>
                     <div className="grid grid-cols-4 gap-2">
                       {Q4.map(d => (
-                        <button key={d} onClick={() => { setFitnessAns(a => ({ ...a, daysPerWeek: d })); setFitnessStep(needsBodyMetrics ? 4.5 : 5); }}
+                        <button key={d} onClick={() => { setFitnessAns(a => ({ ...a, daysPerWeek: d })); setFitnessStep(isWeightLossGoal ? 4.5 : 5); }}
                           className="py-4 rounded-xl border border-border hover:border-teal-500 hover:bg-teal-500/5 text-center font-semibold text-lg transition-colors">
                           {d}
                           <span className="block text-xs font-normal text-foreground-dim mt-0.5">days</span>
@@ -847,40 +874,76 @@ function PlanPageInner() {
                   </div>
                 )}
 
-                {/* Step 4.5: Body metrics (weight-loss goal only, blocking) */}
+                {/* Step 4.5: Body metrics (blocking, only if missing) + optional target goal */}
                 {fitnessStep === 4.5 && (
                   <div>
-                    <p className="font-semibold mb-1">What's your current weight and height?</p>
-                    <p className="text-sm text-foreground-dim mb-4">Step 5 of {fitnessDotTotal} · Needed to calculate a safe calorie target for your plan.</p>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-xs text-foreground-dim mb-1.5 block">Weight</label>
-                        <div className="flex items-center gap-2">
-                          <input type="number" placeholder="175" value={bodyWeightLbs} onChange={e => setBodyWeightLbs(e.target.value)}
-                            className="w-32 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
-                          <span className="text-sm text-foreground-dim">lbs</span>
+                    <p className="font-semibold mb-1">{needsBodyMetrics ? "What's your current weight and height?" : "Set a target (optional)"}</p>
+                    <p className="text-sm text-foreground-dim mb-4">
+                      Step 5 of {fitnessDotTotal} · {needsBodyMetrics ? "Needed to calculate a safe calorie target for your plan." : "We'll use this to check your goal's pace is safe."}
+                    </p>
+                    {needsBodyMetrics && (
+                      <div className="space-y-4 mb-5">
+                        <div>
+                          <label className="text-xs text-foreground-dim mb-1.5 block">Weight</label>
+                          <div className="flex items-center gap-2">
+                            <input type="number" placeholder="175" value={bodyWeightLbs} onChange={e => setBodyWeightLbs(e.target.value)}
+                              className="w-32 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
+                            <span className="text-sm text-foreground-dim">lbs</span>
+                          </div>
+                          {syncedWeight && (
+                            <button onClick={() => setBodyWeightLbs(Math.round(syncedWeight.weightKg * 2.20462).toString())}
+                              className="text-xs text-signal hover:underline mt-1.5 block">
+                              Use synced weight from your connected health app: {Math.round(syncedWeight.weightKg * 2.20462)} lbs
+                            </button>
+                          )}
                         </div>
-                        {syncedWeight && (
-                          <button onClick={() => setBodyWeightLbs(Math.round(syncedWeight.weightKg * 2.20462).toString())}
-                            className="text-xs text-signal hover:underline mt-1.5 block">
-                            Use synced weight from your connected health app: {Math.round(syncedWeight.weightKg * 2.20462)} lbs
-                          </button>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-xs text-foreground-dim mb-1.5 block">Height</label>
-                        <div className="flex items-center gap-2">
-                          <input type="number" placeholder="5" value={bodyHeightFt} onChange={e => setBodyHeightFt(e.target.value)}
-                            className="w-20 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
-                          <span className="text-sm text-foreground-dim">ft</span>
-                          <input type="number" placeholder="10" min="0" max="11" value={bodyHeightIn} onChange={e => setBodyHeightIn(e.target.value)}
-                            className="w-20 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
-                          <span className="text-sm text-foreground-dim">in</span>
+                        <div>
+                          <label className="text-xs text-foreground-dim mb-1.5 block">Height</label>
+                          <div className="flex items-center gap-2">
+                            <input type="number" placeholder="5" value={bodyHeightFt} onChange={e => setBodyHeightFt(e.target.value)}
+                              className="w-20 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
+                            <span className="text-sm text-foreground-dim">ft</span>
+                            <input type="number" placeholder="10" min="0" max="11" value={bodyHeightIn} onChange={e => setBodyHeightIn(e.target.value)}
+                              className="w-20 px-3 py-2 rounded-xl bg-background border border-border focus:border-teal-500 outline-none text-sm" />
+                            <span className="text-sm text-foreground-dim">in</span>
+                          </div>
                         </div>
                       </div>
+                    )}
+
+                    <div className="rounded-xl border border-border bg-background/60 p-4">
+                      <p className="text-xs font-medium mb-1">Target weight & date <span className="font-normal text-foreground-dim">(optional)</span></p>
+                      <p className="text-xs text-foreground-dim mb-3">Default pace is a safe ~1 lb/week. Set a target to aim for a different pace — we'll tell you if it isn't safe, but it's your call.</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input type="number" placeholder="Target weight" value={targetWeightLbs} onChange={e => setTargetWeightLbs(e.target.value)}
+                          className="w-36 px-3 py-2 rounded-xl bg-surface border border-border focus:border-teal-500 outline-none text-sm" />
+                        <span className="text-sm text-foreground-dim">lbs by</span>
+                        <input type="date" value={targetDateStr} onChange={e => setTargetDateStr(e.target.value)}
+                          min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                          className="px-3 py-2 rounded-xl bg-surface border border-border focus:border-teal-500 outline-none text-sm" />
+                      </div>
+                      {goalPacePreview && goalPacePreview.safety === "safe" && goalPacePreview.impliedWeeklyLossLbs >= 0 && (
+                        <p className="text-xs text-teal-400 mt-3">That's about {goalPacePreview.impliedWeeklyLossLbs} lb/week — within the recommended 1-2 lb/week range. ✓</p>
+                      )}
+                      {goalPacePreview && goalPacePreview.safety === "aggressive" && (
+                        <div className="rounded-lg border border-amber-600/50 bg-amber-900/15 p-3 mt-3">
+                          <p className="text-xs font-semibold text-amber-400">This pace is faster than recommended</p>
+                          <p className="text-xs text-foreground-dim mt-1 leading-relaxed">{goalPacePreview.message}</p>
+                        </div>
+                      )}
+                      {goalPacePreview && goalPacePreview.safety === "unsafe" && (
+                        <div className="rounded-lg border-2 border-alert/60 bg-alert/15 p-3 mt-3">
+                          <p className="text-xs font-semibold text-alert">⚠️ This goal isn't considered safe</p>
+                          <p className="text-xs text-foreground mt-1 leading-relaxed">{goalPacePreview.message}</p>
+                        </div>
+                      )}
+                      {goalPacePreview && goalPacePreview.impliedWeeklyLossLbs < 0 && (
+                        <p className="text-xs text-foreground-dim mt-3">{goalPacePreview.message}</p>
+                      )}
                     </div>
+
                     <div className="flex gap-3 mt-5">
-                      <button onClick={() => setFitnessStep(5)} disabled={!bodyMetricsValid}
+                      <button onClick={() => setFitnessStep(5)} disabled={needsBodyMetrics && !bodyMetricsValid}
                         className="px-5 py-2.5 rounded-full bg-teal-500 text-background text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
                         Continue →
                       </button>
@@ -912,7 +975,7 @@ function PlanPageInner() {
                         <span className="text-xs text-foreground-dim mt-0.5">Workout plan only — you can always start over to add it later</span>
                       </button>
                     </div>
-                    <button onClick={() => setFitnessStep(needsBodyMetrics ? 4.5 : 4)} className="mt-4 text-xs text-foreground-dim hover:text-foreground">← Back</button>
+                    <button onClick={() => setFitnessStep(isWeightLossGoal ? 4.5 : 4)} className="mt-4 text-xs text-foreground-dim hover:text-foreground">← Back</button>
                   </div>
                 )}
               </div>
