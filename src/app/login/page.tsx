@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
-import { InviteRequestForm } from "@/components/InviteRequestForm";
 import { REMEMBER_TOKEN_STORAGE_KEY } from "@/lib/rememberTokenClient";
 
 function LoginForm() {
@@ -144,11 +143,6 @@ function LoginForm() {
         <p className="text-center text-sm text-foreground-dim mt-2">
           <Link href="/forgot-password" className="text-signal hover:underline">Forgot your password?</Link>
         </p>
-
-        <div className="mt-6 pt-6 border-t border-border">
-          <p className="text-center text-xs text-foreground-dim mb-3">Don't have an account yet?</p>
-          <InviteRequestForm label="Request an invite code →" />
-        </div>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { InviteRequestForm } from "@/components/InviteRequestForm";
 
 export default function Home() {
   return (
@@ -28,10 +27,7 @@ export default function Home() {
               <Link href="/signup" className="px-6 py-3 rounded-full bg-signal text-background font-medium hover:bg-signal-dim transition-colors">Join for free</Link>
               <Link href="/login" className="px-6 py-3 rounded-full border border-border hover:border-foreground-dim transition-colors">Log in</Link>
             </div>
-            <div className="mb-8">
-              <InviteRequestForm label="Need an invite code? Request one →" />
-            </div>
-            <div className="flex items-center gap-8 text-xs text-foreground-dim flex-wrap">
+            <div className="flex items-center gap-8 text-xs text-foreground-dim flex-wrap mt-2">
               <div><span className="text-signal font-semibold">100+</span> major races</div>
               <div><span className="text-signal font-semibold">Private</span> team leaderboards</div>
               <div><span className="text-signal font-semibold">Free</span> to join</div>

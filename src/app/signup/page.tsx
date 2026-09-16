@@ -1,19 +1,16 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
-import { InviteRequestForm } from "@/components/InviteRequestForm";
 
 function SignupForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState(searchParams.get("invite") ?? "");
   const [error, setError] = useState<string | null>(null);
   const [emailTaken, setEmailTaken] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,7 +24,7 @@ function SignupForm() {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, inviteCode: inviteCode || undefined }),
+      body: JSON.stringify({ name, email, password }),
     });
 
     if (!res.ok) {
@@ -59,9 +56,6 @@ function SignupForm() {
       <input type="password" required minLength={8} placeholder="Password (min. 8 characters)" value={password}
         onChange={(e) => setPassword(e.target.value)}
         className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" />
-      <input type="text" placeholder="Invite code (e.g. T2R-XXXX)" value={inviteCode}
-        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-        className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm font-data tracking-wider" />
       {error && (
         <p className="text-alert text-sm">
           {error}{emailTaken && <> — <Link href="/login" className="underline">Log in instead</Link></>}
@@ -86,19 +80,12 @@ export default function SignupPage() {
           </Link>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Create your account</h1>
-        <p className="text-foreground-dim text-sm mb-6">You need an invite code to sign up.</p>
-        <Suspense fallback={null}>
-          <SignupForm />
-        </Suspense>
+        <p className="text-foreground-dim text-sm mb-6">Free to join.</p>
+        <SignupForm />
         <p className="text-center text-sm text-foreground-dim mt-6">
           Already have an account?{" "}
           <Link href="/login" className="text-signal hover:underline">Log in</Link>
         </p>
-
-        <div className="mt-6 pt-6 border-t border-border">
-          <p className="text-center text-xs text-foreground-dim mb-3">Don't have an invite code yet?</p>
-          <InviteRequestForm label="Request an invite code →" />
-        </div>
       </div>
     </div>
   );

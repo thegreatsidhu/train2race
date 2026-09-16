@@ -39,11 +39,6 @@ export function AdminPanel() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [genCount, setGenCount] = useState(1);
-  const [generating, setGenerating] = useState(false);
-  const [newCodes, setNewCodes] = useState([]);
-  const [copied, setCopied] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
   const [activeTab, setActiveTab] = useState("users");
   const [settingPwFor, setSettingPwFor] = useState(null);
   const [tempPassword, setTempPassword] = useState("");
@@ -68,17 +63,6 @@ export function AdminPanel() {
   const [adminMsgs, setAdminMsgs] = useState([]);
   const [adminAnns, setAdminAnns] = useState([]);
   const [adminMsgsLoaded, setAdminMsgsLoaded] = useState(false);
-  const [inviteRequests, setInviteRequests] = useState([]);
-  const [inviteRequestsLoaded, setInviteRequestsLoaded] = useState(false);
-  const [fulfillCodes, setFulfillCodes] = useState({});
-  const [fulfillingId, setFulfillingId] = useState(null);
-  const [decliningId, setDecliningId] = useState(null);
-  const [showTeamInviteForm, setShowTeamInviteForm] = useState(false);
-  const [teamInviteTeamId, setTeamInviteTeamId] = useState("");
-  const [teamInviteExpiry, setTeamInviteExpiry] = useState("");
-  const [generatingTeamInvite, setGeneratingTeamInvite] = useState(false);
-  const [recentTeamCodes, setRecentTeamCodes] = useState([]);
-  const [copiedTeamCode, setCopiedTeamCode] = useState(null);
 
   const [allChallenges, setAllChallenges] = useState([]);
   const [challengesLoaded, setChallengesLoaded] = useState(false);
@@ -281,20 +265,6 @@ export function AdminPanel() {
     const json = await res.json(); setData(json);
   }
 
-  async function generateInvites() {
-    setGenerating(true);
-    const res = await fetch("/api/admin/invites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, count: genCount }) });
-    const json = await res.json();
-    setNewCodes(json.codes?.map((c) => c.code) || []);
-    await refreshData(); setGenerating(false);
-  }
-
-  async function deleteInvite(id) {
-    setDeletingId(id);
-    await fetch("/api/admin/invites", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id }) });
-    await refreshData(); setDeletingId(null);
-  }
-
   async function deleteMessage(messageId) {
     await fetch("/api/major-races/messages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId, adminPassword: password }) });
     await refreshData();
@@ -481,8 +451,6 @@ export function AdminPanel() {
     if (res.ok) setUserMsg(userId, "Reset email sent to " + email, true);
     else { const d = await res.json(); setUserMsg(userId, d.error || "Failed to send email", false); }
   }
-
-  function copyCode(code) { navigator.clipboard.writeText(`${window.location.origin}/signup?invite=${code}`); setCopied(code); setTimeout(() => setCopied(null), 2000); }
 
   async function loadChallenges() {
     if (challengesLoaded) return;
@@ -881,60 +849,6 @@ export function AdminPanel() {
     }
   }
 
-  async function loadInviteRequests() {
-    if (inviteRequestsLoaded) return;
-    const res = await fetch(`/api/admin/invite-requests?password=${encodeURIComponent(password)}`);
-    const d = await res.json();
-    setInviteRequests(d.requests || []);
-    setInviteRequestsLoaded(true);
-  }
-
-  async function fulfillRequest(id, action = "fulfill") {
-    setFulfillingId(id);
-    const res = await fetch("/api/admin/invite-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action }) });
-    const d = await res.json();
-    setFulfillingId(null);
-    if (d.code) {
-      setFulfillCodes(prev => ({ ...prev, [id]: { code: d.code, emailError: d.emailError || null } }));
-      setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "sent", inviteCode: d.code } : r));
-    }
-  }
-
-  async function declineRequest(id) {
-    setDecliningId(id);
-    await fetch("/api/admin/invite-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id, action: "decline" }) });
-    setDecliningId(null);
-    setInviteRequests(prev => prev.map(r => r.id === id ? { ...r, status: "declined" } : r));
-  }
-
-  async function deleteInviteRequest(id) {
-    await fetch("/api/admin/invite-requests", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, id }) });
-    setInviteRequests(prev => prev.filter(r => r.id !== id));
-  }
-
-  async function generateTeamInvite() {
-    const team = teams.find(t => t.id === teamInviteTeamId);
-    if (!team) return;
-    setGeneratingTeamInvite(true);
-    const res = await fetch("/api/admin/invites", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, count: 1, teamId: team.id, teamName: team.name, expiresAt: teamInviteExpiry || null }),
-    });
-    const d = await res.json();
-    const newCode = d.codes?.[0];
-    if (newCode) {
-      setRecentTeamCodes(prev => [{ code: newCode.code, teamId: team.id, teamName: team.name }, ...prev]);
-    }
-    await refreshData();
-    setGeneratingTeamInvite(false);
-  }
-
-  function copyTeamCode(code) {
-    navigator.clipboard.writeText(`${window.location.origin}/signup?invite=${code}`);
-    setCopiedTeamCode(code);
-    setTimeout(() => setCopiedTeamCode(null), 2000);
-  }
-
   async function loadStats() {
     if (statsLoaded) return;
     setStatsLoading(true);
@@ -992,15 +906,13 @@ export function AdminPanel() {
 
   function switchTab(id) {
     setActiveTab(id);
-    if (id === "approvals") { loadChallenges(); loadTeams(); loadCommRequests(); loadInviteRequests(); }
+    if (id === "approvals") { loadChallenges(); loadTeams(); loadCommRequests(); }
     if (id === "challenges") { loadChallenges(); loadTeams(); loadPlatformChallenges(); }
     if (id === "tickets") loadTickets();
     if (id === "teams") loadTeams();
-    if (id === "invites") loadTeams();
     if (id === "communities") { loadCommunities(); loadCommRequests(); }
     if (id === "races") loadAllRaces();
     if (id === "messages") loadAdminMsgs();
-    if (id === "requests") loadInviteRequests();
     if (id === "stats") loadStats();
     if (id === "email") { loadTeams(); loadEmailSchedule(); }
   }
@@ -1020,16 +932,13 @@ export function AdminPanel() {
     );
   }
 
-  const unusedCodes = data?.inviteCodes?.filter((c) => !c.usedBy) || [];
-  const usedCodes = data?.inviteCodes?.filter((c) => c.usedBy) || [];
   const pendingChallengeCount = allChallenges.filter(c => c.status === "pending").length;
 
   const pendingRacesList = data?.pendingRaces || [];
   const pendingTeamChallenges = allChallenges.filter(c => c.status === "pending");
   const pendingTeamLogos = teams.filter(t => t.logoStatus === "pending");
   const pendingCommRequests = commRequests.filter(r => r.status === "pending");
-  const pendingInviteReqs = inviteRequests.filter(r => r.status === "pending");
-  const totalPendingApprovals = pendingRacesList.length + pendingTeamChallenges.length + pendingTeamLogos.length + pendingCommRequests.length + pendingInviteReqs.length;
+  const totalPendingApprovals = pendingRacesList.length + pendingTeamChallenges.length + pendingTeamLogos.length + pendingCommRequests.length;
   const bulkApprovableCount = pendingRacesList.length + pendingTeamChallenges.length + pendingTeamLogos.length + pendingCommRequests.length;
 
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -1107,7 +1016,6 @@ export function AdminPanel() {
             { label: "Activities logged", value: data?.activityCount || 0 },
             { label: "Race plans", value: data?.raceCount || 0 },
             { label: "Teams", value: data?.teamCount ?? teams.length },
-            { label: "Unused invites", value: unusedCodes.length },
           ].map(stat => (
             <div key={stat.label} className="rounded-2xl border border-border bg-surface p-4">
               <p className="text-2xl font-bold">{stat.value}</p>
@@ -1120,11 +1028,9 @@ export function AdminPanel() {
           {[
             { id: "approvals", label: "Approvals" + (totalPendingApprovals > 0 ? " (" + totalPendingApprovals + ")" : "") },
             { id: "users", label: "Users (" + (data?.users?.length || 0) + ")" },
-            { id: "invites", label: "Invites (" + unusedCodes.length + " unused)" },
             { id: "races", label: "Races (" + (data?.pendingRaces?.length || 0) + " pending)" },
             { id: "chat", label: "Chat" },
             { id: "messages", label: "Messages" },
-            { id: "requests", label: "Requests" + (inviteRequestsLoaded && inviteRequests.filter(r=>r.status==="pending").length > 0 ? " (" + inviteRequests.filter(r=>r.status==="pending").length + ")" : "") },
             { id: "challenges", label: "Challenges" + (challengesLoaded && pendingChallengeCount > 0 ? " (" + pendingChallengeCount + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
             { id: "teams", label: "Teams (" + teams.length + ")" },
@@ -1147,7 +1053,7 @@ export function AdminPanel() {
                 confirmApproveAll ? (
                   <div className="rounded-xl border border-yellow-700/40 bg-yellow-900/10 px-4 py-2.5 flex items-center gap-3 flex-wrap">
                     <p className="text-xs text-yellow-200">
-                      Approve all {bulkApprovableCount} item{bulkApprovableCount !== 1 ? "s" : ""} below? Invite code requests aren't included — those send an email and stay reviewed individually.
+                      Approve all {bulkApprovableCount} item{bulkApprovableCount !== 1 ? "s" : ""} below?
                     </p>
                     <div className="flex gap-2 shrink-0">
                       <button onClick={approveAllPending} disabled={approvingAll}
@@ -1224,27 +1130,6 @@ export function AdminPanel() {
                           <div className="flex gap-2 shrink-0">
                             <button onClick={() => approveRequest(r.id)} disabled={approvingReqId === r.id} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-50">{approvingReqId === r.id ? "..." : "Approve"}</button>
                             <button onClick={() => rejectRequest(r.id)} disabled={rejectingReqId === r.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Reject</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {pendingInviteReqs.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-2">Invite code requests ({pendingInviteReqs.length})</p>
-                    <div className="space-y-2">
-                      {pendingInviteReqs.map(r => (
-                        <div key={r.id} className="rounded-2xl border border-yellow-700/40 bg-yellow-900/5 p-3 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">{r.name}</p>
-                            <p className="text-xs text-foreground-dim">{r.email}</p>
-                            {r.message && <p className="text-xs text-foreground-dim mt-0.5 italic">"{r.message}"</p>}
-                          </div>
-                          <div className="flex gap-2 shrink-0">
-                            <button onClick={() => fulfillRequest(r.id)} disabled={fulfillingId === r.id} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-50">{fulfillingId === r.id ? "..." : "Fulfill"}</button>
-                            <button onClick={() => declineRequest(r.id)} disabled={decliningId === r.id} className="text-xs px-2.5 py-1 rounded-full border border-red-700/40 text-red-400 hover:border-red-500">Decline</button>
                           </div>
                         </div>
                       ))}
@@ -1544,129 +1429,6 @@ export function AdminPanel() {
               <p className="text-sm text-foreground-dim py-4 text-center">No users match "{userSearch}"</p>
             )}
             </div>
-          </div>
-        )}
-
-        {activeTab === "invites" && (
-          <div>
-            <div className="grid md:grid-cols-2 gap-4 mb-6">
-              {/* Regular invite codes */}
-              <div className="rounded-2xl border border-border bg-surface p-5">
-                <h2 className="font-medium mb-1">Generate invite codes</h2>
-                <p className="text-xs text-foreground-dim mb-4">Single-use codes for app registration only.</p>
-                <div className="flex gap-3 items-center">
-                  <label className="text-sm text-foreground-dim">Count:</label>
-                  <input type="number" min={1} max={20} value={genCount} onChange={e => setGenCount(Number(e.target.value))} className="w-16 px-3 py-2 rounded-xl bg-background border border-border text-sm outline-none"/>
-                  <button onClick={generateInvites} disabled={generating} className="px-5 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-60">{generating ? "Generating..." : "Generate"}</button>
-                </div>
-                {newCodes.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs text-foreground-dim mb-2">New codes — click to copy signup link</p>
-                    <div className="flex flex-wrap gap-2">
-                      {newCodes.map(code => <button key={code} onClick={() => copyCode(code)} className="px-3 py-1.5 rounded-xl bg-background border border-signal text-sm font-mono">{copied===code?"Copied!":code}</button>)}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Team invite link */}
-              <div className="rounded-2xl border border-signal/30 bg-signal/5 p-5">
-                <h2 className="font-medium mb-1">Generate team invite link</h2>
-                <p className="text-xs text-foreground-dim mb-4">Reusable link — anyone who signs up with it is automatically added to the team.</p>
-                {!showTeamInviteForm ? (
-                  <button onClick={() => setShowTeamInviteForm(true)} className="px-4 py-2 rounded-full border border-signal/50 text-signal text-sm hover:bg-signal/10">+ Create team link</button>
-                ) : (
-                  <div className="space-y-3">
-                    <select value={teamInviteTeamId} onChange={e => setTeamInviteTeamId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none">
-                      <option value="">— Select a team —</option>
-                      {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.members.length} member{t.members.length !== 1 ? "s" : ""})</option>)}
-                    </select>
-                    <div>
-                      <label className="text-xs text-foreground-dim block mb-1">Expires (optional)</label>
-                      <input type="datetime-local" value={teamInviteExpiry} onChange={e => setTeamInviteExpiry(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border text-sm focus:border-signal outline-none"/>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={generateTeamInvite} disabled={generatingTeamInvite || !teamInviteTeamId} className="px-4 py-2 rounded-full bg-signal text-background text-sm font-medium disabled:opacity-50">{generatingTeamInvite ? "Generating…" : "Generate link"}</button>
-                      <button onClick={() => { setShowTeamInviteForm(false); setTeamInviteTeamId(""); setTeamInviteExpiry(""); }} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button>
-                    </div>
-                  </div>
-                )}
-                {recentTeamCodes.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <p className="text-xs text-foreground-dim">Generated links — click to copy</p>
-                    {recentTeamCodes.map((tc, i) => (
-                      <div key={i} className="rounded-xl bg-background border border-border px-3 py-2">
-                        <p className="text-xs text-foreground-dim mb-1">{tc.teamName}</p>
-                        <button onClick={() => copyTeamCode(tc.code)} className="text-sm font-mono text-signal hover:underline">
-                          {copiedTeamCode === tc.code ? "Link copied!" : `…/signup?invite=${tc.code}`}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Team invite codes (reusable) */}
-            {unusedCodes.filter(c => c.reusable).length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-sm font-medium mb-2">Active team invite links ({unusedCodes.filter(c => c.reusable).length})</h3>
-                <div className="space-y-2">
-                  {unusedCodes.filter(c => c.reusable).map(invite => (
-                    <div key={invite.id} className="flex items-center justify-between rounded-xl border border-signal/20 bg-signal/5 px-4 py-3">
-                      <div className="flex items-center gap-3 flex-wrap min-w-0">
-                        <span className="font-mono text-sm">{invite.code}</span>
-                        {invite.note && <span className="text-xs text-signal">{invite.note}</span>}
-                        <button onClick={() => copyCode(invite.code)} className="text-xs text-foreground-dim">{copied===invite.code?"Copied!":"Copy link"}</button>
-                      </div>
-                      <button onClick={() => deleteInvite(invite.id)} disabled={deletingId===invite.id} className="text-xs text-red-400 shrink-0">Revoke</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Regular unused codes */}
-            {unusedCodes.filter(c => !c.reusable).length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-foreground-dim mb-2">Unused invite codes ({unusedCodes.filter(c => !c.reusable).length})</h3>
-                <div className="space-y-2">
-                  {unusedCodes.filter(c => !c.reusable).map((invite) => (
-                    <div key={invite.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm">{invite.code}</span>
-                        <button onClick={() => copyCode(invite.code)} className="text-xs text-foreground-dim">{copied===invite.code?"Copied!":"Copy"}</button>
-                      </div>
-                      <button onClick={() => deleteInvite(invite.id)} disabled={deletingId===invite.id} className="text-xs text-red-400">Delete</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {usedCodes.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-foreground-dim mb-2">Used ({usedCodes.length})</h3>
-                <div className="space-y-2">
-                  {usedCodes.map((invite) => (
-                    <div key={invite.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-mono text-sm text-foreground-dim line-through">{invite.code}</span>
-                        {invite.note && <span className="text-xs text-foreground-dim">{invite.note}</span>}
-                        <div className="text-xs text-foreground-dim">
-                          {invite.usedByUser ? (
-                            <span>{invite.usedByUser.name || "No name"} &middot; {invite.usedByUser.email}</span>
-                          ) : (
-                            <span>Unknown user</span>
-                          )}
-                        </div>
-                      </div>
-                      {invite.usedAt && <span className="text-xs text-foreground-dim shrink-0">{new Date(invite.usedAt).toLocaleDateString()}</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -3039,71 +2801,6 @@ export function AdminPanel() {
           </div>
         )}
 
-        {activeTab === "requests" && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-medium">Invite Code Requests ({inviteRequests.filter(r => r.status === "pending").length} pending)</h2>
-              <button onClick={() => { setInviteRequestsLoaded(false); loadInviteRequests(); }} className="text-xs text-foreground-dim hover:text-foreground">Refresh</button>
-            </div>
-            {!inviteRequestsLoaded ? (
-              <p className="text-sm text-foreground-dim">Loading…</p>
-            ) : inviteRequests.length === 0 ? (
-              <p className="text-sm text-foreground-dim">No requests yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {inviteRequests.map(r => (
-                  <div key={r.id} className={"rounded-xl border p-4 " + (r.status === "pending" ? "border-signal/30 bg-signal/5" : "border-border bg-surface opacity-60")}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-sm font-medium">{r.name}</span>
-                          <span className="text-xs text-foreground-dim">{r.email}</span>
-                          <span className={"text-xs px-2 py-0.5 rounded-full " + (r.status === "pending" ? "bg-signal/15 text-signal" : r.status === "sent" ? "bg-green-900/30 text-green-400" : "bg-red-900/20 text-red-400")}>{r.status}</span>
-                        </div>
-                        <p className="text-xs text-foreground-dim">{new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
-                        {r.message && <p className="text-sm mt-1 italic text-foreground-dim">"{r.message}"</p>}
-                        {fulfillCodes[r.id] && (
-                          <div className="mt-2 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-foreground-dim">Invite code:</span>
-                              <code className="text-sm font-mono font-bold text-signal bg-signal/10 px-2 py-0.5 rounded">{fulfillCodes[r.id].code}</code>
-                              <button onClick={() => navigator.clipboard.writeText(fulfillCodes[r.id].code)} className="text-xs text-foreground-dim hover:text-foreground">Copy</button>
-                            </div>
-                            {fulfillCodes[r.id].emailError ? (
-                              <p className="text-xs text-red-400">Email failed: {fulfillCodes[r.id].emailError}. Copy the code above and send it manually.</p>
-                            ) : (
-                              <p className="text-xs text-signal">Email sent to {r.email}</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2 shrink-0 items-start flex-wrap justify-end">
-                        {r.status === "pending" && (
-                          <>
-                            <button onClick={() => fulfillRequest(r.id, "fulfill")} disabled={fulfillingId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium bg-signal text-background disabled:opacity-50">
-                              {fulfillingId === r.id ? "Sending…" : "Send invite"}
-                            </button>
-                            <button onClick={() => declineRequest(r.id)} disabled={decliningId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium border border-red-600/40 text-red-400 disabled:opacity-50">
-                              {decliningId === r.id ? "…" : "Decline"}
-                            </button>
-                          </>
-                        )}
-                        {r.status === "sent" && (
-                          <button onClick={() => fulfillRequest(r.id, "resend")} disabled={fulfillingId === r.id} className="px-3 py-1.5 rounded-full text-xs font-medium border border-signal/40 text-signal hover:bg-signal/10 disabled:opacity-50">
-                            {fulfillingId === r.id ? "Resending…" : "Resend"}
-                          </button>
-                        )}
-                        <button onClick={() => deleteInviteRequest(r.id)} className="px-3 py-1.5 rounded-full text-xs font-medium border border-border text-foreground-dim hover:text-red-400 hover:border-red-600/40">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
         {activeTab === "stats" && (
           <div>
             {statsLoading && <p className="text-sm text-foreground-dim py-8 text-center">Loading stats…</p>}

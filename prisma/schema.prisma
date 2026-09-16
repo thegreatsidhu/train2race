@@ -292,20 +292,6 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
-model InviteCode {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  usedBy    String?
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-  expiresAt DateTime?
-  note      String?
-  teamId    String?
-  reusable  Boolean  @default(false)
-  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  @@map("invite_codes")
-}
-
 model PasswordResetToken {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -430,7 +416,6 @@ model Team {
   bulletins   TeamBulletin[]
   events      TeamEvent[]
   contacts    TeamContact[]
-  inviteCodes InviteCode[]
   majorRace   MajorRace?   @relation(fields: [majorRaceId], references: [id])
   @@map("teams")
 }
@@ -645,17 +630,6 @@ model Announcement {
   scheduledFor DateTime?
   expiresAt    DateTime?
   @@map("announcements")
-}
-
-model InviteRequest {
-  id         String   @id @default(cuid())
-  name       String
-  email      String
-  message    String?
-  status     String   @default("pending")
-  inviteCode String?
-  createdAt  DateTime @default(now())
-  @@map("invite_requests")
 }
 
 model CommunityRequest {

@@ -54,7 +54,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function deleteAllMessages(){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({deleteAll:true})});setMessages([]);}
   async function handleLeave(){setConfirmLeave(false);if(team?.isAdmin){await fetch(`/api/teams/${id}`,{method:"DELETE"});}else{await fetch(`/api/teams/${id}/leave`,{method:"POST"});}router.push("/dashboard/teams");}
   function copyInviteCode(){navigator.clipboard.writeText(team.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
-  function copyInviteLink(){const link=team.activeSignupCode?`${window.location.origin}/signup?invite=${team.activeSignupCode}`:`${window.location.origin}/join/${team.inviteCode}`;navigator.clipboard.writeText(link);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
+  function copyInviteLink(){const link=`${window.location.origin}/join/${team.inviteCode}`;navigator.clipboard.writeText(link);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
   function shareChallengeInvite(challengeId:string){const link=`${window.location.origin}/join/${team.inviteCode}?challenge=${challengeId}`;navigator.clipboard.writeText(link);setCopiedChallengeId(challengeId);setTimeout(()=>setCopiedChallengeId(null),2000);}
   async function removeMember(memberId:string, name:string){
     setRemovingId(memberId);
