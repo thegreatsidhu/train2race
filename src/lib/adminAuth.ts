@@ -1,25 +1,22 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
 
-const FALLBACK_PASSWORD = process.env.ADMIN_PASSWORD || "train2race2024";
-
-export async function isAdminAuthorized(password?: string): Promise<boolean> {
-  // Session-based admin access (superadmin or admin role)
+// Admin access is granted purely by a NextAuth session with role "admin"/"superadmin" —
+// there is no shared password. (A previous shared-password fallback — including a hardcoded
+// literal usable by anyone who found it — was removed after Apple flagged the admin panel as
+// an undisclosed surface during App Store review. See /admin's server-side page gate, which
+// 404s the route entirely for anyone without an authorized session.)
+//
+// The `_password` parameter is kept (but ignored) so the many existing call sites across
+// admin API routes that still pass one don't need to change.
+export async function isAdminAuthorized(_password?: string): Promise<boolean> {
   try {
     const session = await auth();
     const userId = (session?.user as any)?.id;
-    if (userId) {
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-      if (user?.role === "superadmin" || user?.role === "admin") return true;
-    }
-  } catch {}
-
-  // Fall back to shared admin password
-  if (!password) return false;
-  try {
-    const setting = await (prisma as any).setting.findUnique({ where: { key: "adminPasswordHash" } });
-    if (setting?.value) return bcrypt.compare(password, setting.value);
-  } catch {}
-  return password === FALLBACK_PASSWORD;
+    if (!userId) return false;
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    return user?.role === "superadmin" || user?.role === "admin";
+  } catch {
+    return false;
+  }
 }

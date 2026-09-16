@@ -2,18 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { checkRateLimit } from "@/lib/rateLimit";
-import bcrypt from "bcryptjs";
-
-const FALLBACK_PASSWORD = "train2race2024";
-
-async function verifyAdminPassword(password: string): Promise<boolean> {
-  try {
-    const setting = await (prisma as any).setting.findUnique({ where: { key: "adminPasswordHash" } });
-    if (setting?.value) return bcrypt.compare(password, setting.value);
-  } catch {}
-  return password === FALLBACK_PASSWORD;
-}
 
 async function isSuperAdmin(): Promise<{ ok: boolean; userId?: string; name?: string }> {
   try {
@@ -31,17 +19,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id: challengeId } = await params;
 
   const body = await req.json();
-  const { password, force, ...fields } = body;
+  const { force, ...fields } = body;
 
   const adminCheck = await isSuperAdmin();
-  if (!adminCheck.ok) {
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!(await checkRateLimit(`admin-pch-edit:${ip}`, 10, 15 * 60 * 1000))) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
-    const valid = await verifyAdminPassword(password ?? "");
-    if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!adminCheck.ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const session = await auth();
   const editorId = adminCheck.userId ?? (session?.user as any)?.id ?? "admin";
@@ -155,18 +136,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 // GET — return edit logs for a specific challenge
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: challengeId } = await params;
-  const { searchParams } = new URL(req.url);
-  const password = searchParams.get("password") ?? "";
 
   const adminCheck = await isSuperAdmin();
-  if (!adminCheck.ok) {
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!(await checkRateLimit(`admin-pch-log:${ip}`, 20, 15 * 60 * 1000))) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
-    const valid = await verifyAdminPassword(password);
-    if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!adminCheck.ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const logs = await (prisma as any).challengeEditLog.findMany({
     where: { challengeId },
