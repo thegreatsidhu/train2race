@@ -168,8 +168,6 @@ export function AdminPanel() {
   const [newRaceSeries, setNewRaceSeries] = useState("");
   const [creatingRace, setCreatingRace] = useState(false);
   const [expandedConnections, setExpandedConnections] = useState({});
-  const [syncingConnection, setSyncingConnection] = useState({});
-  const [syncResults, setSyncResults] = useState({});
   const [expandedPlans, setExpandedPlans] = useState({});
   const [userPlanData, setUserPlanData] = useState({});
   const [loadingPlans, setLoadingPlans] = useState({});
@@ -384,15 +382,6 @@ export function AdminPanel() {
   function setUserMsg(userId, msg, ok) {
     setUserMsgs(prev => ({ ...prev, [userId]: { msg, ok } }));
     setTimeout(() => setUserMsgs(prev => { const n = { ...prev }; delete n[userId]; return n; }), 4000);
-  }
-
-  async function triggerSync(connectionId) {
-    setSyncingConnection(prev => ({ ...prev, [connectionId]: true }));
-    setSyncResults(prev => { const n = { ...prev }; delete n[connectionId]; return n; });
-    const res = await fetch("/api/admin/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, connectionId }) });
-    const d = await res.json();
-    setSyncingConnection(prev => ({ ...prev, [connectionId]: false }));
-    setSyncResults(prev => ({ ...prev, [connectionId]: d }));
   }
 
   async function resetPlanGenerations(userId) {
@@ -1281,8 +1270,6 @@ export function AdminPanel() {
                     <p className="text-xs font-medium text-foreground-dim uppercase tracking-wide mb-1">Integrations</p>
                     {user.connections.map((c) => {
                       const label = c.source === "APPLE_HEALTH" ? "Apple Health" : c.source.charAt(0) + c.source.slice(1).toLowerCase();
-                      const isPushOnly = c.source === "APPLE_HEALTH" || c.source === "MANUAL";
-                      const result = syncResults[c.id];
                       return (
                         <div key={c.id} className="flex items-start justify-between gap-3 flex-wrap">
                           <div>
@@ -1295,16 +1282,8 @@ export function AdminPanel() {
                               {c.lastSyncedAt ? `Last synced ${new Date(c.lastSyncedAt).toLocaleString()}` : "Never synced"}
                             </p>
                             {c.lastError && <p className="text-xs text-red-400 mt-0.5 max-w-xs truncate" title={c.lastError}>{c.lastError}</p>}
-                            {result && <p className={"text-xs mt-0.5 " + (result.ok ? "text-signal" : "text-red-400")}>{result.ok ? "Sync complete" : (result.error || "Sync failed")}</p>}
                           </div>
-                          {!isPushOnly ? (
-                            <button onClick={() => triggerSync(c.id)} disabled={!!syncingConnection[c.id]}
-                              className="text-xs px-3 py-1 rounded-full border border-border hover:border-signal hover:text-signal transition-colors disabled:opacity-50 shrink-0">
-                              {syncingConnection[c.id] ? "Syncing…" : "Trigger sync"}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-foreground-dim shrink-0">Push-only</span>
-                          )}
+                          <span className="text-xs text-foreground-dim shrink-0">Push-only</span>
                         </div>
                       );
                     })}

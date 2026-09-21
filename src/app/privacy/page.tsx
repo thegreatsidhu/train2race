@@ -8,8 +8,8 @@
         <ul className="list-disc pl-5 space-y-2 text-sm text-foreground-dim">
           <li><strong className="text-foreground">Account data</strong> - your name, email address, and password (hashed, never stored in plain text)</li>
           <li><strong className="text-foreground">Profile data</strong> - optional: date of birth, biological sex, height, weight, and timezone. Used only for training calculations.</li>
-          <li><strong className="text-foreground">Activity data</strong> - workout type, duration, distance, and date from connected devices. Used to display your training history and weekly volume.</li>
-          <li><strong className="text-foreground">Recovery metrics</strong> - HRV, resting heart rate, sleep score, and recovery percentage from connected wearables.</li>
+          <li><strong className="text-foreground">Activity data</strong> - workout type, duration, distance, and date, logged manually or synced from Apple Health / Google Health Connect. Used to display your training history and weekly volume.</li>
+          <li><strong className="text-foreground">Recovery metrics</strong> - HRV, resting heart rate, sleep score, and recovery percentage, when shared via Apple Health / Google Health Connect.</li>
           <li><strong className="text-foreground">Race and training data</strong> - races you add, training plans you generate, and workout completion status.</li>
           <li><strong className="text-foreground">Team data</strong> - teams you create or join, team messages, and your training progress as shared with your team.</li>
         </ul>
@@ -26,12 +26,9 @@
       </Section>
       <Section title="Third-party connections">
         <ul className="list-disc pl-5 space-y-2 text-sm text-foreground-dim">
-          <li><strong className="text-foreground">Strava</strong> - we read your activities (type, distance, duration, date). We do not post to Strava or access your followers, segments, or social features.</li>
-          <li><strong className="text-foreground">Whoop</strong> - we read your daily recovery score, HRV, resting heart rate, and sleep data.</li>
-          <li><strong className="text-foreground">Garmin</strong> - we read your daily metrics and activities.</li>
-          <li><strong className="text-foreground">Apple Health</strong> - we receive health data you choose to share via webhook.</li>
+          <li><strong className="text-foreground">Apple Health / Google Health Connect</strong> - we receive health and activity data you choose to share via a secure, per-account webhook.</li>
         </ul>
-        <p className="text-sm text-foreground-dim mt-3">You can disconnect any service at any time from the Connections page. We delete your data from that service immediately upon disconnection.</p>
+        <p className="text-sm text-foreground-dim mt-3">You can disconnect at any time from the Connections page.</p>
       </Section>
       <Section title="Data sharing within teams"><p className="text-sm text-foreground-dim">If you join a team, your teammates can see your weekly mileage, workout completion percentage, and training plan progress. You control this by choosing which teams to join. You can leave a team at any time.</p></Section>
       <Section title="Data retention">
@@ -39,10 +36,9 @@
           <li>Daily metrics are automatically deleted after 90 days</li>
           <li>Team messages are automatically deleted after 90 days</li>
           <li>All your data is deleted when you delete your account</li>
-          <li>Strava data is deleted immediately when you disconnect Strava</li>
         </ul>
       </Section>
-      <Section title="Data security"><p className="text-sm text-foreground-dim">All data is encrypted in transit (HTTPS). Passwords are hashed using bcrypt and never stored in plain text. Access tokens from third-party services are encrypted at rest.</p></Section>
+      <Section title="Data security"><p className="text-sm text-foreground-dim">All data is encrypted in transit (HTTPS). Passwords are hashed using bcrypt and never stored in plain text.</p></Section>
       <Section title="Your rights">
         <ul className="list-disc pl-5 space-y-2 text-sm text-foreground-dim">
           <li><strong className="text-foreground">Access</strong> - you can view all your data in the app at any time</li>

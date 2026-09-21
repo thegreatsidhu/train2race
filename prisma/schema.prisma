@@ -1,5 +1,8 @@
 // Vitality - database schema
-// Normalizes Garmin / Whoop / Strava / Apple Health into one shared model
+// Health/activity data model. Apple Health / Google Health Connect (via the
+// Health Bridge webhook) is the only active sync source; GARMIN/WHOOP/STRAVA
+// remain in the DataSource enum only to preserve any historical rows — the
+// connector code and OAuth routes for them have been removed.
 
 generator client {
   provider = "prisma-client"

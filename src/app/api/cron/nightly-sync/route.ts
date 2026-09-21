@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
-import { syncAllConnections } from "@/lib/sync/engine";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { groupEmailHtml, unsubscribeUrl } from "@/lib/email";
@@ -19,8 +18,7 @@ export async function GET(req: NextRequest) {
   const chatCutoff = new Date(Date.now()-30*24*60*60*1000);
   const teamCutoff = new Date(Date.now()-90*24*60*60*1000);
   const rejectedCutoff = new Date(Date.now()-7*24*60*60*1000);
-  const [syncResult, deletedMetrics, deletedChats, deletedAdvice, deletedTeamMsgs, deletedRejected] = await Promise.all([
-    syncAllConnections(),
+  const [deletedMetrics, deletedChats, deletedAdvice, deletedTeamMsgs, deletedRejected] = await Promise.all([
     prisma.dailyMetrics.deleteMany({ where: { date: { lt: metricsCutoff } } }),
     prisma.chatMessage.deleteMany({ where: { createdAt: { lt: chatCutoff } } }),
     prisma.adviceCard.deleteMany({ where: { createdAt: { lt: chatCutoff } } }),
@@ -472,5 +470,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, sync: syncResult, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, editNotifs, inviteNotifs, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
+  return NextResponse.json({ ok: true, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, editNotifs, inviteNotifs, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
 }

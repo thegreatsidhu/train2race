@@ -1,9 +1,7 @@
-import type { DataSource } from "@/generated/prisma/client";
-
 /**
- * Every wearable integration (Garmin, Whoop, Strava, Apple Health) implements
- * this same interface. The rest of the app — sync job, advice engine, chat
- * coach — never needs to know which vendor a connection belongs to.
+ * Shared normalized shapes for health/activity data, regardless of source.
+ * Currently only Apple Health / Google Health Connect (via the Health Bridge
+ * webhook) populate these — see ./apple-health.ts.
  */
 
 export interface NormalizedDailyMetrics {
@@ -46,45 +44,4 @@ export interface NormalizedActivity {
   trainingLoad?: number;
   title?: string;
   raw?: unknown;
-}
-
-export interface ConnectorTokens {
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt?: Date;
-  externalUserId?: string;
-}
-
-export interface OAuthConnector {
-  source: DataSource;
-
-  /** Builds the URL the user is redirected to for the OAuth consent screen. */
-  getAuthorizationUrl(state: string): string;
-
-  /** Exchanges an authorization code (from the OAuth callback) for tokens. */
-  exchangeCodeForTokens(code: string): Promise<ConnectorTokens>;
-
-  /** Refreshes an access token using the stored refresh token. */
-  refreshAccessToken(refreshToken: string): Promise<ConnectorTokens>;
-
-  /** Fetches normalized daily health metrics for a date range. */
-  fetchDailyMetrics(
-    accessToken: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<NormalizedDailyMetrics[]>;
-
-  /** Fetches normalized activities/workouts for a date range. */
-  fetchActivities(
-    accessToken: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<NormalizedActivity[]>;
-}
-
-export class ConnectorAuthError extends Error {
-  constructor(message: string, public source: DataSource) {
-    super(message);
-    this.name = "ConnectorAuthError";
-  }
 }
