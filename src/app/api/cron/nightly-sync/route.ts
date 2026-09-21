@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { groupEmailHtml, unsubscribeUrl } from "@/lib/email";
 import { sendPush } from "@/lib/oneSignal";
+import { HAIKU_MODEL } from "@/lib/ai/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { computeLeaderboard, formatStat } from "@/lib/platformChallenge";
 
@@ -359,7 +360,7 @@ export async function GET(req: NextRequest) {
         const prompt = `Generate fun, punchy daily leaderboard awards for a fitness challenge called "${ch.title}" (tracking: ${ch.type.replace(/_/g," ")}). Top athletes today:\n${top3.map((e,i)=>`${i+1}. ${e.name} — ${e.stat}`).join("\n")}\n\nGenerate one playful award per person under 20 words, sports-announcer energy. Return ONLY a JSON array: [{"rank":1,"text":"..."},{"rank":2,"text":"..."},...]`;
 
         const resp = await anthropic.messages.create({
-          model: "claude-haiku-4-5",
+          model: HAIKU_MODEL,
           max_tokens: 400,
           messages: [{ role: "user", content: prompt }],
         });
@@ -407,7 +408,7 @@ export async function GET(req: NextRequest) {
         const prompt = `Generate a fun final announcement for a fitness challenge called "${ch.title}" (${parts.length} athletes competed, tracking: ${ch.type.replace(/_/g," ")}). Top 5 finishers:\n${top5.map((e,i)=>`${i+1}. ${e.name} — ${e.stat}`).join("\n")}\n\nReturn ONLY JSON: {"intro":"1-2 sentence energetic intro celebrating the challenge ending","tributes":[{"rank":1,"text":"under 20 word tribute"},...]}`
 
         const resp = await anthropic.messages.create({
-          model: "claude-haiku-4-5",
+          model: HAIKU_MODEL,
           max_tokens: 600,
           messages: [{ role: "user", content: prompt }],
         });

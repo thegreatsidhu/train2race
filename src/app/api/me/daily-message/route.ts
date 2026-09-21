@@ -2,9 +2,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic();
+import { anthropic as client, HAIKU_MODEL } from "@/lib/ai/client";
 
 async function generateMessage(userId: string): Promise<string> {
   // Gather user context
@@ -56,7 +54,7 @@ ${contextParts}
 Respond with only the message text, no quotes, no explanation.`;
 
   const response = await client.messages.create({
-    model: "claude-haiku-4-5",
+    model: HAIKU_MODEL,
     max_tokens: 120,
     messages: [{ role: "user", content: prompt }],
   });

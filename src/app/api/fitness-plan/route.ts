@@ -2,10 +2,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
 import { computeCalorieTarget, evaluateGoalPace } from "@/lib/health/weightLoss";
-
-const anthropic = new Anthropic();
 
 // Best-effort repair for a JSON response truncated by hitting max_tokens — closes any
 // unterminated string and any open brackets/braces so JSON.parse has a chance to succeed.
@@ -84,7 +82,7 @@ Rules:
 - Unique IDs: w1_d1, w1_d2, w2_d1, etc. across all weeks`;
 
   const res = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: HAIKU_MODEL,
     max_tokens: 8000,
     messages: [{ role: "user", content: prompt }],
   });
@@ -120,7 +118,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 Keep tips actionable, simple, and tailored to the user's specific goal.`;
 
   const res = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: HAIKU_MODEL,
     max_tokens: 1024,
     messages: [{ role: "user", content: prompt }],
   });

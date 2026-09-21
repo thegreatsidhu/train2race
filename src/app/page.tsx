@@ -80,7 +80,7 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-10">
             <Pillar eyebrow="Private leaderboards" title="Friendly competition every week" body="Ranked by workout completion, weekly mileage, and consistency. See exactly where you stand against your teammates throughout the entire training cycle." />
             <Pillar eyebrow="Team chat" title="Stay connected all season" body="Message your team directly inside Train2Race. Celebrate PRs, share tips, swap routes, and keep everyone motivated from the first long run to race morning." />
-            <Pillar eyebrow="Team invitations" title="Bring your whole crew" body="Share your invite code and teammates join instantly. No searching, no approval steps — just share the code and everyone is in." />
+            <Pillar eyebrow="Team invitations" title="Bring your whole crew" body="Share your invite code and teammates join in seconds. No searching — just share the code and everyone is in." />
           </div>
         </section>
 
@@ -178,7 +178,7 @@ export default function Home() {
               { q: "Is it free?", a: "Yes, always free to join. No credit card required." },
               { q: "Do I need a wearable or fitness tracker?", a: "No. You can log workouts manually. Wearable integrations are optional." },
               { q: "What races are supported?", a: "100+ major races including Boston, Chicago, New York, Ironman, and more. You can also request new races." },
-              { q: "How do I join a team?", a: "Get an invite code from your team captain and enter it when signing up or from your dashboard. Don't have one? You can also request an invite code directly from the landing page." },
+              { q: "How do I join a team?", a: "Create your free account, then get an invite code from your team captain and enter it from your dashboard." },
               { q: "Can I train without a team?", a: "Yes. You can register for a race, follow a training plan, and join the global race community on your own." },
             ].map(({ q, a }) => (
               <div key={q}>

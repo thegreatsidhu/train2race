@@ -32,6 +32,7 @@ function getCategory(distanceM, isTriathlon) {
 export async function POST(req, { params }) {
   const { id } = await params;
   const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = session.user.id;
   const race = await prisma.raceTarget.findUnique({ where: { id, userId } });
   if (!race) return NextResponse.json({ error: "Not found" }, { status: 404 });
