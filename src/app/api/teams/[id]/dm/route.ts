@@ -14,10 +14,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const membership = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
   if (!membership) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
+  const blocks = await (prisma as any).blockedUser.findMany({
+    where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+    select: { blockerId: true, blockedId: true },
+  });
+  const blockedUserIds = new Set(blocks.map((b: any) => (b.blockerId === userId ? b.blockedId : b.blockerId)));
+
   const { searchParams } = new URL(req.url);
   const withUserId = searchParams.get("withUserId");
 
   if (withUserId) {
+    if (blockedUserIds.has(withUserId)) {
+      return NextResponse.json({ error: "This conversation is unavailable" }, { status: 403 });
+    }
     // Mark incoming messages as read
     await prisma.directMessage.updateMany({
       where: { teamId, fromUserId: withUserId, toUserId: userId, isRead: false },
@@ -61,7 +70,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!threadMap.has(key)) threadMap.set(key, { userId: m.toUser.id, name: m.toUser.name ?? "?", lastMessage: m.content, lastAt: m.createdAt, unread: 0 });
   }
 
-  const threads = Array.from(threadMap.values()).sort((a, b) => b.lastAt.getTime() - a.lastAt.getTime());
+  const threads = Array.from(threadMap.values())
+    .filter(t => !blockedUserIds.has(t.userId))
+    .sort((a, b) => b.lastAt.getTime() - a.lastAt.getTime());
   return NextResponse.json({ threads });
 }
 
@@ -81,6 +92,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { toUserId, content } = await req.json();
   if (!toUserId || !content?.trim()) return NextResponse.json({ error: "toUserId and content required" }, { status: 400 });
+
+  const blocked = await (prisma as any).blockedUser.findFirst({
+    where: { OR: [{ blockerId: userId, blockedId: toUserId }, { blockerId: toUserId, blockedId: userId }] },
+  });
+  if (blocked) return NextResponse.json({ error: "You can't message this person" }, { status: 403 });
 
   // Check if recipient is a team member
   const recipientMembership = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: toUserId } } });

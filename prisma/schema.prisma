@@ -68,6 +68,10 @@ model User {
   supportTickets           SupportTicket[]
   directMessagesSent       DirectMessage[]  @relation("DMsSent")
   directMessagesReceived   DirectMessage[]  @relation("DMsReceived")
+  reportsFiled             ContentReport[]  @relation("ReportsFiled")
+  reportsReceived          ContentReport[]  @relation("ReportsReceived")
+  blocksMade               BlockedUser[]    @relation("BlocksMade")
+  blockedBy                BlockedUser[]    @relation("BlockedByOthers")
   adminMessages            AdminMessage[]   @relation("AdminMsgsReceived")
   teamBulletins            TeamBulletin[]
   teamEvents               TeamEvent[]
@@ -197,6 +201,7 @@ model Activity {
   title         String?
   raw           Json?
   photos        String[]   @default([])
+  photosHidden  Boolean    @default(false)
   createdAt     DateTime   @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   highFives   HighFive[]
@@ -578,6 +583,36 @@ model DirectMessage {
   @@index([teamId, toUserId, createdAt])
   @@index([toUserId, isRead])
   @@map("direct_messages")
+}
+
+model ContentReport {
+  id              String   @id @default(cuid())
+  reporterId      String
+  reportedUserId  String
+  contentType     String   // team_message | direct_message | activity_comment | activity_photo
+  contentId       String   // id of the TeamMessage / DirectMessage / ActivityComment / Activity
+  contentSnapshot String?  // captured text at report time (null for photo reports)
+  reason          String?
+  status          String   @default("pending") // pending | reviewed | dismissed
+  autoActioned    Boolean  @default(false)      // true if this report auto-hid a photo
+  createdAt       DateTime @default(now())
+  reporter        User     @relation("ReportsFiled",   fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser    User     @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
+  @@index([reportedUserId])
+  @@map("content_reports")
+}
+
+model BlockedUser {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("BlocksMade",      fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("BlockedByOthers", fields: [blockedId], references: [id], onDelete: Cascade)
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("blocked_users")
 }
 
 model Setting {

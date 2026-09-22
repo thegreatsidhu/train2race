@@ -30,15 +30,23 @@ interface Props {
   onSend: (content: string, replyToId?: string) => Promise<void>;
   onDelete: (messageId: string) => Promise<void>;
   onDeleteAll?: () => Promise<void>;
+  onReport?: (messageId: string, reason: string) => Promise<void>;
+  onBlock?: (userId: string) => Promise<void>;
   sending?: boolean;
   readOnly?: boolean;
 }
 
-export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSend, onDelete, onDeleteAll, sending, readOnly }: Props) {
+export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSend, onDelete, onDeleteAll, onReport, onBlock, sending, readOnly }: Props) {
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reportingId, setReportingId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+  const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
+  const [confirmBlockUserId, setConfirmBlockUserId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isInitialLoad = useRef(true);
@@ -71,6 +79,28 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
   function startReply(msg: Message) {
     setReplyTo(msg);
     inputRef.current?.focus();
+  }
+
+  async function submitReport(messageId: string) {
+    if (!onReport) return;
+    setSubmittingReport(true);
+    try {
+      await onReport(messageId, reportReason.trim());
+      setReportedIds(prev => new Set(prev).add(messageId));
+      setReportingId(null);
+      setReportReason("");
+    } catch {}
+    setSubmittingReport(false);
+  }
+
+  async function confirmBlock(userId: string) {
+    if (!onBlock) return;
+    setBlockingUserId(userId);
+    try {
+      await onBlock(userId);
+    } catch {}
+    setBlockingUserId(null);
+    setConfirmBlockUserId(null);
   }
 
   return (
@@ -130,7 +160,44 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
                       {deletingId === msg.id ? "…" : isAdmin && !isMe ? "Delete (admin)" : "Delete"}
                     </button>
                   )}
+                  {!isMe && onReport && (
+                    reportedIds.has(msg.id)
+                      ? <span className="text-xs text-foreground-dim">Reported</span>
+                      : <button onClick={() => { setReportingId(msg.id); setReportReason(""); }} className="text-xs text-foreground-dim hover:text-foreground">Report</button>
+                  )}
+                  {!isMe && onBlock && (
+                    <button onClick={() => setConfirmBlockUserId(msg.user.id)} className="text-xs text-foreground-dim hover:text-foreground">Block</button>
+                  )}
                 </div>
+
+                {/* Inline report form */}
+                {reportingId === msg.id && (
+                  <div className="mt-1 p-2.5 rounded-xl bg-surface border border-border w-full max-w-[240px]">
+                    <textarea value={reportReason} onChange={e => setReportReason(e.target.value)} rows={2} placeholder="What's wrong with this message? (optional)"
+                      className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-xs outline-none focus:border-signal resize-none mb-2" />
+                    <div className="flex gap-2">
+                      <button onClick={() => submitReport(msg.id)} disabled={submittingReport}
+                        className="text-xs px-3 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-60">
+                        {submittingReport ? "Sending…" : "Submit report"}
+                      </button>
+                      <button onClick={() => setReportingId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inline block confirm */}
+                {confirmBlockUserId === msg.user.id && (
+                  <div className="mt-1 p-2.5 rounded-xl bg-surface border border-border w-full max-w-[260px]">
+                    <p className="text-xs text-foreground-dim mb-2">Block {msg.user.name}? You won't see their messages and they won't be able to message you.</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => confirmBlock(msg.user.id)} disabled={blockingUserId === msg.user.id}
+                        className="text-xs px-3 py-1 rounded-full bg-red-600 text-white font-medium disabled:opacity-60">
+                        {blockingUserId === msg.user.id ? "Blocking…" : "Block"}
+                      </button>
+                      <button onClick={() => setConfirmBlockUserId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );

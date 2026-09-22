@@ -46,6 +46,10 @@ export function AdminPanel() {
   const [userMsgs, setUserMsgs] = useState({});
   const [tickets, setTickets] = useState([]);
   const [ticketsLoaded, setTicketsLoaded] = useState(false);
+  const [reports, setReports] = useState([]);
+  const [reportsLoaded, setReportsLoaded] = useState(false);
+  const [updatingReport, setUpdatingReport] = useState(null);
+  const [reportStatusFilter, setReportStatusFilter] = useState("pending");
   const [ticketNote, setTicketNote] = useState({});
   const [updatingTicket, setUpdatingTicket] = useState(null);
   // Messaging
@@ -575,6 +579,28 @@ export function AdminPanel() {
     setTicketsLoaded(true);
   }
 
+  async function loadReports() {
+    if (reportsLoaded) return;
+    const res = await fetch(`/api/admin/reports?password=${encodeURIComponent(password)}`);
+    const d = await res.json();
+    setReports(d.reports || []);
+    setReportsLoaded(true);
+  }
+
+  async function updateReport(reportId, action) {
+    setUpdatingReport(reportId);
+    const res = await fetch("/api/admin/reports", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, reportId, action }) });
+    const d = await res.json();
+    if (res.ok) setReports(prev => prev.map(r => r.id === reportId ? d.report : r));
+    setUpdatingReport(null);
+  }
+
+  async function banReportedUser(reportId, userId) {
+    setUpdatingReport(reportId);
+    await fetch("/api/admin/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, action: "banUser", userId }) });
+    await updateReport(reportId, "reviewed");
+  }
+
   async function createPublicChallenge() {
     if (!newChTeamId || !newChTitle || !newChStart || !newChEnd) return;
     setCreatingCh(true); setCreateChMsg("");
@@ -898,6 +924,7 @@ export function AdminPanel() {
     if (id === "approvals") { loadChallenges(); loadTeams(); loadCommRequests(); }
     if (id === "challenges") { loadChallenges(); loadTeams(); loadPlatformChallenges(); }
     if (id === "tickets") loadTickets();
+    if (id === "reports") loadReports();
     if (id === "teams") loadTeams();
     if (id === "communities") { loadCommunities(); loadCommRequests(); }
     if (id === "races") loadAllRaces();
@@ -1022,6 +1049,7 @@ export function AdminPanel() {
             { id: "messages", label: "Messages" },
             { id: "challenges", label: "Challenges" + (challengesLoaded && pendingChallengeCount > 0 ? " (" + pendingChallengeCount + " pending)" : "") },
             { id: "tickets", label: "Tickets" + (tickets.filter(t=>t.status==="open").length > 0 ? " ("+tickets.filter(t=>t.status==="open").length+")" : "") },
+            { id: "reports", label: "Reports" + (reportsLoaded && reports.filter(r=>r.status==="pending").length > 0 ? " ("+reports.filter(r=>r.status==="pending").length+")" : "") },
             { id: "teams", label: "Teams (" + teams.length + ")" },
             { id: "communities", label: "Communities" + (communitiesLoaded ? " (" + communities.length + ")" : "") + (commRequests.filter(r => r.status === "pending").length > 0 ? " · " + commRequests.filter(r => r.status === "pending").length + " pending" : "") },
             { id: "settings", label: "Settings" },
@@ -2280,6 +2308,77 @@ export function AdminPanel() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "reports" && (
+          <div>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="font-medium">Content Reports</h2>
+              {reportsLoaded && <span className="text-xs text-foreground-dim">{reports.filter(r=>r.status===reportStatusFilter || reportStatusFilter==="all").length} shown</span>}
+            </div>
+            {reportsLoaded && (
+              <div className="flex gap-1.5 flex-wrap mb-4">
+                {[
+                  { v: "pending", l: "Pending" + (reports.filter(r=>r.status==="pending").length > 0 ? ` (${reports.filter(r=>r.status==="pending").length})` : "") },
+                  { v: "reviewed", l: "Reviewed" },
+                  { v: "dismissed", l: "Dismissed" },
+                  { v: "all", l: "All" },
+                ].map(f => (
+                  <button key={f.v} onClick={() => setReportStatusFilter(f.v)} className={"text-xs px-3 py-1 rounded-full border transition-colors " + (reportStatusFilter === f.v ? "bg-signal text-background border-signal" : "border-border hover:bg-surface")}>
+                    {f.l}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!reportsLoaded ? (
+              <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
+            ) : (() => {
+              const filtered = reportStatusFilter === "all" ? reports : reports.filter(r => r.status === reportStatusFilter);
+              const CONTENT_LABELS = { team_message: "Team chat message", direct_message: "Direct message", activity_comment: "Activity comment", activity_photo: "Activity photo" };
+              return filtered.length === 0 ? <p className="text-sm text-foreground-dim">No {reportStatusFilter === "all" ? "" : reportStatusFilter + " "}reports.</p> : (
+                <div className="space-y-3">
+                  {filtered.map((r) => {
+                    const STATUS_COLORS = { pending: "border-yellow-600/40 bg-yellow-900/10 text-yellow-300", reviewed: "border-green-600/40 bg-green-900/10 text-green-300", dismissed: "border-border bg-surface text-foreground-dim" };
+                    return (
+                      <div key={r.id} className="rounded-2xl border border-border bg-surface p-4">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div>
+                            <p className="font-medium text-sm">{CONTENT_LABELS[r.contentType] || r.contentType}{r.autoActioned && " · auto-hidden"}</p>
+                            <p className="text-xs text-foreground-dim mt-0.5">
+                              Reported by {r.reporter?.name || r.reporter?.email || "Unknown"} · against {r.reportedUser?.name || r.reportedUser?.email || "Unknown"} · {new Date(r.createdAt).toLocaleDateString()}
+                            </p>
+                            {r.contentSnapshot && <p className="text-sm text-foreground-dim mt-2 italic">"{r.contentSnapshot}"</p>}
+                            {r.reason && <p className="text-sm mt-1">Reason: {r.reason}</p>}
+                          </div>
+                          <span className={"text-xs px-2 py-0.5 rounded-full border shrink-0 " + STATUS_COLORS[r.status]}>{r.status}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                          <button disabled={updatingReport===r.id || r.status==="reviewed"} onClick={() => updateReport(r.id, "reviewed")}
+                            className="text-xs px-3 py-1 rounded-full border border-border hover:bg-surface-raised transition-colors disabled:opacity-40">
+                            Mark reviewed
+                          </button>
+                          <button disabled={updatingReport===r.id || r.status==="dismissed"} onClick={() => updateReport(r.id, "dismissed")}
+                            className="text-xs px-3 py-1 rounded-full border border-border hover:bg-surface-raised transition-colors disabled:opacity-40">
+                            Dismiss
+                          </button>
+                          {r.contentType === "activity_photo" && r.autoActioned && (
+                            <button disabled={updatingReport===r.id} onClick={() => updateReport(r.id, "restorePhoto")}
+                              className="text-xs px-3 py-1 rounded-full border border-green-700/40 text-green-400 hover:border-green-500 transition-colors disabled:opacity-40">
+                              Restore photo
+                            </button>
+                          )}
+                          <button disabled={updatingReport===r.id} onClick={() => banReportedUser(r.id, r.reportedUserId)}
+                            className="text-xs px-3 py-1 rounded-full bg-red-600 text-white disabled:opacity-50 ml-auto">
+                            Ban reported user
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 

@@ -50,6 +50,19 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
   const [deletingComment, setDeletingComment] = useState<Set<string>>(new Set());
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // Report / block state
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
+  const [commentReportReason, setCommentReportReason] = useState("");
+  const [submittingCommentReport, setSubmittingCommentReport] = useState(false);
+  const [reportedCommentIds, setReportedCommentIds] = useState<Set<string>>(new Set());
+  const [reportingPhotoActivityId, setReportingPhotoActivityId] = useState<string | null>(null);
+  const [photoReportReason, setPhotoReportReason] = useState("");
+  const [submittingPhotoReport, setSubmittingPhotoReport] = useState(false);
+  const [reportedPhotoActivityIds, setReportedPhotoActivityIds] = useState<Set<string>>(new Set());
+  const [confirmBlockUserId, setConfirmBlockUserId] = useState<string | null>(null);
+  const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     fetch(`/api/teams/${teamId}/activity`)
       .then(r => r.json())
@@ -157,6 +170,60 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
     }
   }
 
+  async function submitCommentReport(commentId: string) {
+    if (submittingCommentReport) return;
+    setSubmittingCommentReport(true);
+    try {
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: "activity_comment", contentId: commentId, reason: commentReportReason.trim() }),
+      });
+      if (res.ok) {
+        setReportedCommentIds(prev => new Set(prev).add(commentId));
+        setReportingCommentId(null);
+        setCommentReportReason("");
+      }
+    } finally {
+      setSubmittingCommentReport(false);
+    }
+  }
+
+  async function submitPhotoReport(activityId: string) {
+    if (submittingPhotoReport) return;
+    setSubmittingPhotoReport(true);
+    try {
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: "activity_photo", contentId: activityId, reason: photoReportReason.trim() }),
+      });
+      if (res.ok) {
+        setReportedPhotoActivityIds(prev => new Set(prev).add(activityId));
+        setReportingPhotoActivityId(null);
+        setPhotoReportReason("");
+        setActivities(prev => prev.map(a => a.id === activityId ? { ...a, photosHidden: true } : a));
+      }
+    } finally {
+      setSubmittingPhotoReport(false);
+    }
+  }
+
+  async function confirmBlock(userId: string) {
+    if (blockingUserId) return;
+    setBlockingUserId(userId);
+    try {
+      const res = await fetch(`/api/users/${userId}/block`, { method: "POST" });
+      if (res.ok) {
+        setBlockedUserIds(prev => new Set(prev).add(userId));
+        setActivities(prev => prev.filter(a => a.userId !== userId));
+      }
+    } finally {
+      setBlockingUserId(null);
+      setConfirmBlockUserId(null);
+    }
+  }
+
   if (!loaded) return <p className="text-sm text-foreground-dim py-4">Loading...</p>;
   if (activities.length === 0) return <p className="text-sm text-foreground-dim py-4">Be the first to log a workout today! Your team is watching 💪</p>;
 
@@ -184,7 +251,27 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
                   <div className="flex items-center gap-2 mb-0.5">
                     <p className="text-sm font-medium truncate">{a.isMe ? "You" : a.userName}</p>
                     <span className="text-xs text-foreground-dim shrink-0">{timeAgo(a.startTime)}</span>
+                    {!a.isMe && !blockedUserIds.has(a.userId) && (
+                      <button
+                        onClick={() => setConfirmBlockUserId(a.userId)}
+                        className="text-xs text-foreground-dim/50 hover:text-red-400 transition-colors shrink-0"
+                      >
+                        Block
+                      </button>
+                    )}
                   </div>
+                  {confirmBlockUserId === a.userId && (
+                    <div className="mb-2 p-2.5 rounded-xl bg-surface border border-border max-w-[280px]">
+                      <p className="text-xs text-foreground-dim mb-2">Block {a.userName}? You won't see their workouts or messages and they won't see yours.</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => confirmBlock(a.userId)} disabled={blockingUserId === a.userId}
+                          className="text-xs px-3 py-1 rounded-full bg-red-600 text-white font-medium disabled:opacity-60">
+                          {blockingUserId === a.userId ? "Blocking…" : "Block"}
+                        </button>
+                        <button onClick={() => setConfirmBlockUserId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                      </div>
+                    </div>
+                  )}
                   <p className="text-sm capitalize">{typeIcon(a.type)} {a.title || a.type}</p>
                   <p className="text-xs text-foreground-dim mt-0.5">
                     {[
@@ -231,17 +318,50 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
 
               {/* Photos */}
               {a.photos && a.photos.length > 0 && (
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {a.photos.map((url: string, i: number) => (
-                    <button key={i} onClick={() => setLightbox(url)} className="focus:outline-none">
-                      <img
-                        src={url}
-                        alt=""
-                        className="w-16 h-16 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity"
-                      />
-                    </button>
-                  ))}
-                </div>
+                a.photosHidden ? (
+                  <div className="mt-2 px-3 py-2 rounded-lg border border-border bg-surface text-xs text-foreground-dim">
+                    📷 Photo hidden pending review
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <div className="flex gap-2 flex-wrap items-start">
+                      {a.photos.map((url: string, i: number) => (
+                        <button key={i} onClick={() => setLightbox(url)} className="focus:outline-none">
+                          <img
+                            src={url}
+                            alt=""
+                            className="w-16 h-16 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    {!a.isMe && (
+                      reportedPhotoActivityIds.has(a.id) ? (
+                        <span className="text-xs text-foreground-dim mt-1 inline-block">Photo reported</span>
+                      ) : reportingPhotoActivityId === a.id ? (
+                        <div className="mt-1.5 p-2.5 rounded-xl bg-surface border border-border w-full max-w-[260px]">
+                          <textarea value={photoReportReason} onChange={e => setPhotoReportReason(e.target.value)} rows={2}
+                            placeholder="What's wrong with this photo? (optional)"
+                            className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-xs outline-none focus:border-signal resize-none mb-2" />
+                          <div className="flex gap-2">
+                            <button onClick={() => submitPhotoReport(a.id)} disabled={submittingPhotoReport}
+                              className="text-xs px-3 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-60">
+                              {submittingPhotoReport ? "Sending…" : "Submit report"}
+                            </button>
+                            <button onClick={() => setReportingPhotoActivityId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setReportingPhotoActivityId(a.id); setPhotoReportReason(""); }}
+                          className="text-xs text-foreground-dim/50 hover:text-red-400 transition-colors mt-1"
+                        >
+                          Report photo
+                        </button>
+                      )
+                    )}
+                  </div>
+                )
               )}
 
               {/* Comments section */}
@@ -254,23 +374,49 @@ export function TeamActivityFeed({ teamId }: { teamId: string }) {
                   ) : (
                     <div className="space-y-2">
                       {activityComments.map((c: Comment) => (
-                        <div key={c.id} className="flex items-start gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-baseline gap-1.5 flex-wrap">
-                              <span className="text-xs font-medium">{c.isMe ? "You" : c.userName}</span>
-                              <span className="text-xs text-foreground-dim">{timeAgo(c.createdAt)}</span>
+                        <div key={c.id}>
+                          <div className="flex items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-baseline gap-1.5 flex-wrap">
+                                <span className="text-xs font-medium">{c.isMe ? "You" : c.userName}</span>
+                                <span className="text-xs text-foreground-dim">{timeAgo(c.createdAt)}</span>
+                              </div>
+                              <p className="text-sm mt-0.5 break-words">{c.content}</p>
                             </div>
-                            <p className="text-sm mt-0.5 break-words">{c.content}</p>
+                            {c.isMe && (
+                              <button
+                                onClick={() => deleteComment(a.id, c.id)}
+                                disabled={deletingComment.has(c.id)}
+                                className="text-xs text-foreground-dim/50 hover:text-red-400 transition-colors shrink-0 mt-0.5 disabled:opacity-40"
+                                aria-label="Delete comment"
+                              >
+                                ✕
+                              </button>
+                            )}
+                            {!c.isMe && (
+                              reportedCommentIds.has(c.id)
+                                ? <span className="text-xs text-foreground-dim shrink-0 mt-0.5">Reported</span>
+                                : <button
+                                    onClick={() => { setReportingCommentId(c.id); setCommentReportReason(""); }}
+                                    className="text-xs text-foreground-dim/50 hover:text-red-400 transition-colors shrink-0 mt-0.5"
+                                  >
+                                    Report
+                                  </button>
+                            )}
                           </div>
-                          {c.isMe && (
-                            <button
-                              onClick={() => deleteComment(a.id, c.id)}
-                              disabled={deletingComment.has(c.id)}
-                              className="text-xs text-foreground-dim/50 hover:text-red-400 transition-colors shrink-0 mt-0.5 disabled:opacity-40"
-                              aria-label="Delete comment"
-                            >
-                              ✕
-                            </button>
+                          {reportingCommentId === c.id && (
+                            <div className="mt-1 p-2.5 rounded-xl bg-surface border border-border w-full max-w-[260px]">
+                              <textarea value={commentReportReason} onChange={e => setCommentReportReason(e.target.value)} rows={2}
+                                placeholder="What's wrong with this comment? (optional)"
+                                className="w-full px-2 py-1.5 rounded-lg bg-background border border-border text-xs outline-none focus:border-signal resize-none mb-2" />
+                              <div className="flex gap-2">
+                                <button onClick={() => submitCommentReport(c.id)} disabled={submittingCommentReport}
+                                  className="text-xs px-3 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-60">
+                                  {submittingCommentReport ? "Sending…" : "Submit report"}
+                                </button>
+                                <button onClick={() => setReportingCommentId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))}

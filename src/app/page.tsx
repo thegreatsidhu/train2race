@@ -206,6 +206,7 @@ export default function Home() {
                 <div><a href="/signup" className="hover:text-foreground transition-colors">Get started</a></div>
                 <div><a href="/login" className="hover:text-foreground transition-colors">Log in</a></div>
                 <div><a href="/privacy" className="hover:text-foreground transition-colors">Privacy policy</a></div>
+                <div><a href="/terms" className="hover:text-foreground transition-colors">Terms of service</a></div>
               </div>
             </div>
             <div>

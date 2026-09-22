@@ -20,16 +20,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   });
   const memberIds = members.map(m => m.userId);
 
+  const blocks = await (prisma as any).blockedUser.findMany({
+    where: { blockerId: userId },
+    select: { blockedId: true },
+  });
+  const blockedUserIds = blocks.map((b: any) => b.blockedId);
+  const visibleUserIds = memberIds.filter(id => !blockedUserIds.includes(id));
+
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const url = new URL(req.url);
   const skip = Math.max(0, parseInt(url.searchParams.get("skip") || "0", 10) || 0);
   const PAGE_SIZE = 20;
 
   const activities = await prisma.activity.findMany({
-    where: { userId: { in: memberIds }, startTime: { gte: sevenDaysAgo } },
+    where: { userId: { in: visibleUserIds }, startTime: { gte: sevenDaysAgo } },
     select: {
       id: true, type: true, title: true, startTime: true,
       distanceM: true, durationSec: true, userId: true, raw: true, photos: true,
+      photosHidden: true,
       user: { select: { id: true, name: true, email: true } },
       highFives: { select: { fromUserId: true } },
       comments: { where: { isDeleted: false }, select: { id: true } },
@@ -56,6 +64,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     iHighFived: a.highFives.some(k => k.fromUserId === userId),
     commentCount: a.comments.length,
     photos: a.photos ?? [],
+    photosHidden: a.photosHidden ?? false,
   }));
 
   return NextResponse.json({ activities: formatted, hasMore, nextSkip: skip + formatted.length });

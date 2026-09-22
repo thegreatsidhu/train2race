@@ -11,6 +11,7 @@ function SignupForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailTaken, setEmailTaken] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,6 +20,7 @@ function SignupForm() {
     e.preventDefault();
     setError(null);
     setEmailTaken(false);
+    if (!agreed) { setError("You must agree to the Terms of Service and Privacy Policy to continue."); return; }
     setLoading(true);
 
     const res = await fetch("/api/auth/signup", {
@@ -56,12 +58,22 @@ function SignupForm() {
       <input type="password" required minLength={8} placeholder="Password (min. 8 characters)" value={password}
         onChange={(e) => setPassword(e.target.value)}
         className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" />
+      <label className="flex items-start gap-2.5 px-1 text-xs text-foreground-dim cursor-pointer">
+        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
+          className="mt-0.5 accent-signal shrink-0" />
+        <span>
+          I agree to the{" "}
+          <Link href="/terms" target="_blank" className="text-signal hover:underline">Terms of Service</Link>{" "}
+          and{" "}
+          <Link href="/privacy" target="_blank" className="text-signal hover:underline">Privacy Policy</Link>
+        </span>
+      </label>
       {error && (
         <p className="text-alert text-sm">
           {error}{emailTaken && <> — <Link href="/login" className="underline">Log in instead</Link></>}
         </p>
       )}
-      <button type="submit" disabled={loading}
+      <button type="submit" disabled={loading || !agreed}
         className="w-full px-4 py-3 rounded-xl bg-signal text-background font-medium hover:bg-signal-dim transition-colors disabled:opacity-60">
         {loading ? "Creating account…" : "Create account"}
       </button>

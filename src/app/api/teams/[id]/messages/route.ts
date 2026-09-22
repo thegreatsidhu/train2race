@@ -33,8 +33,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ]);
   }
 
+  const blocks = await (prisma as any).blockedUser.findMany({
+    where: { blockerId: userId },
+    select: { blockedId: true },
+  });
+  const blockedUserIds = blocks.map((b: any) => b.blockedId);
+
   const messages = await prisma.teamMessage.findMany({
-    where: { teamId: id, isDeleted: false },
+    where: { teamId: id, isDeleted: false, ...(blockedUserIds.length > 0 ? { userId: { notIn: blockedUserIds } } : {}) },
     orderBy: { createdAt: "asc" },
     take: 200,
     include: MSG_INCLUDE,

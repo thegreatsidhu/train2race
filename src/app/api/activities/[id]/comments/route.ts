@@ -10,8 +10,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const myUserIdForBlocks = (session.user as { id: string }).id;
+  const blocks = await (prisma as any).blockedUser.findMany({
+    where: { blockerId: myUserIdForBlocks },
+    select: { blockedId: true },
+  });
+  const blockedUserIds = blocks.map((b: any) => b.blockedId);
+
   const comments = await (prisma as any).activityComment.findMany({
-    where: { activityId, isDeleted: false },
+    where: { activityId, isDeleted: false, ...(blockedUserIds.length > 0 ? { userId: { notIn: blockedUserIds } } : {}) },
     select: {
       id: true,
       content: true,

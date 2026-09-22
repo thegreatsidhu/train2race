@@ -45,6 +45,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
   const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
   const [dmTarget,setDmTarget]=useState<string|null>(null);const [dmThread,setDmThread]=useState<any[]>([]);const [dmContent,setDmContent]=useState("");const [sendingDm,setSendingDm]=useState(false);const [dmLoading,setDmLoading]=useState(false);const [myThreads,setMyThreads]=useState<any[]>([]);const [threadsLoaded,setThreadsLoaded]=useState(false);
+  const [dmReportingId,setDmReportingId]=useState<string|null>(null);const [dmReportReason,setDmReportReason]=useState("");const [dmSubmittingReport,setDmSubmittingReport]=useState(false);const [dmReportedIds,setDmReportedIds]=useState<Set<string>>(new Set());const [dmConfirmBlockUserId,setDmConfirmBlockUserId]=useState<string|null>(null);const [dmBlockingUserId,setDmBlockingUserId]=useState<string|null>(null);
   const [raceLoaded,setRaceLoaded]=useState(false);const [raceTabData,setRaceTabData]=useState<{members:{userId:string;name:string}[];myJoined:boolean}|null>(null);const [showRaceSearch,setShowRaceSearch]=useState(false);const [raceSearch,setRaceSearch]=useState("");const [raceResults,setRaceResults]=useState<any[]>([]);const [raceSearching,setRaceSearching]=useState(false);const [settingRace,setSettingRace]=useState(false);const [clearingRace,setClearingRace]=useState(false);const [confirmSetRace,setConfirmSetRace]=useState<any>(null);const [confirmClearRace,setConfirmClearRace]=useState(false);const [confirmLeaveRace,setConfirmLeaveRace]=useState(false);const [joiningRace,setJoiningRace]=useState(false);
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);loadBulletins(p.id);loadEvents(p.id);const sp=new URLSearchParams(window.location.search);if(sp.get("tab")==="challenges"){loadChallenges(p.id).then(()=>{setActiveTab("challenges");const cId=sp.get("challenge");if(cId){setTimeout(()=>{const el=document.getElementById(`challenge-${cId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},150);}});}else if(sp.get("tab")==="chat"){setActiveTab("chat");}});}, []);
   async function loadTeam(tid:string){try{const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);setMyUserId(data.team?.members?.find((m:any)=>m.isMe)?.userId||"");if(data.team?.majorRace){setLbType(data.team.majorRace.isTriathlon?"triathlon":"run");}}catch{router.push("/dashboard/teams");}}
@@ -52,6 +53,10 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function sendMessage(content:string,replyToId?:string){if(!id)return;setSending(true);const res=await fetch(`/api/teams/${id}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content,replyToId})});const data=await res.json();if(res.ok){setMessages(prev=>[...prev,data.message]);}setSending(false);}
   async function deleteMessage(messageId:string){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId})});setMessages(prev=>prev.filter((m:any)=>m.id!==messageId));}
   async function deleteAllMessages(){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({deleteAll:true})});setMessages([]);}
+  async function reportMessage(messageId:string,reason:string){const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contentType:"team_message",contentId:messageId,reason})});if(!res.ok)throw new Error("report failed");}
+  async function blockUser(userId:string){const res=await fetch(`/api/users/${userId}/block`,{method:"POST"});if(!res.ok)throw new Error("block failed");setMessages(prev=>prev.filter((m:any)=>m.user.id!==userId));setMyThreads(prev=>prev.filter((t:any)=>t.userId!==userId));if(dmTarget===userId){setDmTarget(null);setDmThread([]);}}
+  async function submitDmReport(messageId:string){setDmSubmittingReport(true);const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contentType:"direct_message",contentId:messageId,reason:dmReportReason.trim()})});if(res.ok)setDmReportedIds(prev=>new Set(prev).add(messageId));setDmSubmittingReport(false);setDmReportingId(null);setDmReportReason("");}
+  async function confirmDmBlock(userId:string){setDmBlockingUserId(userId);try{await blockUser(userId);}catch{}setDmBlockingUserId(null);setDmConfirmBlockUserId(null);}
   async function handleLeave(){setConfirmLeave(false);if(team?.isAdmin){await fetch(`/api/teams/${id}`,{method:"DELETE"});}else{await fetch(`/api/teams/${id}/leave`,{method:"POST"});}router.push("/dashboard/teams");}
   function copyInviteCode(){navigator.clipboard.writeText(team.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
   function copyInviteLink(){const link=`${window.location.origin}/join/${team.inviteCode}`;navigator.clipboard.writeText(link);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
@@ -770,6 +775,8 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           onSend={sendMessage}
           onDelete={deleteMessage}
           onDeleteAll={isAdmin ? deleteAllMessages : undefined}
+          onReport={reportMessage}
+          onBlock={blockUser}
           sending={sending}
         />
       </div>}
@@ -793,11 +800,36 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                       {dmLoading?<p className="text-xs text-foreground-dim">Loading…</p>:(
                         <div className="space-y-2 max-h-60 overflow-y-auto">
                           {dmThread.map((m:any)=>(
-                            <div key={m.id} className={"flex "+(m.fromUser.id===myUserId?"justify-end":"justify-start")}>
+                            <div key={m.id} className={"flex flex-col "+(m.fromUser.id===myUserId?"items-end":"items-start")}>
                               <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface border border-border")}>
                                 <p>{m.content}</p>
                                 <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{m.fromUser.id!==myUserId&&`${m.fromUser.name} · `}{fmtMsgDate(m.createdAt)}</p>
                               </div>
+                              {m.fromUser.id!==myUserId&&(
+                                <div className="flex gap-2 mt-0.5 px-1">
+                                  {dmReportedIds.has(m.id)?<span className="text-xs text-foreground-dim">Reported</span>:
+                                    <button onClick={()=>{setDmReportingId(m.id);setDmReportReason("");}} className="text-xs text-foreground-dim hover:text-foreground">Report</button>}
+                                  <button onClick={()=>setDmConfirmBlockUserId(m.fromUser.id)} className="text-xs text-foreground-dim hover:text-foreground">Block</button>
+                                </div>
+                              )}
+                              {dmReportingId===m.id&&(
+                                <div className="mt-1 p-2.5 rounded-xl bg-background border border-border w-full max-w-[240px]">
+                                  <textarea value={dmReportReason} onChange={e=>setDmReportReason(e.target.value)} rows={2} placeholder="What's wrong with this message? (optional)" className="w-full px-2 py-1.5 rounded-lg bg-surface border border-border text-xs outline-none focus:border-signal resize-none mb-2"/>
+                                  <div className="flex gap-2">
+                                    <button onClick={()=>submitDmReport(m.id)} disabled={dmSubmittingReport} className="text-xs px-3 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-60">{dmSubmittingReport?"Sending…":"Submit report"}</button>
+                                    <button onClick={()=>setDmReportingId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                                  </div>
+                                </div>
+                              )}
+                              {dmConfirmBlockUserId===m.fromUser.id&&(
+                                <div className="mt-1 p-2.5 rounded-xl bg-background border border-border w-full max-w-[260px]">
+                                  <p className="text-xs text-foreground-dim mb-2">Block {m.fromUser.name}? You won't see their messages and they won't be able to message you.</p>
+                                  <div className="flex gap-2">
+                                    <button onClick={()=>confirmDmBlock(m.fromUser.id)} disabled={dmBlockingUserId===m.fromUser.id} className="text-xs px-3 py-1 rounded-full bg-red-600 text-white font-medium disabled:opacity-60">{dmBlockingUserId===m.fromUser.id?"Blocking…":"Block"}</button>
+                                    <button onClick={()=>setDmConfirmBlockUserId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                           {dmThread.length===0&&<p className="text-xs text-foreground-dim text-center py-2">No messages yet.</p>}
@@ -878,11 +910,36 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                 {dmLoading?<p className="text-xs text-foreground-dim">Loading…</p>:(
                   <div className="space-y-2 max-h-60 overflow-y-auto mb-3">
                     {dmThread.map((m:any)=>(
-                      <div key={m.id} className={"flex "+(m.fromUser.id===myUserId?"justify-end":"justify-start")}>
+                      <div key={m.id} className={"flex flex-col "+(m.fromUser.id===myUserId?"items-end":"items-start")}>
                         <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface-raised border border-border")}>
                           <p>{m.content}</p>
                           <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{fmtMsgDate(m.createdAt)}</p>
                         </div>
+                        {m.fromUser.id!==myUserId&&(
+                          <div className="flex gap-2 mt-0.5 px-1">
+                            {dmReportedIds.has(m.id)?<span className="text-xs text-foreground-dim">Reported</span>:
+                              <button onClick={()=>{setDmReportingId(m.id);setDmReportReason("");}} className="text-xs text-foreground-dim hover:text-foreground">Report</button>}
+                            <button onClick={()=>setDmConfirmBlockUserId(m.fromUser.id)} className="text-xs text-foreground-dim hover:text-foreground">Block</button>
+                          </div>
+                        )}
+                        {dmReportingId===m.id&&(
+                          <div className="mt-1 p-2.5 rounded-xl bg-background border border-border w-full max-w-[240px]">
+                            <textarea value={dmReportReason} onChange={e=>setDmReportReason(e.target.value)} rows={2} placeholder="What's wrong with this message? (optional)" className="w-full px-2 py-1.5 rounded-lg bg-surface border border-border text-xs outline-none focus:border-signal resize-none mb-2"/>
+                            <div className="flex gap-2">
+                              <button onClick={()=>submitDmReport(m.id)} disabled={dmSubmittingReport} className="text-xs px-3 py-1 rounded-full bg-signal text-background font-medium disabled:opacity-60">{dmSubmittingReport?"Sending…":"Submit report"}</button>
+                              <button onClick={()=>setDmReportingId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                        {dmConfirmBlockUserId===m.fromUser.id&&(
+                          <div className="mt-1 p-2.5 rounded-xl bg-background border border-border w-full max-w-[260px]">
+                            <p className="text-xs text-foreground-dim mb-2">Block {m.fromUser.name}? You won't see their messages and they won't be able to message you.</p>
+                            <div className="flex gap-2">
+                              <button onClick={()=>confirmDmBlock(m.fromUser.id)} disabled={dmBlockingUserId===m.fromUser.id} className="text-xs px-3 py-1 rounded-full bg-red-600 text-white font-medium disabled:opacity-60">{dmBlockingUserId===m.fromUser.id?"Blocking…":"Block"}</button>
+                              <button onClick={()=>setDmConfirmBlockUserId(null)} className="text-xs px-3 py-1 rounded-full border border-border">Cancel</button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                     {dmThread.length===0&&<p className="text-xs text-foreground-dim py-2">No messages yet. Send the first one.</p>}

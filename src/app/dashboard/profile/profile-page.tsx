@@ -42,6 +42,11 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  // Blocked users
+  const [blockedUsers, setBlockedUsers] = useState<{ id: string; name: string | null; email: string; blockedAt: string }[]>([]);
+  const [blockedLoaded, setBlockedLoaded] = useState(false);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/profile")
       .then(r => r.json())
@@ -61,6 +66,25 @@ export default function ProfilePage() {
         setHasPassword(user.hasPassword || false);
       });
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "account" || blockedLoaded) return;
+    fetch("/api/users/blocked")
+      .then(r => r.json())
+      .then(d => { setBlockedUsers(d.blocked || []); setBlockedLoaded(true); })
+      .catch(() => setBlockedLoaded(true));
+  }, [activeTab, blockedLoaded]);
+
+  async function unblockUser(id: string) {
+    if (unblockingId) return;
+    setUnblockingId(id);
+    try {
+      const res = await fetch(`/api/users/${id}/block`, { method: "DELETE" });
+      if (res.ok) setBlockedUsers(prev => prev.filter(u => u.id !== id));
+    } finally {
+      setUnblockingId(null);
+    }
+  }
 
   function showSaved(msg: string) {
     setSaved(msg);
@@ -296,6 +320,31 @@ export default function ProfilePage() {
                 {saving ? "Saving..." : hasPassword ? "Change password" : "Set password"}
               </button>
             </div>
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Blocked users */}
+          <div>
+            <h2 className="text-sm font-medium mb-1">Blocked users</h2>
+            <p className="text-xs text-foreground-dim mb-4">People you've blocked can't message you and you won't see their content.</p>
+            {!blockedLoaded ? (
+              <p className="text-xs text-foreground-dim">Loading…</p>
+            ) : blockedUsers.length === 0 ? (
+              <p className="text-xs text-foreground-dim">You haven't blocked anyone.</p>
+            ) : (
+              <div className="space-y-2">
+                {blockedUsers.map(u => (
+                  <div key={u.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-border bg-surface">
+                    <span className="text-sm">{u.name || u.email}</span>
+                    <button onClick={() => unblockUser(u.id)} disabled={unblockingId === u.id}
+                      className="text-xs px-3 py-1 rounded-full border border-border hover:bg-surface-raised transition-colors disabled:opacity-50">
+                      {unblockingId === u.id ? "Unblocking…" : "Unblock"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="border-t border-border" />
