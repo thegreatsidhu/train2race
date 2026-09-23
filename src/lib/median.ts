@@ -1,7 +1,7 @@
 import Median from "median-js-bridge";
 import type { HealthBridge } from "median-js-bridge";
 
-const HEALTH_PERMISSION_TYPES: HealthBridge.DataType[] = ["steps", "distance", "activeEnergy", "exerciseTime", "heartRate", "heartRateVariability", "restingHeartRate", "sleep"];
+const HEALTH_PERMISSION_TYPES: HealthBridge.DataType[] = ["steps", "distance", "activeEnergy", "exerciseTime", "heartRateVariability", "restingHeartRate", "sleep"];
 const HEALTH_DATA_TYPES: HealthBridge.DataType[] = ["steps", "distance", "activeEnergy", "exerciseTime", "heartRateVariability", "restingHeartRate", "sleep"];
 const BRIDGE_TIMEOUT_MS = 15000;
 
