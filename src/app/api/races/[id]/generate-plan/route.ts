@@ -5,6 +5,11 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { HAIKU_MODEL, SONNET_MODEL } from "@/lib/ai/client";
 const anthropic = new Anthropic();
+
+// Longer plans (Marathon/Ultra/70.3/140.6) generate up to 4500 tokens on Sonnet, which can
+// take well past Vercel's default function timeout — without this, the function gets killed
+// mid-generation before the plan is ever written to the database.
+export const maxDuration = 60;
 const RACE_GUIDELINES = {
   "5K":                { model: HAIKU_MODEL,  maxTokens: 2500, maxWeeks: 6,  minWeeks: 4,  maxMi: 5,  wMi: "15-25", pMi: "20-25", workouts: "400m intervals, tempo 2-3mi, easy 2-4mi" },
   "10K":               { model: HAIKU_MODEL,  maxTokens: 1800, maxWeeks: 8,  minWeeks: 6,  maxMi: 7,  wMi: "20-35", pMi: "25-35", workouts: "tempo 3-4mi, 1K intervals, easy 3-5mi" },

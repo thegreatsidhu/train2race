@@ -401,7 +401,7 @@ function RebuildModal({ race, onClose, onRebuilt, isFirstBuild = false }: { race
     setGenerating(true); setError(null);
     try {
       const payload = { athleteLevel: form.athleteLevel, trackingMethod: form.trackingMethod, weeklyMileageKm: form.trackingMethod === "distance" ? (form.currentWeeklyMileage ? Number(form.currentWeeklyMileage)*1.60934 : race.weeklyMileageKm) : null, weeklyHours: form.trackingMethod === "time" ? (form.weeklyHours ? Number(form.weeklyHours) : null) : null, recentRaceTime: form.recentRaceTime, trainingDaysPerWeek: Number(form.trainingDaysPerWeek), startDate: form.startDate, raceType: race.raceType, isTriathlon: race.isTriathlon, hardDays: form.hardDays, longRunDay: form.longRunDay, injuryConcerns: form.injuryConcerns, fitnessNotes: form.fitnessNotes, prioritize: form.prioritize };
-      const check = await fetch("/api/races/" + race.id + "/generate-plan", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(8000), body: JSON.stringify(payload) }).catch(() => null);
+      const check = await fetch("/api/races/" + race.id + "/generate-plan", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(55000), body: JSON.stringify(payload) }).catch(() => null);
       if (check && !check.ok) { const data = await check.json(); setError(data.error || "Failed to generate plan"); setGenerating(false); return; }
       let attempts = 0;
       const poll = setInterval(async () => {
@@ -425,7 +425,7 @@ function RebuildModal({ race, onClose, onRebuilt, isFirstBuild = false }: { race
         {isFirstBuild && step===1 && (
           <div className="rounded-xl border border-border bg-surface-raised px-4 py-3 mb-4 flex items-center justify-between">
             <p className="text-xs text-foreground-dim">Just want to track this race without a plan?</p>
-            <button onClick={onRebuilt} className="text-xs text-signal hover:underline shrink-0 ml-4">Skip for now</button>
+            <button onClick={onClose} className="text-xs text-signal hover:underline shrink-0 ml-4">Skip for now</button>
           </div>
         )}
         {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
