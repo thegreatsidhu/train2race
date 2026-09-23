@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 
 export function LogWorkoutFAB() {
   const pathname = usePathname();
-  if (pathname.startsWith("/dashboard/log-workout")) return null;
+  if (pathname !== "/dashboard") return null;
 
   return (
     <Link

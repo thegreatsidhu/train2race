@@ -46,7 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </ViewTransition>
       </main>
 
-      {/* FAB — mobile only, hidden on log-workout pages */}
+      {/* FAB — mobile only, Today page only */}
       <LogWorkoutFAB />
 
       <DailyStepsAutoLog />
