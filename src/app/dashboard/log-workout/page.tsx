@@ -41,6 +41,8 @@ export default function LogWorkoutPage() {
   const [unit, setUnit] = useState("mi");
   const [swimUnit, setSwimUnit] = useState("m");
   const [photoRequiredChallenge, setPhotoRequiredChallenge] = useState<{ title: string } | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ type: string; title: string; startTime: string } | null>(null);
+  const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
   const [showHealthSync, setShowHealthSync] = useState(false);
   const [syncingHealth, setSyncingHealth] = useState(false);
   const [healthSyncMsg, setHealthSyncMsg] = useState("");
@@ -283,7 +285,7 @@ export default function LogWorkoutPage() {
     setParsingVoice(false);
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(confirmDuplicate = false) {
     const errors: string[] = [];
     if (!form.date) errors.push("date");
     const totalMin = Number(form.durationHours || 0) * 60 + Number(form.durationMins || 0);
@@ -294,6 +296,7 @@ export default function LogWorkoutPage() {
       return;
     }
     setError("");
+    setDuplicateWarning(null);
     setLoading(true);
     const effectiveUnit = isSwim ? swimUnit : unit;
     let photos: string[] = [];
@@ -317,15 +320,25 @@ export default function LogWorkoutPage() {
     const res = await fetch("/api/activities/manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit, photos, healthExternalId: selectedHealthId }),
+      body: JSON.stringify({ ...form, durationMin: totalMin, unit: effectiveUnit, photos, healthExternalId: selectedHealthId, confirmDuplicate }),
     });
     setLoading(false);
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
       router.push(data.isFirstWorkout ? "/dashboard?kudo=first" : "/dashboard");
+    } else if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      if (data.duplicate) { setDuplicateWarning(data.existing); return; }
+      setError(data.error || "Something went wrong. Please try again.");
     } else {
       setError("Something went wrong. Please try again.");
     }
+  }
+
+  async function confirmLogAnyway() {
+    setConfirmingDuplicate(true);
+    await handleSubmit(true);
+    setConfirmingDuplicate(false);
   }
 
   return (
@@ -536,7 +549,22 @@ export default function LogWorkoutPage() {
             value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
         </div>
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <button onClick={handleSubmit} disabled={loading}
+        {duplicateWarning && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-900/10 p-3 space-y-2">
+            <p className="text-sm">
+              This looks like it might already be logged — you have a {duplicateWarning.type} workout
+              ("{duplicateWarning.title}") starting around {new Date(duplicateWarning.startTime).toLocaleString()}.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={confirmLogAnyway} disabled={confirmingDuplicate}
+                className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-60">
+                {confirmingDuplicate ? "Saving..." : "Log it anyway"}
+              </button>
+              <button onClick={() => setDuplicateWarning(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+            </div>
+          </div>
+        )}
+        <button onClick={() => handleSubmit()} disabled={loading}
           className="w-full py-3 rounded-full bg-signal text-background font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
           {loading ? "Saving..." : "Save workout"}
         </button>

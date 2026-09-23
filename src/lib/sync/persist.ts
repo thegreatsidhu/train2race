@@ -1,6 +1,7 @@
 import { DataSource } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { NormalizedActivity, NormalizedDailyMetrics } from "@/lib/connectors/types";
+import { findLikelyDuplicateActivity } from "@/lib/activities/dedupe";
 
 export async function upsertDailyMetrics(
   userId: string,
@@ -51,8 +52,19 @@ export async function upsertActivities(
   activities: NormalizedActivity[]
 ) {
   await Promise.all(
-    activities.map((a) =>
-      prisma.activity.upsert({
+    activities.map(async (a) => {
+      // An update (existing source+externalId) should always go through — only skip when this
+      // would be a brand-new row that duplicates a workout already recorded via another source
+      // (e.g. entered by hand, then also arriving here from a webhook sync).
+      const existing = await prisma.activity.findUnique({
+        where: { source_externalId: { source, externalId: a.externalId } },
+        select: { id: true },
+      });
+      if (!existing) {
+        const dup = await findLikelyDuplicateActivity(userId, a.startTime, source);
+        if (dup) return; // same real-world workout already recorded from another source — skip silently
+      }
+      return prisma.activity.upsert({
         where: { source_externalId: { source, externalId: a.externalId } },
         create: {
           userId, source, externalId: a.externalId, type: a.type,
@@ -69,7 +81,7 @@ export async function upsertActivities(
           calories: a.calories, trainingLoad: a.trainingLoad,
           title: a.title, raw: a.raw as never,
         },
-      })
-    )
+      });
+    })
   );
 }

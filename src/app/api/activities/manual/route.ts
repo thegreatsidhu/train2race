@@ -2,13 +2,14 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { findLikelyDuplicateActivity } from "@/lib/activities/dedupe";
 
 export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const userId = (session.user as { id: string }).id;
-    const { type, title, date, durationMin, distance, unit, notes, steps, photos, healthExternalId } = await req.json();
+    const { type, title, date, durationMin, distance, unit, notes, steps, photos, healthExternalId, confirmDuplicate } = await req.json();
 
     if (!date || !durationMin || Number(durationMin) <= 0) {
       return NextResponse.json({ error: "Date and duration are required" }, { status: 400 });
@@ -17,6 +18,19 @@ export async function POST(req: Request) {
     const startTime = new Date(date + "T12:00:00");
     if (isNaN(startTime.getTime())) {
       return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+    }
+
+    // Only guard hand-typed entries — a Health-picker selection is already upsert-safe by
+    // externalId, and re-checking here would just false-positive against itself.
+    if (!healthExternalId && !confirmDuplicate) {
+      const dup = await findLikelyDuplicateActivity(userId, startTime);
+      if (dup) {
+        return NextResponse.json({
+          duplicate: true,
+          existing: { type: dup.type, title: dup.title, startTime: dup.startTime, source: dup.source },
+          error: "This looks like it might already be logged — a workout starting around the same time is already on your activity history.",
+        }, { status: 409 });
+      }
     }
 
     let distanceM = null;
