@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { isMedianApp, getRecentWorkouts, type HealthWorkout } from "@/lib/median";
 
 const WORKOUT_TYPES = [
   { value: "easy_run", label: "Easy run" },
@@ -238,6 +239,20 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
   });
   const [form, setForm] = useState({ feel: "", effort: 3, actualDistanceMi: workout.distanceKm ? (workout.distanceKm/1.60934).toFixed(2) : "", actualDurationMin: workout.durationMin ? String(workout.durationMin) : "", notes: "" });
 
+  // Logging flow: ask whether this was already logged before showing the manual form, and
+  // when logging fresh, try to match a Health Connect / Apple Health workout near this
+  // workout's date so the user doesn't have to retype what a synced device already captured.
+  const [logStep, setLogStep] = useState<"ask" | "pick-existing" | "form">("ask");
+  const [unlinkedActivities, setUnlinkedActivities] = useState<any[]>([]);
+  const [loadingUnlinked, setLoadingUnlinked] = useState(false);
+  const [selectedExistingId, setSelectedExistingId] = useState<string | null>(null);
+  const [linkingExisting, setLinkingExisting] = useState(false);
+  const [linkError, setLinkError] = useState("");
+  const [healthMatches, setHealthMatches] = useState<HealthWorkout[]>([]);
+  const [loadingHealthMatches, setLoadingHealthMatches] = useState(false);
+  const [selectedHealthId, setSelectedHealthId] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ type: string; title: string; startTime: string } | null>(null);
+
   async function handleMove() {
     if (!moveDate) return;
     setMoving(true);
@@ -245,11 +260,66 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
     setMoving(false); setShowMove(false); onMoved?.(); onClose();
   }
 
-  async function handleLog() {
+  async function goToPickExisting() {
+    setLogStep("pick-existing");
+    setLoadingUnlinked(true);
+    try {
+      const res = await fetch("/api/activities/recent-unlinked?days=7");
+      const d = await res.json().catch(() => ({}));
+      setUnlinkedActivities(d.activities || []);
+    } catch {}
+    setLoadingUnlinked(false);
+  }
+
+  async function linkExisting() {
+    if (!selectedExistingId || linkingExisting) return;
+    setLinkingExisting(true); setLinkError("");
+    const res = await fetch("/api/races/workouts/" + workout.id + "/complete", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ existingActivityId: selectedExistingId }),
+    });
+    setLinkingExisting(false);
+    if (res.ok) { setSubmitted(true); setTimeout(() => { onLogged(); onClose(); }, 800); }
+    else { const d = await res.json().catch(() => ({})); setLinkError(d.error || "Failed to link that workout."); }
+  }
+
+  async function goToForm() {
+    setLogStep("form");
+    if (!isMedianApp()) return;
+    setLoadingHealthMatches(true);
+    try {
+      const workouts = await getRecentWorkouts(14);
+      const workoutDay = new Date(workout.date).getTime();
+      const matches = workouts.filter((w) => Math.abs(new Date(w.start).getTime() - workoutDay) <= 2 * 24 * 60 * 60 * 1000);
+      setHealthMatches(matches.slice(0, 3));
+    } catch {}
+    setLoadingHealthMatches(false);
+  }
+
+  function applyHealthMatch(w: HealthWorkout) {
+    setSelectedHealthId(w.externalId);
+    setForm((f) => ({
+      ...f,
+      actualDistanceMi: w.distanceM ? (w.distanceM / 1609.34).toFixed(2) : f.actualDistanceMi,
+      actualDurationMin: String(Math.round(w.durationMin)),
+    }));
+  }
+
+  async function handleLog(confirmDuplicate = false) {
     setLogging(true);
-    await fetch("/api/races/workouts/" + workout.id + "/complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setLogging(false); setSubmitted(true);
-    setTimeout(() => { onLogged(); onClose(); }, 800);
+    setDuplicateWarning(null);
+    const res = await fetch("/api/races/workouts/" + workout.id + "/complete", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, healthExternalId: selectedHealthId, confirmDuplicate }),
+    });
+    setLogging(false);
+    if (res.ok) {
+      setSubmitted(true);
+      setTimeout(() => { onLogged(); onClose(); }, 800);
+    } else if (res.status === 409) {
+      const d = await res.json().catch(() => ({}));
+      if (d.duplicate) { setDuplicateWarning(d.existing); return; }
+    }
   }
 
   async function handleEditSave() {
@@ -354,9 +424,76 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
             )}
             {workout.completed ? (
               <p className="text-sm text-signal text-center font-medium py-2">Logged to your activity feed</p>
+            ) : logStep === "ask" ? (
+              <div>
+                <p className="text-sm mb-4">Did you already log this workout, or do you want to log it now?</p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={goToPickExisting} className="w-full py-2.5 rounded-full border border-signal text-signal text-sm font-medium hover:bg-signal hover:text-background transition-colors">I already logged it</button>
+                  <button onClick={goToForm} className="w-full py-2.5 rounded-full bg-signal text-background text-sm font-medium hover:bg-signal-dim transition-colors">Log it now</button>
+                </div>
+              </div>
+            ) : logStep === "pick-existing" ? (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-foreground-dim uppercase tracking-wide">Which workout was it?</p>
+                  <button onClick={() => setLogStep("ask")} className="text-xs text-foreground-dim hover:text-foreground">Back</button>
+                </div>
+                {loadingUnlinked ? (
+                  <p className="text-sm text-foreground-dim">Checking your recent activity...</p>
+                ) : unlinkedActivities.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-foreground-dim mb-3">No recent unlinked workouts found.</p>
+                    <button onClick={goToForm} className="text-sm text-signal hover:underline">Log it now instead →</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2 mb-4">
+                      {unlinkedActivities.map((a) => (
+                        <button key={a.id} onClick={() => setSelectedExistingId(a.id)}
+                          className={"w-full text-left px-3 py-2.5 rounded-xl border transition-colors " + (selectedExistingId === a.id ? "bg-signal/10 border-signal" : "border-border hover:bg-surface")}>
+                          <p className="text-sm font-medium capitalize">{a.title || a.type}</p>
+                          <p className="text-xs text-foreground-dim mt-0.5">
+                            {new Date(a.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {a.distanceM ? ` · ${(a.distanceM / 1609.34).toFixed(1)} mi` : ""}
+                            {a.durationSec ? ` · ${Math.round(a.durationSec / 60)} min` : ""}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                    {linkError && <p className="text-red-400 text-xs mb-3">{linkError}</p>}
+                    <button onClick={linkExisting} disabled={!selectedExistingId || linkingExisting || submitted}
+                      className="w-full py-3 rounded-full bg-signal text-background font-medium text-sm hover:bg-signal-dim transition-colors disabled:opacity-60 mb-2">
+                      {submitted ? "Logged!" : linkingExisting ? "Linking..." : "Use this workout"}
+                    </button>
+                    <button onClick={goToForm} className="w-full text-xs text-foreground-dim hover:text-foreground text-center">None of these — log it now instead</button>
+                  </>
+                )}
+              </div>
             ) : (
               <>
-                <p className="text-xs text-foreground-dim uppercase tracking-wide mb-3">Log this workout</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-foreground-dim uppercase tracking-wide">Log this workout</p>
+                  <button onClick={() => setLogStep("ask")} className="text-xs text-foreground-dim hover:text-foreground">Back</button>
+                </div>
+                {loadingHealthMatches && (
+                  <p className="text-xs text-foreground-dim mb-3">Checking your Health app for a match...</p>
+                )}
+                {healthMatches.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs text-foreground-dim mb-2">Found in your Health app — use one to fill in the details:</p>
+                    <div className="space-y-2">
+                      {healthMatches.map((w) => (
+                        <button key={w.externalId} onClick={() => applyHealthMatch(w)}
+                          className={"w-full text-left px-3 py-2 rounded-xl border transition-colors " + (selectedHealthId === w.externalId ? "bg-signal/10 border-signal" : "border-border hover:bg-surface")}>
+                          <p className="text-sm">{new Date(w.start).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}</p>
+                          <p className="text-xs text-foreground-dim mt-0.5">
+                            {Math.round(w.durationMin)} min{w.distanceM ? ` · ${(w.distanceM / 1609.34).toFixed(1)} mi` : ""}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="mb-4">
                   <label className="text-xs text-foreground-dim mb-2 block">How did it feel?</label>
                   <div className="flex flex-wrap gap-2">
@@ -378,7 +515,22 @@ function WorkoutModal({ workout, onClose, onLogged, onMoved }: { workout: any; o
                   <label className="text-xs text-foreground-dim mb-1 block">Notes (optional)</label>
                   <textarea rows={2} placeholder="Anything to remember..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-sm outline-none focus:border-signal resize-none"/>
                 </div>
-                <button onClick={handleLog} disabled={logging||submitted} className="w-full py-3 rounded-full bg-signal text-background font-medium text-sm hover:bg-signal-dim transition-colors disabled:opacity-60">{submitted ? "Logged!" : logging ? "Saving..." : "Log workout & mark done"}</button>
+                {duplicateWarning && (
+                  <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-900/10 p-3 space-y-2">
+                    <p className="text-sm">
+                      This looks like it might already be logged — you have a {duplicateWarning.type} workout
+                      ("{duplicateWarning.title}") starting around {new Date(duplicateWarning.startTime).toLocaleString()}.
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleLog(true)} disabled={logging}
+                        className="text-xs px-3 py-1.5 rounded-full bg-signal text-background font-medium disabled:opacity-60">
+                        {logging ? "Saving..." : "Log it anyway"}
+                      </button>
+                      <button onClick={() => setDuplicateWarning(null)} className="text-xs px-3 py-1.5 rounded-full border border-border">Cancel</button>
+                    </div>
+                  </div>
+                )}
+                <button onClick={() => handleLog()} disabled={logging||submitted} className="w-full py-3 rounded-full bg-signal text-background font-medium text-sm hover:bg-signal-dim transition-colors disabled:opacity-60">{submitted ? "Logged!" : logging ? "Saving..." : "Log workout & mark done"}</button>
               </>
             )}
           </>
