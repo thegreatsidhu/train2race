@@ -51,7 +51,6 @@ model User {
   connections     DeviceConnection[]
   dailyMetrics    DailyMetrics[]
   activities      Activity[]
-  adviceCards     AdviceCard[]
   raceTargets     RaceTarget[]
   trainingPlans   TrainingPlan[]
   passwordResetTokens PasswordResetToken[]
@@ -269,22 +268,6 @@ model RaceTarget {
   trainingPlan TrainingPlan?
   @@index([userId, raceDate])
   @@map("race_targets")
-}
-
-model AdviceCard {
-  id        String   @id @default(cuid())
-  userId    String
-  date      DateTime
-  headline  String
-  body      String
-  category  String
-  severity  String   @default("info")
-  metricsSnapshotJson Json?
-  createdAt DateTime @default(now())
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@unique([userId, date])
-  @@index([createdAt])
-  @@map("advice_cards")
 }
 
 model PasswordResetToken {
