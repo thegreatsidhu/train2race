@@ -16,6 +16,10 @@ const ITEMS = [
     a: "On some Android versions Health Connect is a separate app. Search \"Health Connect\" in the Play Store, install it, open it once, and connect a data source before coming back here.",
   },
   {
+    q: "I use Samsung Health and it still shows no data",
+    a: "Samsung Health doesn't send data to Health Connect automatically. Open Samsung Health → Settings (gear icon) → Data permissions and sync → Health Connect, and turn syncing on — then come back here and hit Connect again.",
+  },
+  {
     q: "Just granted permissions but it's still not connecting",
     a: "Fully close Train2Race (swipe it away from recent apps, not just the back button) and reopen it before trying Connect again — permission changes don't always apply to an app that's still running in the background.",
   },
