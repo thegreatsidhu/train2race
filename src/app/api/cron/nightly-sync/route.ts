@@ -19,9 +19,8 @@ export async function GET(req: NextRequest) {
   const chatCutoff = new Date(Date.now()-30*24*60*60*1000);
   const teamCutoff = new Date(Date.now()-90*24*60*60*1000);
   const rejectedCutoff = new Date(Date.now()-7*24*60*60*1000);
-  const [deletedMetrics, deletedChats, deletedAdvice, deletedTeamMsgs, deletedRejected] = await Promise.all([
+  const [deletedMetrics, deletedAdvice, deletedTeamMsgs, deletedRejected] = await Promise.all([
     prisma.dailyMetrics.deleteMany({ where: { date: { lt: metricsCutoff } } }),
-    prisma.chatMessage.deleteMany({ where: { createdAt: { lt: chatCutoff } } }),
     prisma.adviceCard.deleteMany({ where: { createdAt: { lt: chatCutoff } } }),
     prisma.teamMessage.deleteMany({ where: { createdAt: { lt: teamCutoff } } }),
     prisma.teamChallenge.deleteMany({ where: { status: "rejected", createdAt: { lt: rejectedCutoff } } }),
@@ -471,5 +470,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, cleaned: { metrics: deletedMetrics.count, chats: deletedChats.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, editNotifs, inviteNotifs, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
+  return NextResponse.json({ ok: true, cleaned: { metrics: deletedMetrics.count, advice: deletedAdvice.count, teamMessages: deletedTeamMsgs.count, rejectedChallenges: deletedRejected.count }, weeklyEmails, digestEmails, editNotifs, inviteNotifs, awardsGenerated, announcementsGenerated, ranAt: new Date().toISOString() });
 }
