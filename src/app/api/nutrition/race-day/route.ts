@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
+import { parseModelJson } from "@/lib/ai/json";
 
 function cacheKey(conditions: string, stomachSensitivity: string, weightKg: number) {
   return `${conditions}|${stomachSensitivity}|${Math.round(weightKg)}`;
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   const text = response.content.find((b) => b.type === "text")?.text ?? "";
   try {
-    const plan = JSON.parse(text.replace(/```json|```/g, "").trim());
+    const plan = parseModelJson(text.replace(/```json|```/g, "").trim());
 
     // Save to cache
     await prisma.raceTarget.update({

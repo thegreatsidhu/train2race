@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { HAIKU_MODEL, SONNET_MODEL } from "@/lib/ai/client";
+import { parseModelJson } from "@/lib/ai/json";
 const anthropic = new Anthropic();
 
 // Longer plans (Marathon/Ultra/70.3/140.6) generate up to 4500 tokens on Sonnet, which can
@@ -125,12 +126,13 @@ Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlo
   try {
     const msg = await anthropic.messages.create({ model: g.model, max_tokens: g.maxTokens, messages: [{ role: "user", content: prompt }] });
     const text = msg.content[0].type === "text" ? msg.content[0].text : "";
-    let cleaned = text.replace(/```json|```/g, "").trim();
-    // Repair truncated JSON by closing any open array
-    if (!cleaned.endsWith("]")) { const lastBrace = cleaned.lastIndexOf("}"); if (lastBrace > -1) cleaned = cleaned.substring(0, lastBrace+1) + "]"; }
-    const workouts = JSON.parse(cleaned);
+    const cleaned = text.replace(/```json|```/g, "").trim();
+    const workouts = parseModelJson(cleaned);
     const TIME_DUR_DEFAULT = {easy_run:40,long_run:70,tempo:35,intervals:40,cross_train:45};
-    const validated = workouts.filter(w => w.type !== "rest").map(w => {
+    // Filter out rest days plus any object left incomplete by the truncation repair (e.g. the
+    // model cut off mid-workout and closing brackets were appended around a partial object) —
+    // better to drop one workout near the end than fail the whole plan or write bad rows.
+    const validated = workouts.filter(w => w.type && w.type !== "rest" && w.week && w.day && w.title).map(w => {
       let d = w.distanceMiles;
       if (w.type === "race") d = parseFloat(distanceMiles);
       else if (isTimeBased) d = null;

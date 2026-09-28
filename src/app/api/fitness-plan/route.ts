@@ -4,31 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
 import { computeCalorieTarget, evaluateGoalPace } from "@/lib/health/weightLoss";
-
-// Best-effort repair for a JSON response truncated by hitting max_tokens — closes any
-// unterminated string and any open brackets/braces so JSON.parse has a chance to succeed.
-function repairJsonTail(text: string): string {
-  const stack: string[] = [];
-  let inString = false;
-  let escape = false;
-  for (const ch of text) {
-    if (escape) { escape = false; continue; }
-    if (ch === "\\") { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{" || ch === "[") stack.push(ch);
-    else if (ch === "}" || ch === "]") stack.pop();
-  }
-  let repaired = text;
-  if (inString) repaired += '"';
-  repaired = repaired.replace(/,\s*$/, "");
-  while (stack.length) repaired += stack.pop() === "{" ? "}" : "]";
-  return repaired;
-}
-
-function parseModelJson(cleaned: string): any {
-  try { return JSON.parse(cleaned); } catch { return JSON.parse(repairJsonTail(cleaned)); }
-}
+import { parseModelJson } from "@/lib/ai/json";
 
 const DAY_MAP: Record<number, string> = {
   2: "Tuesday, Thursday",
