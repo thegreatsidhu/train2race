@@ -27,7 +27,38 @@ function stripPreamble(text: string): string {
   return start > 0 ? text.slice(start) : text;
 }
 
+// Escapes stray double quotes the model left unescaped inside a string value (e.g. a
+// description that quotes a pace or phrase: "Run at "tempo" pace") — this breaks the JSON
+// string boundary mid-document, producing a syntax error like "expected ':' after property
+// name" somewhere in the middle of the response, not at the tail, so repairJsonTail alone
+// can't fix it. Decides whether a quote is a real string boundary by peeking at the next
+// non-whitespace character: a legitimate closing quote is always followed by , : } or ] —
+// anything else means it's content, so it gets escaped instead of closing the string.
+function sanitizeStrayQuotes(text: string): string {
+  let result = "";
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { result += ch; escape = false; continue; }
+    if (ch === "\\") { result += ch; escape = true; continue; }
+    if (ch === '"') {
+      if (!inString) { inString = true; result += ch; continue; }
+      let j = i + 1;
+      while (j < text.length && /\s/.test(text[j])) j++;
+      const next = text[j];
+      if (next === undefined || ",:}]".includes(next)) { inString = false; result += ch; }
+      else { result += '\\"'; }
+      continue;
+    }
+    result += ch;
+  }
+  return result;
+}
+
 export function parseModelJson(cleaned: string): any {
   const stripped = stripPreamble(cleaned);
-  try { return JSON.parse(stripped); } catch { return JSON.parse(repairJsonTail(stripped)); }
+  try { return JSON.parse(stripped); } catch {}
+  try { return JSON.parse(repairJsonTail(stripped)); } catch {}
+  return JSON.parse(repairJsonTail(sanitizeStrayQuotes(stripped)));
 }

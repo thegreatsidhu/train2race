@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     : "finish";
   const estimatedHours = race.goalTimeSec ? race.goalTimeSec / 3600 : race.distanceM / 1609.34 / 9;
 
-  const prompt = `Sports dietitian. Race day nutrition plan. Race: ${race.raceName}, ${distanceMiles} miles${race.isTriathlon ? " triathlon" : ""}, goal ${goalTime} (~${estimatedHours.toFixed(1)}h), weight ${Math.round(weightKg * 2.20462)}lbs, conditions: ${conditions || "normal"}, stomach: ${stomachSensitivity || "normal"}. Return ONLY valid JSON: {"summary":"2 sentences","dayBefore":{"items":[{"time":"","description":"","targets":""}],"keyTip":""},"raceDay":{"preRace":[{"time":"","description":"","targets":"","foods":[]}],"duringRace":[{"time":"","description":"","targets":"","products":[]}],"postRace":[{"time":"","description":"","targets":"","foods":[]}]},"keyRules":[],"whatToAvoid":[]}`;
+  const prompt = `Sports dietitian. Race day nutrition plan. Race: ${race.raceName}, ${distanceMiles} miles${race.isTriathlon ? " triathlon" : ""}, goal ${goalTime} (~${estimatedHours.toFixed(1)}h), weight ${Math.round(weightKg * 2.20462)}lbs, conditions: ${conditions || "normal"}, stomach: ${stomachSensitivity || "normal"}. Return ONLY valid JSON: {"summary":"2 sentences","dayBefore":{"items":[{"time":"","description":"","targets":""}],"keyTip":""},"raceDay":{"preRace":[{"time":"","description":"","targets":"","foods":[]}],"duringRace":[{"time":"","description":"","targets":"","products":[]}],"postRace":[{"time":"","description":"","targets":"","foods":[]}]},"keyRules":[],"whatToAvoid":[]}. Never use double quotes (") inside any text field — use single quotes ' instead if you need to quote something.`;
 
   const response = await anthropic.messages.create({
     model: HAIKU_MODEL,

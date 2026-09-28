@@ -55,7 +55,8 @@ Rules:
 - Outdoors: running, bodyweight, park exercises
 - 4-7 exercises per session
 - 20-45 min per workout depending on fitness level
-- Unique IDs: w1_d1, w1_d2, w2_d1, etc. across all weeks`;
+- Unique IDs: w1_d1, w1_d2, w2_d1, etc. across all weeks
+- Never use double quotes (") inside any text field — use single quotes ' instead if you need to quote something`;
 
   const res = await anthropic.messages.create({
     model: HAIKU_MODEL,
@@ -91,7 +92,7 @@ Return ONLY valid JSON (no markdown, no extra text):
   "limitFoods": ["food1", "food2", "food3", "food4", "food5"]
 }
 
-Keep tips actionable, simple, and tailored to the user's specific goal.`;
+Keep tips actionable, simple, and tailored to the user's specific goal. Never use double quotes (") inside any text field — use single quotes ' instead if you need to quote something.`;
 
   const res = await anthropic.messages.create({
     model: HAIKU_MODEL,

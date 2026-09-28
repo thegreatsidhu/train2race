@@ -119,7 +119,7 @@ SCHEDULE: ${scheduleNotes}
 ${injuryLine ? injuryLine+"\n" : ""}${fitnessLine ? fitnessLine+"\n" : ""}
 ${levelRules ? levelRules+"\n" : ""}${coreRules}
 
-Return ONLY a JSON array, no markdown, no explanation:
+Return ONLY a JSON array, no markdown, no explanation. Never use double quotes (") inside any text field (title, description) — use single quotes ' instead if you need to quote a pace, phrase, or emphasis:
 ${example}
 
 Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlon?", swim, bike, brick":""}. Keep descriptions under 12 words.`;
