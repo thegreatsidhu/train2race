@@ -27,6 +27,27 @@ function stripPreamble(text: string): string {
   return start > 0 ? text.slice(start) : text;
 }
 
+// Escapes literal raw newline/tab/carriage-return characters found inside a string value —
+// valid JSON requires these escaped as \n/\t/\r; a model writing a multi-line description with
+// an actual line break produces "Bad control character in string literal". Always safe to run
+// first since a real control character inside a string is never valid JSON to begin with.
+function escapeControlChars(text: string): string {
+  let result = "";
+  let inString = false;
+  let escape = false;
+  for (const ch of text) {
+    if (escape) { result += ch; escape = false; continue; }
+    if (ch === "\\") { result += ch; escape = true; continue; }
+    if (ch === '"') { inString = !inString; result += ch; continue; }
+    if (inString && (ch === "\n" || ch === "\r" || ch === "\t")) {
+      result += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : "\\t";
+      continue;
+    }
+    result += ch;
+  }
+  return result;
+}
+
 // Escapes stray double quotes the model left unescaped inside a string value (e.g. a
 // description that quotes a pace or phrase: "Run at "tempo" pace") — this breaks the JSON
 // string boundary mid-document, producing a syntax error like "expected ':' after property
@@ -57,7 +78,7 @@ function sanitizeStrayQuotes(text: string): string {
 }
 
 export function parseModelJson(cleaned: string): any {
-  const stripped = stripPreamble(cleaned);
+  const stripped = escapeControlChars(stripPreamble(cleaned));
   try { return JSON.parse(stripped); } catch {}
   try { return JSON.parse(repairJsonTail(stripped)); } catch {}
   return JSON.parse(repairJsonTail(sanitizeStrayQuotes(stripped)));
