@@ -37,6 +37,7 @@ model User {
   pushWeeklyOptOut         Boolean   @default(false)
   pushChallengeOptOut      Boolean   @default(false)
   onboardingComplete  Boolean   @default(false)
+  healthSyncDisabled  Boolean   @default(false)
   fitnessGoal         String?
   aiDailyMessage      String?
   aiDailyMessageDate  DateTime?

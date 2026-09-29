@@ -27,14 +27,43 @@ export function isMedianApp(): boolean {
   }
 }
 
+let syncEnabledCache: { value: boolean; expiresAt: number } | null = null;
+
 /**
- * Requests Health app permissions. Returns null outside the Median app, or if the request fails.
- * Note: iOS never reports which individual permissions were granted or denied — treat a
- * non-null response as "the prompt was shown" and rely on getHealthData() returning empty
- * results to detect missing access, not on inspecting this response.
+ * Whether the user has Health sync enabled at the app level (see the Disconnect button on the
+ * Connections page) — separate from the OS-level permission, which we have no API to revoke, so
+ * disconnecting can only mean "stop reading/using this data," not "stop the OS from granting it."
+ * Cached briefly since this is checked on every getHealthData()/requestHealthPermissions() call.
+ * Fails open (treats an unreachable server as enabled) so a transient network error doesn't look
+ * like a broken connection.
+ */
+async function isHealthSyncEnabled(): Promise<boolean> {
+  if (!isMedianApp()) return false;
+  if (syncEnabledCache && Date.now() < syncEnabledCache.expiresAt) return syncEnabledCache.value;
+  try {
+    const res = await fetch("/api/health/status");
+    const data = await res.json();
+    const enabled = !data.healthSyncDisabled;
+    syncEnabledCache = { value: enabled, expiresAt: Date.now() + 60000 };
+    return enabled;
+  } catch {
+    return true;
+  }
+}
+
+/** Clears the cached sync-enabled status so the next check reflects a just-made change immediately. */
+export function invalidateHealthSyncCache(): void {
+  syncEnabledCache = null;
+}
+
+/**
+ * Requests Health app permissions. Returns null outside the Median app, if sync is disconnected,
+ * or if the request fails. Note: iOS never reports which individual permissions were granted or
+ * denied — treat a non-null response as "the prompt was shown" and rely on getHealthData()
+ * returning empty results to detect missing access, not on inspecting this response.
  */
 export async function requestHealthPermissions(): Promise<HealthBridge.RequestPermissionsResponse | null> {
-  if (!isMedianApp()) return null;
+  if (!(await isHealthSyncEnabled())) return null;
   try {
     return await withTimeout(Median.healthBridge.requestPermissions(HEALTH_PERMISSION_TYPES), BRIDGE_TIMEOUT_MS);
   } catch {
@@ -82,7 +111,7 @@ export function extractHealthValue(point: unknown): number | null {
  * workout sessions — combined with extractHealthValue() picking the most recent one.
  */
 export async function getHealthData(startDate: string, endDate: string, bucket: HealthBridge.GetDataParams["bucket"] = "day"): Promise<HealthBridge.GetDataResponse | null> {
-  if (!isMedianApp()) return null;
+  if (!(await isHealthSyncEnabled())) return null;
   const results = await Promise.allSettled(
     HEALTH_DATA_TYPES.map((type) =>
       withTimeout(

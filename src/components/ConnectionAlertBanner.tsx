@@ -38,6 +38,7 @@ export function ConnectionAlertBanner() {
       try {
         const statusRes = await fetch("/api/health/status");
         const status = await statusRes.json().catch(() => ({}));
+        if (status.healthSyncDisabled) return; // user explicitly disconnected — don't nag them to reconnect
         if (!status.everConnected && !status.pastGracePeriod) return;
         const connected = await hasHealthData();
         if (!connected) setReason(status.everConnected ? "broken" : "never_connected");

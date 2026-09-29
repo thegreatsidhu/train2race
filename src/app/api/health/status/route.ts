@@ -23,12 +23,12 @@ export async function GET() {
       where: { userId, source: { in: ["HEALTH_BRIDGE", "APPLE_HEALTH"] } },
       select: { id: true },
     }),
-    prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true, healthSyncDisabled: true } }),
   ]);
 
   const everConnected = !!existing;
   const accountAgeDays = user ? (Date.now() - user.createdAt.getTime()) / 86400000 : 0;
   const pastGracePeriod = accountAgeDays >= NEVER_CONNECTED_GRACE_DAYS;
 
-  return NextResponse.json({ everConnected, pastGracePeriod });
+  return NextResponse.json({ everConnected, pastGracePeriod, healthSyncDisabled: user?.healthSyncDisabled ?? false });
 }
