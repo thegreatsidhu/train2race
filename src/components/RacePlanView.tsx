@@ -553,7 +553,7 @@ function RebuildModal({ race, onClose, onRebuilt, isFirstBuild = false }: { race
     setGenerating(true); setError(null);
     try {
       const payload = { athleteLevel: form.athleteLevel, trackingMethod: form.trackingMethod, weeklyMileageKm: form.trackingMethod === "distance" ? (form.currentWeeklyMileage ? Number(form.currentWeeklyMileage)*1.60934 : race.weeklyMileageKm) : null, weeklyHours: form.trackingMethod === "time" ? (form.weeklyHours ? Number(form.weeklyHours) : null) : null, recentRaceTime: form.recentRaceTime, trainingDaysPerWeek: Number(form.trainingDaysPerWeek), startDate: form.startDate, raceType: race.raceType, isTriathlon: race.isTriathlon, hardDays: form.hardDays, longRunDay: form.longRunDay, injuryConcerns: form.injuryConcerns, fitnessNotes: form.fitnessNotes, prioritize: form.prioritize };
-      const check = await fetch("/api/races/" + race.id + "/generate-plan", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(55000), body: JSON.stringify(payload) }).catch(() => null);
+      const check = await fetch("/api/races/" + race.id + "/generate-plan", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(85000), body: JSON.stringify(payload) }).catch(() => null);
       if (check && !check.ok) {
         const data = await check.json().catch(() => null);
         setError(data?.error || `Plan generation failed (HTTP ${check.status}). Please try again.`);

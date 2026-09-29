@@ -6,6 +6,11 @@ import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
 import { computeCalorieTarget, evaluateGoalPace } from "@/lib/health/weightLoss";
 import { parseModelJson } from "@/lib/ai/json";
 
+// buildPlan() generates up to 8000 tokens on Haiku — the largest budget of any AI call in the
+// app — which can exceed Vercel's default function timeout without this, same issue already
+// found and fixed on the race-plan generator.
+export const maxDuration = 90;
+
 const DAY_MAP: Record<number, string> = {
   2: "Tuesday, Thursday",
   3: "Monday, Wednesday, Friday",
