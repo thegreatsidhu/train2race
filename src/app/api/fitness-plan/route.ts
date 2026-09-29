@@ -2,14 +2,14 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
+import { HAIKU_MODEL, generateJsonWithRetry } from "@/lib/ai/client";
 import { computeCalorieTarget, evaluateGoalPace } from "@/lib/health/weightLoss";
-import { parseModelJson } from "@/lib/ai/json";
 
 // buildPlan() generates up to 8000 tokens on Haiku — the largest budget of any AI call in the
 // app — which can exceed Vercel's default function timeout without this, same issue already
-// found and fixed on the race-plan generator.
-export const maxDuration = 90;
+// found and fixed on the race-plan generator. Raised to 120 to leave room for up to 3
+// generate+parse attempts (see generateJsonWithRetry) on the longest plans.
+export const maxDuration = 120;
 
 const DAY_MAP: Record<number, string> = {
   2: "Tuesday, Thursday",
@@ -63,15 +63,7 @@ Rules:
 - Unique IDs: w1_d1, w1_d2, w2_d1, etc. across all weeks
 - Never use double quotes (") inside any text field — use single quotes ' instead if you need to quote something`;
 
-  const res = await anthropic.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 8000,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const raw = res.content.find((b) => b.type === "text")?.text?.trim() ?? "";
-  const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  return parseModelJson(cleaned);
+  return generateJsonWithRetry({ model: HAIKU_MODEL, maxTokens: 8000, prompt });
 }
 
 async function buildNutrition(goal: string, currentFitness: string, daysPerWeek: number, fixedCalorieTarget?: number, weeklyLossTargetLbs?: number): Promise<any> {
@@ -99,15 +91,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 
 Keep tips actionable, simple, and tailored to the user's specific goal. Never use double quotes (") inside any text field — use single quotes ' instead if you need to quote something.`;
 
-  const res = await anthropic.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const raw = res.content.find((b) => b.type === "text")?.text?.trim() ?? "";
-  const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  return parseModelJson(cleaned);
+  return generateJsonWithRetry({ model: HAIKU_MODEL, maxTokens: 1024, prompt });
 }
 
 export async function GET() {

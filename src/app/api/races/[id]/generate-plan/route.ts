@@ -2,17 +2,15 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-import { HAIKU_MODEL, SONNET_MODEL } from "@/lib/ai/client";
-import { parseModelJson } from "@/lib/ai/json";
-const anthropic = new Anthropic();
+import { HAIKU_MODEL, SONNET_MODEL, generateJsonWithRetry } from "@/lib/ai/client";
 
 // Longer plans (Marathon/Ultra/70.3/140.6) generate up to 4500 tokens on Sonnet, which can
 // take well past Vercel's default function timeout — without this, the function gets killed
-// mid-generation before the plan is ever written to the database. Raised from 60 to 90 to
-// leave room for the one-retry-on-empty-output path below without risking a timeout on the
-// longest plans.
-export const maxDuration = 90;
+// mid-generation before the plan is ever written to the database. Raised to 120 to leave room
+// for up to 3 full generate+parse attempts below without risking a timeout on the longest
+// plans; harmless if the actual plan tier clamps this lower, since it only matters when a
+// retry is actually needed.
+export const maxDuration = 120;
 const RACE_GUIDELINES = {
   "5K":                { model: HAIKU_MODEL,  maxTokens: 2500, maxWeeks: 6,  minWeeks: 4,  maxMi: 5,  wMi: "15-25", pMi: "20-25", workouts: "400m intervals, tempo 2-3mi, easy 2-4mi" },
   "10K":               { model: HAIKU_MODEL,  maxTokens: 1800, maxWeeks: 8,  minWeeks: 6,  maxMi: 7,  wMi: "20-35", pMi: "25-35", workouts: "tempo 3-4mi, 1K intervals, easy 3-5mi" },
@@ -126,19 +124,7 @@ ${example}
 
 Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlon?", swim, bike, brick":""}. Keep descriptions under 12 words.`;
   try {
-    // Rarely, the model gets stuck (e.g. degenerate whitespace/repetition) and burns the whole
-    // token budget without producing real content — a transient generation glitch, not something
-    // retrying the same prompt would reliably reproduce, so one retry is the right fix.
-    let text = "";
-    let lastStopReason = "";
-    for (let attempt = 0; attempt < 2 && !text.trim(); attempt++) {
-      const msg = await anthropic.messages.create({ model: g.model, max_tokens: g.maxTokens, messages: [{ role: "user", content: prompt }] });
-      text = msg.content.find((b) => b.type === "text")?.text ?? "";
-      lastStopReason = msg.stop_reason ?? "";
-    }
-    if (!text.trim()) throw new Error(`Model returned no text content after retry (stop_reason: ${lastStopReason})`);
-    const cleaned = text.replace(/```json|```/g, "").trim();
-    const workouts = parseModelJson(cleaned);
+    const workouts = await generateJsonWithRetry({ model: g.model, maxTokens: g.maxTokens, prompt });
     const TIME_DUR_DEFAULT = {easy_run:40,long_run:70,tempo:35,intervals:40,cross_train:45};
     // Filter out rest days plus any object left incomplete by the truncation repair (e.g. the
     // model cut off mid-workout and closing brackets were appended around a partial object) —

@@ -2,8 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
-import { parseModelJson } from "@/lib/ai/json";
+import { HAIKU_MODEL, generateJsonWithRetry } from "@/lib/ai/client";
+
+export const maxDuration = 60;
 
 function cacheKey(conditions: string, stomachSensitivity: string, weightKg: number) {
   return `${conditions}|${stomachSensitivity}|${Math.round(weightKg)}`;
@@ -44,15 +45,8 @@ export async function POST(req: NextRequest) {
 
   const prompt = `Sports dietitian. Race day nutrition plan. Race: ${race.raceName}, ${distanceMiles} miles${race.isTriathlon ? " triathlon" : ""}, goal ${goalTime} (~${estimatedHours.toFixed(1)}h), weight ${Math.round(weightKg * 2.20462)}lbs, conditions: ${conditions || "normal"}, stomach: ${stomachSensitivity || "normal"}. Return ONLY valid JSON: {"summary":"2 sentences","dayBefore":{"items":[{"time":"","description":"","targets":""}],"keyTip":""},"raceDay":{"preRace":[{"time":"","description":"","targets":"","foods":[]}],"duringRace":[{"time":"","description":"","targets":"","products":[]}],"postRace":[{"time":"","description":"","targets":"","foods":[]}]},"keyRules":[],"whatToAvoid":[]}. Never use double quotes (") inside any text field — use single quotes ' instead if you need to quote something.`;
 
-  const response = await anthropic.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 1500,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const text = response.content.find((b) => b.type === "text")?.text ?? "";
   try {
-    const plan = parseModelJson(text.replace(/```json|```/g, "").trim());
+    const plan = await generateJsonWithRetry({ model: HAIKU_MODEL, maxTokens: 1500, prompt });
 
     // Save to cache
     await prisma.raceTarget.update({
@@ -61,7 +55,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ plan, race, weightKg, cached: false });
-  } catch {
-    return NextResponse.json({ error: "Parse failed" }, { status: 500 });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Failed to generate nutrition plan" }, { status: 500 });
   }
 }
