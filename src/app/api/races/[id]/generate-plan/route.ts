@@ -125,7 +125,8 @@ ${example}
 Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlon?", swim, bike, brick":""}. Keep descriptions under 12 words.`;
   try {
     const msg = await anthropic.messages.create({ model: g.model, max_tokens: g.maxTokens, messages: [{ role: "user", content: prompt }] });
-    const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+    const text = msg.content.find((b) => b.type === "text")?.text ?? "";
+    if (!text.trim()) throw new Error(`Model returned no text content (stop_reason: ${msg.stop_reason})`);
     const cleaned = text.replace(/```json|```/g, "").trim();
     const workouts = parseModelJson(cleaned);
     const TIME_DUR_DEFAULT = {easy_run:40,long_run:70,tempo:35,intervals:40,cross_train:45};

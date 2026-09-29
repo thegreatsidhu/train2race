@@ -64,7 +64,7 @@ Rules:
     messages: [{ role: "user", content: prompt }],
   });
 
-  const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
+  const raw = res.content.find((b) => b.type === "text")?.text?.trim() ?? "";
   const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
   return parseModelJson(cleaned);
 }
@@ -100,7 +100,7 @@ Keep tips actionable, simple, and tailored to the user's specific goal. Never us
     messages: [{ role: "user", content: prompt }],
   });
 
-  const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
+  const raw = res.content.find((b) => b.type === "text")?.text?.trim() ?? "";
   const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
   return parseModelJson(cleaned);
 }
