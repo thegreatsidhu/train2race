@@ -1,5 +1,6 @@
 import { MedianHealthCard } from "@/components/MedianHealthCard";
 import { HealthTroubleshooting } from "@/components/HealthTroubleshooting";
+import { AppleHealthWebhookCard } from "@/components/AppleHealthWebhookCard";
 
 export default async function ConnectionsPage({
   searchParams,
@@ -38,6 +39,7 @@ export default async function ConnectionsPage({
           <MedianHealthCard />
           <HealthTroubleshooting />
         </div>
+        <AppleHealthWebhookCard />
       </div>
     </div>
   );
