@@ -151,6 +151,9 @@ Valid types: easy_run, tempo, intervals, long_run, cross_train, race${isTriathlo
       const dur = (isTimeBased && w.type !== "race" && !w.durationMin) ? (TIME_DUR_DEFAULT[w.type]||40) : (w.durationMin||null);
       return {...w, distanceMiles:d, durationMin:dur};
     });
+    // Never silently create a plan with nothing in it — that would look identical to success
+    // (200 response, no error) while leaving the user with an empty plan and no indication why.
+    if (validated.length === 0) throw new Error("Model response had no usable workouts after validation");
     await prisma.trainingPlan.deleteMany({ where: { raceId: race.id } });
     // Snap the chosen start date to the Monday of that week, since workouts are assigned by
     // weekday offset from this anchor.
