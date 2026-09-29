@@ -177,6 +177,21 @@ function CommunityPageInner() {
     setMessages([]);
   }
 
+  async function reportMessage(messageId: string, reason: string) {
+    const res = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: "event_message", contentId: messageId, reason }),
+    });
+    if (!res.ok) throw new Error("report failed");
+  }
+
+  async function blockUser(userId: string) {
+    const res = await fetch(`/api/users/${userId}/block`, { method: "POST" });
+    if (!res.ok) throw new Error("block failed");
+    setMessages(prev => prev.filter((m: any) => m.user.id !== userId));
+  }
+
   const isJoined = (raceId: string) => myRegs.some((r: any) => r.majorRaceId === raceId);
 
   // Create community form state
@@ -554,6 +569,8 @@ function CommunityPageInner() {
                         onSend={sendMessage}
                         onDelete={deleteMessage}
                         onDeleteAll={isAdmin ? deleteAllMessages : undefined}
+                        onReport={reportMessage}
+                        onBlock={blockUser}
                         sending={sending}
                       />
                     )

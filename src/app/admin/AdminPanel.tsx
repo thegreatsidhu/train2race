@@ -2335,7 +2335,7 @@ export function AdminPanel() {
               <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-20 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
             ) : (() => {
               const filtered = reportStatusFilter === "all" ? reports : reports.filter(r => r.status === reportStatusFilter);
-              const CONTENT_LABELS = { team_message: "Team chat message", direct_message: "Direct message", activity_comment: "Activity comment", activity_photo: "Activity photo" };
+              const CONTENT_LABELS = { team_message: "Team chat message", direct_message: "Direct message", activity_comment: "Activity comment", activity_photo: "Activity photo", event_message: "Race/community chat message" };
               return filtered.length === 0 ? <p className="text-sm text-foreground-dim">No {reportStatusFilter === "all" ? "" : reportStatusFilter + " "}reports.</p> : (
                 <div className="space-y-3">
                   {filtered.map((r) => {

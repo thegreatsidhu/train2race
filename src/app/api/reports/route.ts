@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rateLimit";
 
-const VALID_TYPES = ["team_message", "direct_message", "activity_comment", "activity_photo"];
+const VALID_TYPES = ["team_message", "direct_message", "activity_comment", "activity_photo", "event_message"];
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -50,6 +50,13 @@ export async function POST(req: NextRequest) {
     reportedUserId = activity.userId;
     autoActioned = true;
     await prisma.activity.update({ where: { id: contentId }, data: { photosHidden: true } });
+  } else if (contentType === "event_message") {
+    const message = await (prisma as any).eventMessage.findUnique({ where: { id: contentId } });
+    if (!message) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const registered = await prisma.raceRegistration.findFirst({ where: { userId, majorRaceId: message.majorRaceId } });
+    if (!registered) return NextResponse.json({ error: "Not registered for this race" }, { status: 403 });
+    reportedUserId = message.userId;
+    contentSnapshot = message.content;
   }
 
   if (!reportedUserId) return NextResponse.json({ error: "Could not resolve reported content" }, { status: 400 });

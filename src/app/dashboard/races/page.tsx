@@ -172,6 +172,21 @@ export default function RacesPage() {
     setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: [] } }));
   }
 
+  async function reportMsg(messageId: string, reason: string) {
+    const res = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: "event_message", contentId: messageId, reason }),
+    });
+    if (!res.ok) throw new Error("report failed");
+  }
+
+  async function blockUserInRace(majorRaceId: string, userId: string) {
+    const res = await fetch(`/api/users/${userId}/block`, { method: "POST" });
+    if (!res.ok) throw new Error("block failed");
+    setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: prev[majorRaceId].messages.filter((m: any) => m.user.id !== userId) } }));
+  }
+
   async function handleSub() {
     if (!rName.trim() || !rDate || !rCity.trim() || !rCountry) { setSubResult({ error: "Please fill in all required fields." }); return; }
     const rd = new Date(rDate);
@@ -535,6 +550,8 @@ export default function RacesPage() {
                         onSend={(content, replyToId) => sendMsg(reg.majorRaceId, content, replyToId)}
                         onDelete={(messageId) => deleteMsg(reg.majorRaceId, messageId)}
                         onDeleteAll={data.isAdmin ? () => deleteAllMsgs(reg.majorRaceId) : undefined}
+                        onReport={reportMsg}
+                        onBlock={(userId) => blockUserInRace(reg.majorRaceId, userId)}
                         sending={sendingMap[reg.majorRaceId]}
                       />
                     )}

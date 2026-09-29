@@ -17,8 +17,14 @@ export async function GET(req: NextRequest) {
   const majorRaceId = searchParams.get("raceId");
   if (!majorRaceId) return NextResponse.json({ error: "Missing raceId" }, { status: 400 });
 
+  const blocks = await (prisma as any).blockedUser.findMany({
+    where: { blockerId: userId },
+    select: { blockedId: true },
+  });
+  const blockedUserIds = blocks.map((b: any) => b.blockedId);
+
   const messages = await prisma.eventMessage.findMany({
-    where: { majorRaceId, isDeleted: false },
+    where: { majorRaceId, isDeleted: false, ...(blockedUserIds.length > 0 ? { userId: { notIn: blockedUserIds } } : {}) },
     orderBy: { createdAt: "asc" },
     take: 200,
     include: MSG_INCLUDE,
