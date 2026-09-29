@@ -1,4 +1,5 @@
 export const revalidate = 30;
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ActivityList } from "@/components/ActivityList";
@@ -72,7 +73,8 @@ function computeStreak(activities: { startTime: Date }[], today: Date): number {
 
 export default async function TodayPage() {
   const session = await auth();
-  const userId = (session!.user as {id:string}).id;
+  if (!session?.user) redirect("/login");
+  const userId = (session.user as {id:string}).id;
   const today = new Date(); today.setHours(0,0,0,0);
   const todayDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][today.getDay()];
   const weekStart = new Date(today); weekStart.setDate(today.getDate()-today.getDay()+1);

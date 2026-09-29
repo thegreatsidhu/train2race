@@ -17,8 +17,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await auth();
   if (!session?.user) redirect("/login");
   const userId = (session.user as { id: string }).id;
-  const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { onboardingComplete: true } });
-  if (!dbUser?.onboardingComplete) redirect("/onboarding");
+  const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { onboardingComplete: true, isBanned: true } });
+  // The session is a JWT that isn't re-validated against the DB on its own, so an account
+  // deleted (e.g. by an admin) or banned while this session is still active would otherwise
+  // keep full dashboard access until the token expires — this is the one place every dashboard
+  // page already does a fresh per-request DB lookup, so it's also the right place to catch it.
+  if (!dbUser) redirect("/account-removed");
+  if (dbUser.isBanned) redirect("/account-removed?reason=banned");
+  if (!dbUser.onboardingComplete) redirect("/onboarding");
 
   // Android's Median WebView already reserves space for the status bar natively (unlike iOS,
   // which draws edge-to-edge under a translucent status bar) — adding our own safe-area-inset
