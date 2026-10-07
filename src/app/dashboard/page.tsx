@@ -20,6 +20,8 @@ import { ConnectionAlertBanner } from "@/components/ConnectionAlertBanner";
 import { RecoveryCard } from "@/components/RecoveryCard";
 import { StrainCard } from "@/components/StrainCard";
 import { NextWorkoutCard } from "@/components/NextWorkoutCard";
+import { UpcomingTeamSchedule } from "@/components/UpcomingTeamSchedule";
+import { getUpcomingTeamSchedule } from "@/lib/teamSchedule";
 import { localDateKey, storedDateKey, dateFromKey } from "@/lib/userDate";
 
 const STEPS_SOURCE_LABEL: Record<string, string> = { APPLE_HEALTH: "Apple Health" };
@@ -85,6 +87,8 @@ export default async function TodayPage() {
   const now = new Date();
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  // Started alongside the queries below (it needs only the user's time zone, fetched on its own).
+  const teamSchedulePromise = prisma.user.findUnique({where:{id:userId},select:{timezone:true}}).then(u=>getUpcomingTeamSchedule(userId,u?.timezone??null)).catch(()=>[]);
   const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, announcements, userTeams, todayStepsMetric, upcomingPlanWorkouts] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,photos:true,raw:true}}),
@@ -102,6 +106,7 @@ export default async function TodayPage() {
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:false,date:{gte:yesterday}},orderBy:{date:"asc"},take:3,select:{id:true,date:true,day:true,type:true,title:true,description:true,distanceKm:true,durationMin:true,plan:{select:{raceId:true,race:{select:{raceName:true}}}}}}),
   ]);
   const userTz = user?.timezone ?? null;
+  const teamSchedule = await teamSchedulePromise;
   const todayKey = localDateKey(userTz);
 
   const teamsWithActivity = (userTeams as any[]).map((t: any) => ({
@@ -202,6 +207,9 @@ export default async function TodayPage() {
           }}
         />
       )}
+
+      {/* ── Group runs and team events in the next 2 weeks ── */}
+      <UpcomingTeamSchedule items={teamSchedule} todayKey={todayKey} />
 
       {/* ── Broken Health Bridge connection — only shown if it was working before ── */}
       <ConnectionAlertBanner />

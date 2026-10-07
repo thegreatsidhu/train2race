@@ -43,7 +43,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       teamId: id, userId,
       title: title.trim(),
       description: description?.trim() || null,
-      eventDate: new Date(eventDate),
+      // The form sends the captain's wall-clock time ("2026-10-10T07:00"); store it as that time in
+      // UTC explicitly rather than relying on the server's zone. Pages display it with timeZone "UTC".
+      eventDate: new Date(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(eventDate) ? eventDate + "Z" : eventDate),
       location: location?.trim() || null,
       link: link?.trim() || null,
     },

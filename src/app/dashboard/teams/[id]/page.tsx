@@ -14,6 +14,10 @@ function combineDateTime(dateStr: string, timeStr: string, endOfDay: boolean): s
   return `${dateStr}T${t}:00.000Z`;
 }
 
+// Team event times are stored as the captain's wall-clock time in UTC (the form's datetime-local
+// value is parsed by the UTC server), so show them in UTC and compare against "now" as wall time.
+function eventWallNow(): Date { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000); }
+
 function fmtChallengeDate(d: string | Date): string {
   return new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 }
@@ -51,7 +55,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [dmReportingId,setDmReportingId]=useState<string|null>(null);const [dmReportReason,setDmReportReason]=useState("");const [dmSubmittingReport,setDmSubmittingReport]=useState(false);const [dmReportedIds,setDmReportedIds]=useState<Set<string>>(new Set());const [dmConfirmBlockUserId,setDmConfirmBlockUserId]=useState<string|null>(null);const [dmBlockingUserId,setDmBlockingUserId]=useState<string|null>(null);
   const [clubRuns,setClubRuns]=useState<any[]|null>(null);const [togglingRunClub,setTogglingRunClub]=useState(false);
   const [raceLoaded,setRaceLoaded]=useState(false);const [raceTabData,setRaceTabData]=useState<{members:{userId:string;name:string}[];myJoined:boolean}|null>(null);const [showRaceSearch,setShowRaceSearch]=useState(false);const [raceSearch,setRaceSearch]=useState("");const [raceResults,setRaceResults]=useState<any[]>([]);const [raceSearching,setRaceSearching]=useState(false);const [settingRace,setSettingRace]=useState(false);const [clearingRace,setClearingRace]=useState(false);const [confirmSetRace,setConfirmSetRace]=useState<any>(null);const [confirmClearRace,setConfirmClearRace]=useState(false);const [confirmLeaveRace,setConfirmLeaveRace]=useState(false);const [joiningRace,setJoiningRace]=useState(false);
-  useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);loadBulletins(p.id);loadEvents(p.id);const sp=new URLSearchParams(window.location.search);if(sp.get("tab")==="challenges"){loadChallenges(p.id).then(()=>{setActiveTab("challenges");const cId=sp.get("challenge");if(cId){setTimeout(()=>{const el=document.getElementById(`challenge-${cId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},150);}});}else if(sp.get("tab")==="chat"){setActiveTab("chat");}else if(sp.get("tab")==="runs"){setActiveTab("runs");}});}, []);
+  useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);loadBulletins(p.id);loadEvents(p.id);const sp=new URLSearchParams(window.location.search);if(sp.get("tab")==="challenges"){loadChallenges(p.id).then(()=>{setActiveTab("challenges");const cId=sp.get("challenge");if(cId){setTimeout(()=>{const el=document.getElementById(`challenge-${cId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},150);}});}else if(sp.get("tab")==="chat"){setActiveTab("chat");}else if(sp.get("tab")==="runs"){setActiveTab("runs");}else if(sp.get("tab")==="events"){setActiveTab("events");}});}, []);
   async function loadTeam(tid:string){try{const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);if(data.team?.isRunClub){loadClubRuns(tid);if(!new URLSearchParams(window.location.search).get("tab"))setActiveTab("runs");}setMyUserId(data.team?.members?.find((m:any)=>m.isMe)?.userId||"");if(data.team?.majorRace){setLbType(data.team.majorRace.isTriathlon?"triathlon":"run");}}catch{router.push("/dashboard/teams");}}
   async function loadClubRuns(tid:string){const res=await fetch(`/api/teams/${tid}/club-runs`);const d=await res.json().catch(()=>({}));setClubRuns(d.runs||[]);}
   async function toggleRunClub(){setTogglingRunClub(true);const on=!team.isRunClub;const res=await fetch(`/api/teams/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({isRunClub:on})});if(res.ok){setTeam((t:any)=>({...t,isRunClub:on}));if(on){if(clubRuns===null)loadClubRuns(id);setActiveTab("runs");}else if(activeTab==="runs"){setActiveTab("activity");}}setTogglingRunClub(false);}
@@ -354,11 +358,11 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
       ))}
 
       {/* Upcoming events preview */}
-      {teamEvents.filter((e:any)=>new Date(e.eventDate)>=new Date()).slice(0,2).map((e:any)=>(
+      {teamEvents.filter((e:any)=>new Date(e.eventDate)>=eventWallNow()).slice(0,2).map((e:any)=>(
         <div key={e.id} className="mb-3 rounded-2xl border border-border bg-surface px-4 py-3 flex items-center gap-4">
           <div className="shrink-0 text-center w-10">
-            <p className="text-xs text-foreground-dim uppercase tracking-wide leading-none">{new Date(e.eventDate).toLocaleDateString("en-US",{month:"short"})}</p>
-            <p className="text-xl font-bold leading-tight">{new Date(e.eventDate).getDate()}</p>
+            <p className="text-xs text-foreground-dim uppercase tracking-wide leading-none">{new Date(e.eventDate).toLocaleDateString("en-US",{month:"short",timeZone:"UTC"})}</p>
+            <p className="text-xl font-bold leading-tight">{new Date(e.eventDate).getUTCDate()}</p>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">{e.title}</p>
@@ -462,19 +466,19 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
         ):(
           <div className="space-y-3">
             {teamEvents.map((e:any)=>{
-              const past=new Date(e.eventDate)<new Date();
+              const past=new Date(e.eventDate)<eventWallNow();
               return(
                 <div key={e.id} className={"rounded-2xl border p-4 flex gap-4 "+(past?"border-border bg-surface opacity-60":"border-border bg-surface")}>
                   <div className="shrink-0 text-center w-12 pt-0.5">
-                    <p className="text-xs text-foreground-dim uppercase tracking-wide leading-none">{new Date(e.eventDate).toLocaleDateString("en-US",{month:"short"})}</p>
-                    <p className="text-2xl font-bold leading-tight">{new Date(e.eventDate).getDate()}</p>
-                    <p className="text-xs text-foreground-dim">{new Date(e.eventDate).getFullYear()}</p>
+                    <p className="text-xs text-foreground-dim uppercase tracking-wide leading-none">{new Date(e.eventDate).toLocaleDateString("en-US",{month:"short",timeZone:"UTC"})}</p>
+                    <p className="text-2xl font-bold leading-tight">{new Date(e.eventDate).getUTCDate()}</p>
+                    <p className="text-xs text-foreground-dim">{new Date(e.eventDate).getUTCFullYear()}</p>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold">{e.title}{past&&<span className="ml-2 text-xs text-foreground-dim font-normal">Past</span>}</p>
-                        <p className="text-xs text-foreground-dim mt-0.5">{new Date(e.eventDate).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}{e.location&&` · ${e.location}`}</p>
+                        <p className="text-xs text-foreground-dim mt-0.5">{new Date(e.eventDate).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",timeZone:"UTC"})}{e.location&&` · ${e.location}`}</p>
                         {e.description&&<p className="text-sm text-foreground-dim mt-1 leading-snug">{e.description}</p>}
                         {e.link&&<a href={e.link} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline mt-1 inline-block">More info →</a>}
                       </div>
