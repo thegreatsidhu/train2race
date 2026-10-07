@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ActivityList } from "@/components/ActivityList";
-import { UpcomingRacesSection } from "@/components/UpcomingRacesSection";
 import { TeamInvitations } from "@/components/TeamInvitations";
 import { DashboardNotifications } from "@/components/DashboardNotifications";
 import { DashboardAnnouncement } from "@/components/DashboardAnnouncement";
@@ -86,7 +85,7 @@ export default async function TodayPage() {
   const now = new Date();
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams, todayStepsMetric, upcomingPlanWorkouts] = await Promise.all([
+  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, announcements, userTeams, todayStepsMetric, upcomingPlanWorkouts] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,photos:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
@@ -95,7 +94,6 @@ export default async function TodayPage() {
     prisma.raceRegistration.findFirst({where:{userId,majorRace:{raceDate:{gte:today},status:"active"}},orderBy:{majorRace:{raceDate:"asc"}},include:{majorRace:{select:{id:true,name:true,city:true,country:true,raceDate:true}}}}),
     prisma.activity.findMany({where:{userId,startTime:{gte:fortyFiveDaysAgo}},select:{startTime:true,distanceM:true},orderBy:{startTime:"desc"}}),
     prisma.trainingWorkout.findMany({where:{plan:{userId},completed:true},orderBy:{completedAt:"desc"},take:10,select:{id:true,title:true,type:true,date:true,distanceKm:true,durationMin:true,completedAt:true}}),
-    prisma.raceRegistration.findMany({where:{userId},select:{majorRaceId:true}}),
     (prisma as any).announcement.findMany({where:{AND:[{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},{OR:[{scheduledFor:null},{scheduledFor:{lte:now}}]}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
     prisma.team.findMany({where:{members:{some:{userId}}},select:{id:true,name:true,logoUrl:true,logoStatus:true,isPrivate:true,_count:{select:{members:true}}},orderBy:{createdAt:"desc"},take:10}),
     prisma.dailyMetrics.findFirst({where:{userId,date:{gte:today,lt:tomorrow},steps:{not:null}},orderBy:{steps:"desc"},select:{steps:true,source:true}}),
@@ -446,13 +444,6 @@ export default async function TodayPage() {
           </div>
         </section>
       )}
-
-      {/* ── Upcoming races nearby ── */}
-      <UpcomingRacesSection
-        defaultCity={timezoneCity ?? raceCity}
-        registeredRaceIds={(allRaceRegs as any[]).map((r: any) => r.majorRaceId)}
-        hasRacePlan={!!activeRace}
-      />
 
       {/* ── Recent activity ── */}
       <details className="mb-6 group">

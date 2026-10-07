@@ -93,6 +93,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ("majorRaceId" in body) updateData.majorRaceId = body.majorRaceId ?? null;
   if ("announcementMode" in body) updateData.announcementMode = body.announcementMode === true;
   if ("requireJoinApproval" in body) updateData.requireJoinApproval = body.requireJoinApproval === true;
+  if ("isRunClub" in body) updateData.isRunClub = body.isRunClub === true;
+  if ("clubCity" in body) updateData.clubCity = typeof body.clubCity === "string" && body.clubCity.trim() ? body.clubCity.trim().slice(0, 80) : null;
   const team = await prisma.team.update({ where: { id }, data: updateData });
   return NextResponse.json({ team });
 }

@@ -22,6 +22,8 @@ export default function TeamsPage() {
   const [description, setDescription] = useState("");
   const [selectedRace, setSelectedRace] = useState("");
   const [isPrivate, setIsPrivate] = useState(true);
+  const [isRunClub, setIsRunClub] = useState(false);
+  const [clubCity, setClubCity] = useState("");
 
   // join form
   const [inviteCode, setInviteCode] = useState("");
@@ -30,6 +32,7 @@ export default function TeamsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [clubsOnly, setClubsOnly] = useState(false);
   const [joining, setJoining] = useState<string|null>(null);
 
   useEffect(() => {
@@ -39,9 +42,9 @@ export default function TeamsPage() {
     return () => ac.abort();
   }, []);
 
-  const runSearch = useCallback(async (q: string) => {
+  const runSearch = useCallback(async (q: string, clubs = false) => {
     setSearching(true);
-    const res = await fetch(`/api/teams/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/teams/search?q=${encodeURIComponent(q)}${clubs ? "&clubs=1" : ""}`);
     const data = await res.json();
     setSearchResults(data.teams || []);
     setSearching(false);
@@ -49,20 +52,20 @@ export default function TeamsPage() {
 
   useEffect(() => {
     if (panel !== "discover") return;
-    const t = setTimeout(() => runSearch(searchQuery), 300);
+    const t = setTimeout(() => runSearch(searchQuery, clubsOnly), 300);
     return () => clearTimeout(t);
-  }, [searchQuery, panel, runSearch]);
+  }, [searchQuery, clubsOnly, panel, runSearch]);
 
   function openPanel(p: "create"|"join"|"discover") {
     setPanel(prev => prev === p ? "none" : p);
     setError("");
-    if (p === "discover" && searchResults.length === 0) runSearch("");
+    if (p === "discover" && searchResults.length === 0) runSearch("", clubsOnly);
   }
 
   async function handleCreate() {
     if (!name.trim()) return;
     setSubmitting(true); setError("");
-    const res = await fetch("/api/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, description, majorRaceId: selectedRace || null, isPrivate }) });
+    const res = await fetch("/api/teams", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, description, majorRaceId: selectedRace || null, isPrivate, isRunClub, clubCity: isRunClub ? clubCity : null }) });
     const data = await res.json();
     if (!res.ok) { setError(data.error); setSubmitting(false); return; }
     router.push(`/dashboard/teams/${data.team.id}`);
@@ -131,6 +134,11 @@ export default function TeamsPage() {
             <div><label className="block text-xs text-foreground-dim mb-1">Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="What is this team about?" className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm resize-none" /></div>
             <div><label className="block text-xs text-foreground-dim mb-1">Target race (optional)</label><select value={selectedRace} onChange={e => setSelectedRace(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm"><option value="">No specific race</option>{races.map((r: any) => <option key={r.id} value={r.id}>{r.name} · {new Date(r.raceDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</option>)}</select></div>
             <label className="flex items-center gap-3 cursor-pointer select-none">
+              <Toggle checked={isRunClub} onChange={() => setIsRunClub(v => !v)} />
+              <span className="text-sm">{isRunClub ? "🏃 Run club — weekly group runs with RSVPs and pace groups" : "Run club (optional)"}</span>
+            </label>
+            {isRunClub && <div><label className="block text-xs text-foreground-dim mb-1">City (helps runners find you)</label><input value={clubCity} onChange={e => setClubCity(e.target.value)} placeholder="e.g. Austin, TX" maxLength={80} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm" /></div>}
+            <label className="flex items-center gap-3 cursor-pointer select-none">
               <Toggle checked={!isPrivate} onChange={() => setIsPrivate(p => !p)} />
               <span className="text-sm">{isPrivate ? "Private — invite code only" : "Public — discoverable by anyone"}</span>
             </label>
@@ -163,14 +171,19 @@ export default function TeamsPage() {
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search by team name..."
-            className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm mb-4"
+            placeholder={clubsOnly ? "Search run clubs by name or city..." : "Search by team name..."}
+            className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-signal outline-none text-sm mb-3"
             autoFocus
           />
+          <div className="flex gap-2 mb-4">
+            {[{ v: false, l: "All teams" }, { v: true, l: "🏃 Run clubs" }].map(o => (
+              <button key={o.l} onClick={() => setClubsOnly(o.v)} className={"px-3 py-1 rounded-full text-xs font-medium transition-colors " + (clubsOnly === o.v ? "bg-signal text-background" : "border border-border hover:bg-background")}>{o.l}</button>
+            ))}
+          </div>
           {searching ? (
             <p className="text-sm text-foreground-dim">Searching...</p>
           ) : searchResults.length === 0 ? (
-            <p className="text-sm text-foreground-dim">{searchQuery ? "No public teams found." : "No public teams yet."}</p>
+            <p className="text-sm text-foreground-dim">{clubsOnly ? (searchQuery ? "No public run clubs found." : "No public run clubs yet.") : (searchQuery ? "No public teams found." : "No public teams yet.")}</p>
           ) : (
             <div className="space-y-3">
               {searchResults.map((t: any) => (
@@ -178,6 +191,7 @@ export default function TeamsPage() {
                   <TeamAvatar name={t.name} logoUrl={t.logoUrl} isPrivate={false} logoStatus="approved" size={40} />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm">{t.name}</p>
+                    {t.isRunClub && <p className="text-xs text-signal mt-0.5">🏃 Run club{t.clubCity ? ` · ${t.clubCity}` : ""}</p>}
                     {t.description && <p className="text-xs text-foreground-dim mt-0.5">{t.description}</p>}
                     {t.majorRace && <p className="text-xs text-signal mt-0.5">🏁 {t.majorRace.name}</p>}
                     <p className="text-xs text-foreground-dim mt-0.5">{t.memberCount} member{t.memberCount !== 1 ? "s" : ""}</p>
@@ -228,6 +242,7 @@ export default function TeamsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold">{team.name}</p>
+                    {team.isRunClub && <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">🏃 Run club</span>}
                     {!team.isPrivate && <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/20">Public</span>}
                   </div>
                   {team.description && <p className="text-sm text-foreground-dim mt-0.5">{team.description}</p>}

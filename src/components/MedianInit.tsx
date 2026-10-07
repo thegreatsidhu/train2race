@@ -25,6 +25,8 @@ export function MedianInit() {
     const listenerId = addPushOpenedListener((data) => {
       if (data?.type === "chat_message" && data?.teamId) {
         router.push(`/dashboard/teams/${data.teamId}?tab=chat`);
+      } else if (data?.type === "club_run" && data?.teamId) {
+        router.push(`/dashboard/teams/${data.teamId}?tab=runs`);
       }
     });
     return () => removePushOpenedListener(listenerId);
