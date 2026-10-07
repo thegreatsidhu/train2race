@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { enrollAllMembers } from "@/lib/challengeEnrollment";
 import { auth } from "@/lib/auth";
 
 async function resolveEditor(userId: string, teamId: string) {
@@ -53,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
     const updated = await prisma.teamChallenge.update({ where: { id: cid }, data: { status: body.status } });
+    if (body.status === "approved") await enrollAllMembers(cid, teamId);
     return NextResponse.json({ challenge: updated });
   }
 

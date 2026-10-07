@@ -103,9 +103,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id: string }).id;
-  const team = await prisma.team.findUnique({ where: { id }, select: { createdBy: true } });
+  const [team, member] = await Promise.all([
+    prisma.team.findUnique({ where: { id }, select: { createdBy: true, isCommunity: true } }),
+    prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: id, userId } }, select: { role: true } }),
+  ]);
   if (!team) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (team.createdBy !== userId) return NextResponse.json({ error: "Only creator can delete" }, { status: 403 });
+  // Any captain can delete their team. Community teams are managed from the admin panel.
+  if (team.isCommunity) return NextResponse.json({ error: "Community teams can only be removed by an app admin." }, { status: 403 });
+  if (member?.role !== "admin" && team.createdBy !== userId) return NextResponse.json({ error: "Only team captains can delete the team." }, { status: 403 });
   await prisma.team.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

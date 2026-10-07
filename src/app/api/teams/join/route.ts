@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { enrollInOpenChallenges } from "@/lib/challengeEnrollment";
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -13,5 +14,6 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId: team.id, userId } } });
   if (existing) return NextResponse.json({ error: "Already a member", teamId: team.id }, { status: 409 });
   await prisma.teamMember.create({ data: { teamId: team.id, userId, role: "member" } });
+  await enrollInOpenChallenges(team.id, userId);
   return NextResponse.json({ ok: true, teamId: team.id });
 }

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { enrollInOpenChallenges } from "@/lib/challengeEnrollment";
 import { auth } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     create: { teamId, userId, role: "member" },
     update: {},
   });
+  await enrollInOpenChallenges(teamId, userId);
   return NextResponse.json({ member });
 }
 

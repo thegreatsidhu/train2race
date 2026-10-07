@@ -74,5 +74,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   await prisma.teamChallengeEntry.deleteMany({ where: { challengeId, userId: targetUserId } });
+  // Leaving (or being removed) also un-enrolls, otherwise auto-enrollment would show them as still in.
+  await prisma.$executeRaw`UPDATE "team_challenges" SET "acceptances" = array_remove("acceptances", ${targetUserId}) WHERE "id" = ${challengeId} AND "teamId" = ${teamId}`;
   return NextResponse.json({ ok: true });
 }

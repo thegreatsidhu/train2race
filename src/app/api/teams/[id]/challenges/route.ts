@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendEmail, groupEmailHtml } from "@/lib/email";
+import { enrollAllMembers } from "@/lib/challengeEnrollment";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: teamId } = await params;
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       acceptances: [userId],
     },
   });
+  // The whole team is enrolled automatically; members can leave the challenge themselves.
+  if (challenge.status === "approved") await enrollAllMembers(challenge.id, teamId);
   // Email team members when challenge is approved (captain-created)
   if (challenge.status === "approved") {
     prisma.teamMember.findMany({
@@ -104,9 +107,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           to: m.user.email,
           subject: `New challenge in ${teamName}: ${title.trim()}`,
           html: groupEmailHtml({
-            preheader: `Join the challenge — ends ${ends}`,
+            preheader: `You're in — ends ${ends}`,
             heading: `New challenge: ${title.trim()}`,
-            body: `<strong>${teamName}</strong> has a new group challenge!${description ? `<br/><br/>${description}` : ""}<br/><br/>${goal != null && goal !== "" ? `Goal: <strong>${goal} ${unit}</strong>${goalPerDay ? " per day" : ""} · ` : `Track: <strong>${unit}</strong> · `}Ends ${ends}`,
+            body: `<strong>${teamName}</strong> has a new group challenge, and you're already signed up!${description ? `<br/><br/>${description}` : ""}<br/><br/>${goal != null && goal !== "" ? `Goal: <strong>${goal} ${unit}</strong>${goalPerDay ? " per day" : ""} · ` : `Track: <strong>${unit}</strong> · `}Ends ${ends}`,
             cta: "View challenge",
             ctaUrl: `${baseUrl}/dashboard/teams/${teamId}?tab=challenges`,
           }),

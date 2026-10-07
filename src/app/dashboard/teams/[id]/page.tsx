@@ -50,7 +50,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   const [lbType,setLbType]=useState("all");const [lbPeriod,setLbPeriod]=useState("month");const [lbMetric,setLbMetric]=useState("distance");
   const [lbData,setLbData]=useState<any[]>([]);const [lbLoading,setLbLoading]=useState(false);const [lbSearch,setLbSearch]=useState("");const [lbVisibleCount,setLbVisibleCount]=useState(50);
   const [showInvitePanel,setShowInvitePanel]=useState(false);const [inviteQuery,setInviteQuery]=useState("");const [inviteResults,setInviteResults]=useState<any[]>([]);const [inviteSearching,setInviteSearching]=useState(false);const [addingMember,setAddingMember]=useState<string|null>(null);const [inviteMsg,setInviteMsg]=useState("");
-  const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
+  const [removingId,setRemovingId]=useState<string|null>(null);const [confirmRemoveId,setConfirmRemoveId]=useState<string|null>(null);const [confirmLeave,setConfirmLeave]=useState(false);const [leaveError,setLeaveError]=useState("");const [confirmDeleteTeam,setConfirmDeleteTeam]=useState(false);const [deleteNameInput,setDeleteNameInput]=useState("");const [deletingTeam,setDeletingTeam]=useState(false);const [confirmRemoveParticipant,setConfirmRemoveParticipant]=useState<{cId:string;uId:string}|null>(null);const [removingParticipant,setRemovingParticipant]=useState<string|null>(null);
   const [dmTarget,setDmTarget]=useState<string|null>(null);const [dmThread,setDmThread]=useState<any[]>([]);const [dmContent,setDmContent]=useState("");const [sendingDm,setSendingDm]=useState(false);const [dmLoading,setDmLoading]=useState(false);const [myThreads,setMyThreads]=useState<any[]>([]);const [threadsLoaded,setThreadsLoaded]=useState(false);
   const [dmReportingId,setDmReportingId]=useState<string|null>(null);const [dmReportReason,setDmReportReason]=useState("");const [dmSubmittingReport,setDmSubmittingReport]=useState(false);const [dmReportedIds,setDmReportedIds]=useState<Set<string>>(new Set());const [dmConfirmBlockUserId,setDmConfirmBlockUserId]=useState<string|null>(null);const [dmBlockingUserId,setDmBlockingUserId]=useState<string|null>(null);
   const [clubRuns,setClubRuns]=useState<any[]|null>(null);const [togglingRunClub,setTogglingRunClub]=useState(false);
@@ -67,7 +67,9 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function blockUser(userId:string){const res=await fetch(`/api/users/${userId}/block`,{method:"POST"});if(!res.ok)throw new Error("block failed");setMessages(prev=>prev.filter((m:any)=>m.user.id!==userId));setMyThreads(prev=>prev.filter((t:any)=>t.userId!==userId));if(dmTarget===userId){setDmTarget(null);setDmThread([]);}}
   async function submitDmReport(messageId:string){setDmSubmittingReport(true);const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contentType:"direct_message",contentId:messageId,reason:dmReportReason.trim()})});if(res.ok)setDmReportedIds(prev=>new Set(prev).add(messageId));setDmSubmittingReport(false);setDmReportingId(null);setDmReportReason("");}
   async function confirmDmBlock(userId:string){setDmBlockingUserId(userId);try{await blockUser(userId);}catch{}setDmBlockingUserId(null);setDmConfirmBlockUserId(null);}
-  async function handleLeave(){setConfirmLeave(false);if(team?.isAdmin){await fetch(`/api/teams/${id}`,{method:"DELETE"});}else{await fetch(`/api/teams/${id}/leave`,{method:"POST"});}router.push("/dashboard/teams");}
+  async function handleLeave(){setConfirmLeave(false);setLeaveError("");const res=await fetch(`/api/teams/${id}/leave`,{method:"POST"});if(res.ok){router.push("/dashboard/teams");return;}const d=await res.json().catch(()=>({}));setLeaveError(d.error||"Couldn't leave the team. Please try again.");}
+  async function handleDeleteTeam(){setDeletingTeam(true);setLeaveError("");const res=await fetch(`/api/teams/${id}`,{method:"DELETE"});if(res.ok){router.push("/dashboard/teams");return;}const d=await res.json().catch(()=>({}));setLeaveError(d.error||"Couldn't delete the team. Please try again.");setDeletingTeam(false);}
+  function openDeleteTeam(){setActiveTab("members");loadMyThreads();setConfirmDeleteTeam(true);setDeleteNameInput("");setTimeout(()=>document.getElementById("team-danger-zone")?.scrollIntoView({behavior:"smooth",block:"center"}),100);}
   function copyInviteCode(){navigator.clipboard.writeText(team.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
   function copyInviteLink(){const link=`${window.location.origin}/join/${team.inviteCode}`;navigator.clipboard.writeText(link);setCopiedLink(true);setTimeout(()=>setCopiedLink(false),2000);}
   function shareChallengeInvite(challengeId:string){const link=`${window.location.origin}/join/${team.inviteCode}?challenge=${challengeId}`;navigator.clipboard.writeText(link);setCopiedChallengeId(challengeId);setTimeout(()=>setCopiedChallengeId(null),2000);}
@@ -116,7 +118,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function approveChallenge(cId:string,status:string){setApprovingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});if(res.ok){setChallenges(prev=>prev.map(c=>c.id===cId?{...c,status}:c));}setApprovingChallenge(null);}
   async function deleteChallenge(cId:string){setConfirmDeleteChId(null);setDeletingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}`,{method:"DELETE"});setDeletingChallenge(null);if(res.ok)setChallenges(prev=>prev.filter(c=>c.id!==cId));}
   async function acceptChallenge(cId:string){setAcceptingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}/accept`,{method:"POST"});if(res.ok){setChallenges(prev=>prev.map(c=>c.id===cId?{...c,acceptances:[...(c.acceptances||[]),myUserId]}:c));}setAcceptingChallenge(null);}
-  async function leaveChallenge(cId:string){setConfirmLeaveChallenge(null);setLeavingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}/entries`,{method:"DELETE"});setLeavingChallenge(null);if(res.ok)setChallenges(prev=>prev.filter(c=>c.id!==cId));}
+  async function leaveChallenge(cId:string){setConfirmLeaveChallenge(null);setLeavingChallenge(cId);const res=await fetch(`/api/teams/${id}/challenges/${cId}/entries`,{method:"DELETE"});setLeavingChallenge(null);if(res.ok)setChallenges(prev=>prev.map(c=>c.id===cId?{...c,acceptances:(c.acceptances||[]).filter((u:string)=>u!==myUserId),entries:(c.entries||[]).filter((e:any)=>e.userId!==myUserId)}:c));}
   async function saveChallengeEdit(cId:string,force=false){setSavingChallengeEdit(true);setEditChallengeError("");const res=await fetch(`/api/teams/${id}/challenges/${cId}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:editChallengeForm.title,description:editChallengeForm.description,goal:editChallengeForm.goal||null,goalPerDay:editChallengeForm.goalPerDay,lockEnrollmentAtStart:editChallengeForm.lockEnrollmentAtStart,startDate:combineDateTime(editChallengeForm.startDate,editChallengeForm.startTime,false),endDate:combineDateTime(editChallengeForm.endDate,editChallengeForm.endTime,true),force})});const d=await res.json().catch(()=>({}));if(res.ok){setChallenges(prev=>prev.map(c=>c.id===cId?{...c,...d.challenge,entries:c.entries}:c));setEditingChallengeId(null);setConfirmShortenEnd(null);}else if(res.status===409&&d.requiresForce){setConfirmShortenEnd(cId);}else{setEditChallengeError(d.error||"Failed to save.");}setSavingChallengeEdit(false);}
   async function removeParticipant(cId:string,uId:string){const key=`${cId}:${uId}`;setRemovingParticipant(key);setConfirmRemoveParticipant(null);const res=await fetch(`/api/teams/${id}/challenges/${cId}/entries?userId=${uId}`,{method:"DELETE"});setRemovingParticipant(null);if(res.ok)setChallenges(prev=>prev.map(c=>c.id===cId?{...c,entries:c.entries.filter((e:any)=>e.userId!==uId)}:c));}
   async function openDm(memberId:string){
@@ -294,6 +296,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           {team.isAdmin&&<button onClick={toggleRunClub} disabled={togglingRunClub} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingRunClub?"Saving...":(team.isRunClub?"🏃 Run club — turn off":"Make this a run club")}</button>}
           {team.isAdmin&&<button onClick={toggleAnnouncementMode} disabled={togglingAnnouncement} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingAnnouncement?"Saving...":(team.announcementMode?"📢 Announcement mode — captains only post":"Open chat — everyone can post")}</button>}
           {team.isAdmin&&!team.isPrivate&&<button onClick={toggleJoinApproval} disabled={togglingJoinApproval} className="text-xs text-foreground-dim hover:text-foreground transition-colors disabled:opacity-40">{togglingJoinApproval?"Saving...":(team.requireJoinApproval?"Join requests require approval":"Anyone can join instantly")}</button>}
+          {team.isAdmin&&!team.isCommunity&&<button onClick={openDeleteTeam} className="text-xs text-red-400 hover:text-red-300 transition-colors">Delete team</button>}
           {team.isAdmin&&<button onClick={()=>{setShowInvitePanel(p=>!p);setInviteQuery("");setInviteResults([]);}} className={"text-xs transition-colors "+(showInvitePanel?"text-signal hover:text-foreground":"text-foreground-dim hover:text-foreground")}>+ Find &amp; add members</button>}
         </div>
       </div>
@@ -981,16 +984,34 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
           </div>
         ))}
         {team.members.length>visibleMemberCount&&<button onClick={()=>setVisibleMemberCount(c=>c+20)} className="w-full py-2 text-sm text-foreground-dim hover:text-foreground border border-border rounded-xl hover:bg-surface transition-colors">Load more ({team.members.length-visibleMemberCount} more)</button>}
-        <div className="pt-5 border-t border-border mt-3">
+        <div id="team-danger-zone" className="pt-5 border-t border-border mt-3 space-y-3">
           {confirmLeave?(
             <div className="flex items-center gap-3">
-              <span className="text-xs text-foreground-dim">{team.isAdmin?"Delete this team permanently?":"Leave this team?"}</span>
+              <span className="text-xs text-foreground-dim">Leave this team?</span>
               <button onClick={handleLeave} className="text-xs text-red-400 font-medium hover:underline">Confirm</button>
               <button onClick={()=>setConfirmLeave(false)} className="text-xs text-foreground-dim hover:underline">Cancel</button>
             </div>
           ):(
-            <button onClick={()=>setConfirmLeave(true)} className="text-xs text-red-400 hover:text-red-300">{team.isAdmin?"Delete team":"Leave team"}</button>
+            <div className="flex items-center gap-4">
+              <button onClick={()=>{setConfirmLeave(true);setConfirmDeleteTeam(false);setLeaveError("");}} className="text-xs text-red-400 hover:text-red-300">Leave team</button>
+              {team.isAdmin&&!team.isCommunity&&!confirmDeleteTeam&&<button onClick={()=>{setConfirmDeleteTeam(true);setDeleteNameInput("");setLeaveError("");}} className="text-xs text-red-400 hover:text-red-300">Delete team</button>}
+            </div>
           )}
+          {confirmDeleteTeam&&team.isAdmin&&(
+            <div className="rounded-2xl border border-red-400/40 bg-red-400/5 p-4 space-y-3">
+              <p className="text-sm font-medium text-red-400">Delete {team.name}?</p>
+              <p className="text-xs text-foreground-dim">This permanently deletes the team for all {team.members.length} member{team.members.length===1?"":"s"}, including its chat, bulletins, events, challenges{team.isRunClub?", group runs":""} and leaderboard. Members' own workouts and activities are not affected. This can't be undone.</p>
+              <div>
+                <label className="block text-xs text-foreground-dim mb-1">Type the team name to confirm</label>
+                <input value={deleteNameInput} onChange={e=>setDeleteNameInput(e.target.value)} placeholder={team.name} className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:border-red-400 outline-none"/>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleDeleteTeam} disabled={deletingTeam||deleteNameInput.trim().toLowerCase()!==team.name.trim().toLowerCase()} className="px-4 py-2 rounded-full bg-red-500 text-white text-sm font-medium disabled:opacity-40">{deletingTeam?"Deleting…":"Delete team forever"}</button>
+                <button onClick={()=>{setConfirmDeleteTeam(false);setDeleteNameInput("");}} className="px-4 py-2 rounded-full border border-border text-sm">Cancel</button>
+              </div>
+            </div>
+          )}
+          {leaveError&&<p className="text-xs text-red-400">{leaveError}</p>}
         </div>
       </div>}
     </div>

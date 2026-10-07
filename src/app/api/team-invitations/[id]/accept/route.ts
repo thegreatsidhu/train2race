@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { enrollInOpenChallenges } from "@/lib/challengeEnrollment";
 import { NextResponse } from "next/server";
 
 // POST /api/team-invitations/[id]/accept
@@ -21,6 +22,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     create: { teamId: invitation.teamId, userId, role: "member" },
     update: {},
   });
+  await enrollInOpenChallenges(invitation.teamId, userId);
 
   return NextResponse.json({ ok: true, teamId: invitation.teamId });
 }

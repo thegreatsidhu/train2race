@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { enrollInOpenChallenges } from "@/lib/challengeEnrollment";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: teamId } = await params;
@@ -69,6 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         })),
         prisma.teamJoinRequest.updateMany({ where: { teamId, status: "pending" }, data: { status: "approved" } }),
       ]);
+      for (const r of pending) await enrollInOpenChallenges(teamId, r.userId);
     } else {
       await prisma.teamJoinRequest.updateMany({ where: { teamId, status: "pending" }, data: { status: "rejected" } });
     }
@@ -88,6 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }),
       prisma.teamJoinRequest.update({ where: { id: requestId }, data: { status: "approved" } }),
     ]);
+    await enrollInOpenChallenges(teamId, request.userId);
   } else {
     await prisma.teamJoinRequest.update({ where: { id: requestId }, data: { status: "rejected" } });
   }
