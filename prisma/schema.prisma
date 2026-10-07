@@ -74,6 +74,8 @@ model User {
   adminMessages            AdminMessage[]   @relation("AdminMsgsReceived")
   teamBulletins            TeamBulletin[]
   teamEvents               TeamEvent[]
+  clubRuns                 ClubRun[]
+  clubRunRsvps             ClubRunRsvp[]
   communityRequests        CommunityRequest[]
   highFivesGiven   HighFive[]       @relation("HighFivesGiven")
   activityComments ActivityComment[]
@@ -386,6 +388,9 @@ model Team {
   logoStatus  String   @default("none") // none | pending | approved | rejected
   announcementMode Boolean @default(false)
   requireJoinApproval Boolean @default(false)
+  isRunClub   Boolean  @default(false)
+  clubCity    String?
+  clubRuns    ClubRun[]
   joinRequests TeamJoinRequest[]
   members     TeamMember[]
   messages    TeamMessage[]
@@ -427,6 +432,44 @@ model TeamEvent {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([teamId, eventDate])
   @@map("team_events")
+}
+
+// A run club's recurring weekly group run (e.g. "Saturday long run, 7:00am at the boathouse").
+// Occurrences aren't stored; they're computed from dayOfWeek + startTime in the club's time zone.
+model ClubRun {
+  id             String   @id @default(cuid())
+  teamId         String
+  createdBy      String
+  title          String
+  dayOfWeek      Int      // 0 = Sunday … 6 = Saturday
+  startTime      String   // "HH:MM", 24-hour, in `timezone`
+  timezone       String   @default("America/New_York")
+  meetingPoint   String
+  mapUrl         String?
+  distance       String?  // free text, e.g. "5–10 mi"
+  paceGroups     String[] // e.g. ["8:00/mi", "9:30/mi", "Walk/run"]; empty = no pace groups
+  notes          String?
+  cancelledDates String[] // "YYYY-MM-DD" occurrences the captain called off
+  createdAt      DateTime @default(now())
+  team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator        User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  rsvps          ClubRunRsvp[]
+  @@index([teamId])
+  @@map("club_runs")
+}
+
+model ClubRunRsvp {
+  id         String   @id @default(cuid())
+  clubRunId  String
+  userId     String
+  date       String   // occurrence, "YYYY-MM-DD" in the run's time zone
+  paceGroup  String?
+  createdAt  DateTime @default(now())
+  clubRun    ClubRun  @relation(fields: [clubRunId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([clubRunId, userId, date])
+  @@index([clubRunId, date])
+  @@map("club_run_rsvps")
 }
 
 model TeamContact {
