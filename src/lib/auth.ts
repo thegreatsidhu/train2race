@@ -5,6 +5,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { consumeRememberToken } from "@/lib/rememberToken";
+import { consumeLimit } from "@/lib/usageLimit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -39,9 +40,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         if (!credentials?.email || !credentials?.password) return null;
+        const email = String(credentials.email).trim().toLowerCase();
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+        // Server-side brute-force guard (the login page's 5-attempt counter is client-only):
+        // 10 attempts per email per 15 minutes.
+        if (!(await consumeLimit(`login:${email}`, 10, 15 * 60_000))) return null;
+
+        // Case-insensitive so accounts created before emails were normalised still sign in.
+        const user = await prisma.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" } },
           select: { id: true, email: true, name: true, image: true, passwordHash: true, isBanned: true },
         });
 

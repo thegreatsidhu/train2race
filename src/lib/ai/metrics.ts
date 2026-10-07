@@ -15,11 +15,10 @@ export interface MergedDayMetrics {
 }
 
 /**
- * A user may have multiple sources reporting the same day (e.g. Whoop +
- * Strava). This merges them into one row per day, preferring whichever
- * source actually has a value for each individual field rather than
- * preferring one vendor wholesale — Whoop tends to have the best
- * HRV/recovery data, Garmin the best steps/VO2max, etc.
+ * A user may have more than one row for the same day (e.g. the health
+ * bridge plus historical rows from a since-removed source). This merges
+ * them into one row per day, taking whichever row has a value for each
+ * individual field.
  */
 export async function getMergedDailyMetrics(
   userId: string,

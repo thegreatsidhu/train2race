@@ -1,5 +1,7 @@
 // @ts-nocheck
 import { auth } from "@/lib/auth";
+import { aiLimitResponse } from "@/lib/usageLimit";
+import { localDateKey } from "@/lib/userDate";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { anthropic as client, HAIKU_MODEL } from "@/lib/ai/client";
@@ -70,21 +72,20 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { aiDailyMessage: true, aiDailyMessageDate: true },
+    select: { aiDailyMessage: true, aiDailyMessageDate: true, timezone: true },
   });
 
-  // Return cached message if it's from today
+  // Return cached message if it's from the user's (local) today
   if (user?.aiDailyMessage && user?.aiDailyMessageDate) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const msgDate = new Date(user.aiDailyMessageDate);
-    msgDate.setHours(0, 0, 0, 0);
-    if (msgDate.getTime() === today.getTime()) {
+    if (localDateKey(user.timezone, new Date(user.aiDailyMessageDate)) === localDateKey(user.timezone)) {
       return NextResponse.json({ message: user.aiDailyMessage, cached: true });
     }
   }
 
-  // Generate new message
+  // Generate new message (over the AI limit → the same fallback as an AI error)
+  if (await aiLimitResponse(userId, "daily-message", 3)) {
+    return NextResponse.json({ message: "Every rep counts. Show up today.", cached: false });
+  }
   try {
     const message = await generateMessage(userId);
     await prisma.user.update({

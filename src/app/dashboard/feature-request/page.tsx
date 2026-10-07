@@ -52,7 +52,7 @@ export default function FeatureRequestPage() {
               <input
                 required
                 className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm focus:border-signal outline-none"
-                placeholder="e.g. Dark mode calendar, Strava sync, pace zones…"
+                placeholder="e.g. Dark mode calendar, pace zones…"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
               />

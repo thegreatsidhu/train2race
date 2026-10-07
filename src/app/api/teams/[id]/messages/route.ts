@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { chatLimitResponse } from "@/lib/usageLimit";
 import { isSuperUser } from "@/lib/superuser";
 import { sendPush } from "@/lib/oneSignal";
 
@@ -68,6 +69,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { content, replyToId } = await req.json();
   if (!content?.trim()) return NextResponse.json({ error: "Message required" }, { status: 400 });
+  if (content.trim().length > 2000) return NextResponse.json({ error: "Message too long (max 2000 characters)" }, { status: 400 });
+  const limited = await chatLimitResponse(userId);
+  if (limited) return limited;
 
   const message = await prisma.teamMessage.create({
     data: {

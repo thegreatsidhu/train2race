@@ -3,15 +3,22 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, welcomeEmailHtml } from "@/lib/email";
+import { consumeLimit, clientIp, tooManyRequests } from "@/lib/usageLimit";
 
 const SignupSchema = z.object({
   name: z.string().min(1).max(100),
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(8).max(200),
+  // Honeypot — a field hidden from people (see signup page); bots that fill every input trip it.
+  website: z.string().optional(),
 });
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  // Per-IP and app-wide caps stop scripted mass signups (each one also sends a welcome email).
+  if (!(await consumeLimit(`signup:ip:${clientIp(req)}`, 5, 60 * 60_000))) return tooManyRequests("Too many sign-ups from this network. Please try again later.");
+  if (!(await consumeLimit("signup:global", 150, 60 * 60_000))) return tooManyRequests("Sign-ups are busy right now. Please try again in a few minutes.");
+
+  const body = await req.json().catch(() => ({}));
   const parsed = SignupSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -21,9 +28,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, website } = parsed.data;
+  if (website) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true, isBanned: true } });
+  // Case-insensitive: older accounts may have been stored with mixed-case emails.
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true, isBanned: true } });
   if (existing) {
     if (existing.isBanned) {
       return NextResponse.json(

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { aiLimitResponse } from "@/lib/usageLimit";
 import { anthropic, HAIKU_MODEL } from "@/lib/ai/client";
 
 const SCHEMA = {
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
   if (!transcript || typeof transcript !== "string") {
     return NextResponse.json({ error: "Missing transcript" }, { status: 400 });
   }
+  if (transcript.length > 1000) return NextResponse.json({ error: "Transcript too long" }, { status: 400 });
+  const limited = await aiLimitResponse((session.user as { id: string }).id, "voice", 30);
+  if (limited) return limited;
 
   const prompt = `Extract structured workout details from this spoken description: "${transcript}"
 

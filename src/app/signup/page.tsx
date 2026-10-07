@@ -12,6 +12,7 @@ function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [website, setWebsite] = useState(""); // honeypot — stays empty for real people
   const [error, setError] = useState<string | null>(null);
   const [emailTaken, setEmailTaken] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ function SignupForm() {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, website }),
     });
 
     if (!res.ok) {
@@ -38,7 +39,7 @@ function SignupForm() {
       return;
     }
 
-    const signInRes = await signIn("credentials", { email, password, redirect: false });
+    const signInRes = await signIn("credentials", { email: email.trim().toLowerCase(), password, redirect: false });
     setLoading(false);
     if (signInRes?.error) {
       router.push("/login");
@@ -49,6 +50,9 @@ function SignupForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
+        <label>Website<input type="text" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} /></label>
+      </div>
       <input type="text" required placeholder="Name" value={name}
         onChange={(e) => setName(e.target.value)}
         className="w-full px-4 py-3 rounded-xl bg-surface border border-border focus:border-signal outline-none text-sm" />

@@ -255,9 +255,8 @@ export type RecoveryEstimate = {
 const MIN_BASELINE_DAYS = 7;
 
 /**
- * Rough recovery estimate from HRV/resting-heart-rate/sleep history, for users without a
- * Whoop/Garmin connection (which provide a real, device-computed recovery score instead — always
- * prefer that when available, this is a fallback). Compares the most recent day's values against
+ * Rough recovery estimate from HRV/resting-heart-rate/sleep history, computed on-device.
+ * Compares the most recent day's values against
  * a rolling baseline from the preceding days, since normal HRV/RHR/sleep vary enormously between
  * people — there's no meaningful universal scale, only "better or worse than your own normal."
  * Sleep is compared the same baseline-relative way as HRV/RHR (not a fixed hours target), since a
@@ -345,11 +344,9 @@ export type StrainEstimate = {
 };
 
 /**
- * Rough "how hard today has been" estimate from active-energy and exercise-time history, for
- * users without a Whoop/Garmin connection. Unlike recovery, Whoop's strain (0-21) and Garmin's
- * training load use completely different, incompatible scales — there's no honest way to
- * normalize a computed estimate onto either one. So this reports a plain "% of your typical day"
- * instead of pretending to match either platform's number.
+ * Rough "how hard today has been" estimate from active-energy and exercise-time history, computed
+ * on-device. Reports a plain "% of your typical day" rather than a vendor-style strain/load
+ * score, since there's no universal scale to normalize onto.
  *
  * Compares today's still-accumulating totals against the trailing 30-day baseline, so it reads
  * low early in the day before a workout happens — that's an inherent tradeoff of a live, same-day

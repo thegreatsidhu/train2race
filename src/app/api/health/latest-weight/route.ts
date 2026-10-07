@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 // Most recent synced body weight from any connected source (in practice, the Apple Health /
-// Google Health Connect bridge — Garmin doesn't sync body weight), for auto-pull in the
+// Google Health Connect bridge), for auto-pull in the
 // weight-loss gate and weekly check-in form.
 export async function GET() {
   const session = await auth();

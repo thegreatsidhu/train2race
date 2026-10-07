@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { chatLimitResponse } from "@/lib/usageLimit";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, groupEmailHtml } from "@/lib/email";
 import { sendPush } from "@/lib/oneSignal";
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { content } = await req.json();
   if (!content?.trim()) return NextResponse.json({ error: "Content required" }, { status: 400 });
   if (content.trim().length > 500) return NextResponse.json({ error: "Comment too long (max 500 chars)" }, { status: 400 });
+  const limited = await chatLimitResponse(userId);
+  if (limited) return limited;
 
   const activity = await prisma.activity.findUnique({
     where: { id: activityId },

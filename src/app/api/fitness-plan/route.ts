@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { auth } from "@/lib/auth";
+import { aiLimitResponse } from "@/lib/usageLimit";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { HAIKU_MODEL, generateJsonWithRetry } from "@/lib/ai/client";
@@ -120,6 +121,8 @@ export async function POST(req: Request) {
   if (!goal || !location || !currentFitness || !daysPerWeek) {
     return NextResponse.json({ error: "All fields required" }, { status: 400 });
   }
+  const limited = await aiLimitResponse(userId, "fitness-plan", 5);
+  if (limited) return limited;
 
   const isWeightLoss = goal === "Lose weight";
   let weightLossFields: {

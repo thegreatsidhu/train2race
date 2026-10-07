@@ -2,7 +2,7 @@
 
 > Every wearable you wear, one signal you can trust.
 
-Vitality aggregates Garmin, Whoop, Strava, and Apple Health into a single normalized view, runs a nightly AI agent that syncs your data and generates a personalized daily advice card, and provides an always-on chat coach that knows your actual numbers.
+Vitality brings your Apple Health data (via the in-app health bridge) into a single normalized view, runs a nightly AI agent that syncs your data and generates a personalized daily advice card, and provides an always-on chat coach that knows your actual numbers.
 
 **What it does:**
 - Pulls data nightly from every connected device (automatically, no manual action)
@@ -15,9 +15,6 @@ Vitality aggregates Garmin, Whoop, Strava, and Apple Health into a single normal
 **Device support:**
 | Source | Type | Data |
 |--------|------|------|
-| Whoop | OAuth (self-serve, up to 10 users free) | HRV, recovery %, strain, sleep, SpO2 |
-| Strava | OAuth (self-serve, requires active Strava sub) | Activities/workouts only |
-| Garmin | OAuth (requires Developer Program approval, ~2 days) | All health metrics + activities |
 | Apple Watch | Webhook (via Health Auto Export iOS app) | All HealthKit metrics + workouts |
 
 ---
@@ -55,10 +52,9 @@ DATABASE_URL=           # your Postgres connection string
 AUTH_SECRET=            # openssl rand -base64 32
 ENCRYPTION_KEY=         # openssl rand -base64 32  (must decode to exactly 32 bytes)
 ANTHROPIC_API_KEY=      # from console.anthropic.com
-GARMIN_MOCK_MODE=true   # leave true until Garmin Developer Program approval lands
 ```
 
-Everything else (Google OAuth, Whoop, Strava, Garmin real credentials) can be added incrementally — the app works without them, it just won't have those sources available.
+Everything else (e.g. Google OAuth) can be added incrementally — the app works without it.
 
 ### 3. Set up the database
 
@@ -79,52 +75,7 @@ Open [http://localhost:3000](http://localhost:3000) — you should see the landi
 
 ---
 
-## Per-source OAuth setup
-
-### Whoop
-
-1. Go to [developer.whoop.com](https://developer.whoop.com) and sign in with your Whoop account
-2. Create a new application — any name, choose "Web Application"
-3. Set the redirect URI to: `https://yourdomain.com/api/connectors/whoop/callback`
-   - For local dev: `http://localhost:3000/api/connectors/whoop/callback`
-4. Copy Client ID and Client Secret into `.env.local`
-5. Self-serve up to 10 connected users — apply for broader access in the dashboard once you need more
-
-```env
-WHOOP_CLIENT_ID=your_client_id
-WHOOP_CLIENT_SECRET=your_client_secret
-WHOOP_REDIRECT_URI=https://yourdomain.com/api/connectors/whoop/callback
-```
-
-### Strava
-
-1. Go to [strava.com/settings/api](https://www.strava.com/settings/api)
-2. Create an application — set "Authorization Callback Domain" to your domain (no https://, no path)
-3. **Note:** As of June 2026, Strava requires an active Strava subscription to operate as a Standard Tier developer. Your personal Strava subscription counts.
-4. Copy Client ID and Client Secret into `.env.local`
-5. Self-serve up to 10 athletes — request Extended Access for more
-
-```env
-STRAVA_CLIENT_ID=your_client_id
-STRAVA_CLIENT_SECRET=your_client_secret
-STRAVA_REDIRECT_URI=https://yourdomain.com/api/connectors/strava/callback
-```
-
-### Garmin
-
-Garmin requires a formal application to the Garmin Connect Developer Program:
-
-1. Go to [developer.garmin.com/gc-developer-program](https://developer.garmin.com/gc-developer-program/)
-2. Submit a business-use application describing what Vitality does
-3. Approval takes approximately 2 business days, followed by an onboarding call where you get real credentials
-4. **Until then, leave `GARMIN_MOCK_MODE=true`** — the app will use realistic synthetic data for the dashboard, AI advice, and chat coach so you can use and develop everything without waiting
-
-```env
-GARMIN_MOCK_MODE=true          # flip to "false" once real credentials are in place
-GARMIN_CLIENT_ID=              # from Garmin Developer Program (leave blank until approved)
-GARMIN_CLIENT_SECRET=
-GARMIN_REDIRECT_URI=https://yourdomain.com/api/connectors/garmin/callback
-```
+## Health data and sign-in setup
 
 ### Apple Watch (via Apple Health)
 
@@ -244,7 +195,7 @@ src/
 └── lib/
     ├── ai/                # Metrics aggregation, baseline computation, Claude API calls
     ├── auth.ts            # NextAuth config (Google + credentials)
-    ├── connectors/        # Garmin, Whoop, Strava, Apple Health implementations
+    ├── connectors/        # Apple Health implementation
     ├── crypto.ts          # AES-256-GCM token encryption
     ├── prisma.ts          # Prisma client singleton
     └── sync/              # OAuth sync engine + DB upsert helpers
@@ -256,25 +207,6 @@ src/
 3. Advice engine merges all sources per day, computes 30-day baselines, detects cardiac-relevant drift, calls Claude to generate an `advice_card`
 4. Dashboard reads today's merged metrics + advice card — no live API calls needed for page load
 5. Chat coach injects last 7 days of merged metrics + goals + race targets into every Claude API call as context
-
----
-
-## Turning off Garmin mock mode
-
-When your Garmin Developer Program approval comes through:
-
-1. Add your real credentials to `.env.local` (and Vercel env vars for production)
-2. Set `GARMIN_MOCK_MODE=false`
-3. Note: Garmin's real API uses a push (webhook) model for most data — during your onboarding call, they'll give you the exact endpoint paths and webhook configuration. The `mapGarminDailiesToNormalized` and `mapGarminActivitiesToNormalized` functions in `src/lib/connectors/garmin.ts` have comments marking where to update the field mappings once you can see real payloads.
-
----
-
-## Scaling beyond 10 users per source
-
-- **Whoop:** Apply for "Broad Access" in the Whoop Developer Dashboard — no fee, just a review
-- **Strava:** Apply for Extended Access at developers.strava.com — review required
-- **Garmin:** Covered by your Developer Program agreement
-- **Apple Health:** Unlimited — webhook model, no per-user approval
 
 ---
 
@@ -290,5 +222,6 @@ When your Garmin Developer Program approval comes through:
 ## Disclaimer
 
 Vitality is a personal fitness coaching and wellness tracking tool. It is not a medical device, does not diagnose any medical condition, and is not a substitute for professional medical advice. The cardiac trend flagging feature surfaces statistical deviations from your own historical baseline and recommends consulting a doctor — it makes no claims about the clinical significance of any reading.
- 
+
+ 
  

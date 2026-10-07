@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { Linkify } from "@/components/Linkify";
 
 function fmtMsgDate(iso: string): string {
   const d = new Date(iso);
@@ -38,6 +39,7 @@ interface Props {
 
 export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSend, onDelete, onDeleteAll, onReport, onBlock, sending, readOnly }: Props) {
   const [input, setInput] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -61,8 +63,15 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
     const trimmed = input.trim();
     if (!trimmed || sending) return;
     setInput("");
-    await onSend(trimmed, replyTo?.id);
-    setReplyTo(null);
+    setSendError(null);
+    try {
+      await onSend(trimmed, replyTo?.id);
+      setReplyTo(null);
+    } catch (e) {
+      // Put the text back so a rate-limited or failed message isn't silently lost.
+      setInput(trimmed);
+      setSendError(e instanceof Error && e.message ? e.message : "Message not sent. Please try again.");
+    }
   }
 
   async function handleDelete(id: string) {
@@ -145,7 +154,7 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
                       <p className={"opacity-70 truncate mt-0.5 " + (isMe ? "" : "text-foreground-dim")}>{msg.replyTo.content}</p>
                     </div>
                   )}
-                  <p className="leading-snug">{msg.content}</p>
+                  <p className="leading-snug whitespace-pre-wrap break-words"><Linkify text={msg.content} /></p>
                   <p className={"text-xs mt-1 " + (isMe ? "opacity-50" : "text-foreground-dim/60")}>
                     {fmtMsgDate(msg.createdAt)}
                   </p>
@@ -216,6 +225,8 @@ export function ChatPanel({ messages, myUserId, isAdmin, height = "360px", onSen
           <button onClick={() => setReplyTo(null)} className="text-foreground-dim hover:text-foreground shrink-0">✕</button>
         </div>
       )}
+
+      {sendError && <p className="text-xs text-red-400 mb-2 px-1">{sendError}</p>}
 
       {/* Input */}
       {readOnly ? (

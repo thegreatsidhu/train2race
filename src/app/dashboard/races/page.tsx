@@ -155,11 +155,13 @@ export default function RacesPage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ majorRaceId, content, replyToId }),
     });
-    const data = await res.json();
-    if (res.ok) {
+    try {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Message not sent. Please try again.");
       setCommData(prev => ({ ...prev, [majorRaceId]: { ...prev[majorRaceId], messages: [...prev[majorRaceId].messages, data.message] } }));
+    } finally {
+      setSendingMap(prev => ({ ...prev, [majorRaceId]: false }));
     }
-    setSendingMap(prev => ({ ...prev, [majorRaceId]: false }));
   }
 
   async function deleteMsg(majorRaceId: string, messageId: string) {

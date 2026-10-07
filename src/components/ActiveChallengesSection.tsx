@@ -239,7 +239,7 @@ export function ActiveChallengesSection() {
                         </div>
                       ) : c.metric === "distance" ? (
                         <p className="text-xs text-foreground-dim">
-                          Log your {c.type} workouts via <strong className="text-foreground">+ Log Workout</strong> or connect a device (Strava, Garmin). Distance is tracked automatically from your logged workouts.
+                          Log your {c.type} workouts via <strong className="text-foreground">+ Log Workout</strong> or sync Apple Health in the Train2Race app. Distance is tracked automatically from your logged workouts.
                         </p>
                       ) : c.metric === "duration" ? (
                         <p className="text-xs text-foreground-dim">

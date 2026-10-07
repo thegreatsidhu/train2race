@@ -2,16 +2,22 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { consumeLimit, clientIp, tooManyRequests } from "@/lib/usageLimit";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM || "Train2Race <onboarding@resend.dev>";
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
-    if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
+    const { email: rawEmail } = await req.json();
+    if (!rawEmail || typeof rawEmail !== "string") return NextResponse.json({ error: "Email required" }, { status: 400 });
+    const email = rawEmail.trim().toLowerCase();
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Each request sends an email — cap per network and per address.
+    if (!(await consumeLimit(`forgot:ip:${clientIp(req)}`, 10, 60 * 60_000))) return tooManyRequests();
+    if (!(await consumeLimit(`forgot:email:${email}`, 3, 60 * 60_000))) return NextResponse.json({ ok: true });
+
+    const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
     if (!user) return NextResponse.json({ ok: true });
 
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, used: false } });

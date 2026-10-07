@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { chatLimitResponse } from "@/lib/usageLimit";
 
 // GET /api/teams/[id]/dm?withUserId=xxx — fetch thread between current user and another member
 // GET /api/teams/[id]/dm — fetch all DM threads the current user is part of in this team
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { toUserId, content } = await req.json();
   if (!toUserId || !content?.trim()) return NextResponse.json({ error: "toUserId and content required" }, { status: 400 });
+  if (content.trim().length > 2000) return NextResponse.json({ error: "Message too long (max 2000 characters)" }, { status: 400 });
+  const limited = await chatLimitResponse(userId);
+  if (limited) return limited;
 
   const blocked = await (prisma as any).blockedUser.findFirst({
     where: { OR: [{ blockerId: userId, blockedId: toUserId }, { blockerId: toUserId, blockedId: userId }] },

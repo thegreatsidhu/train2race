@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { auth } from "@/lib/auth";
+import { aiLimitResponse } from "@/lib/usageLimit";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { HAIKU_MODEL, SONNET_MODEL, generateJsonWithRetry } from "@/lib/ai/client";
@@ -46,6 +47,8 @@ export async function POST(req, { params }) {
   if ((userRecord?.planGenerationCount ?? 0) >= 3) return NextResponse.json({ error: "You've used your 3 plan generations. Consistency beats perfection — stick with your current plan for 8 weeks. Need help? Contact support@train2race.com" }, { status: 429 });
   const recentPlan = await prisma.trainingPlan.findFirst({ where: { raceId: race.id, createdAt: { gte: new Date(Date.now()-5*60*1000) } }, select: { id: true } });
   if (recentPlan) return NextResponse.json({ error: "Please wait 5 minutes before regenerating" }, { status: 429 });
+  const limited = await aiLimitResponse(userId, "race-plan", 5);
+  if (limited) return limited;
   const body = await req.json();
   const { weeklyMileageKm, weeklyHours, trackingMethod, athleteLevel, recentRaceTime, trainingDaysPerWeek, startDate, hardDays, longRunDay, injuryConcerns, fitnessNotes, prioritize } = body;
   const isTriathlon = race.isTriathlon || false;

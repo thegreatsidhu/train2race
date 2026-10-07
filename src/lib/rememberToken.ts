@@ -21,9 +21,8 @@ export async function mintRememberToken(userId: string): Promise<string> {
  * Returns null if the token is invalid, expired, or already used.
  */
 export async function consumeRememberToken(raw: string): Promise<string | null> {
-  const tokenHash = hashToken(raw);
-  const record = await prisma.rememberToken.findUnique({ where: { tokenHash } });
+  // Delete-and-return in one step, so two simultaneous restores can't both use the same token.
+  const record = await prisma.rememberToken.delete({ where: { tokenHash: hashToken(raw) } }).catch(() => null);
   if (!record || record.expiresAt < new Date()) return null;
-  await prisma.rememberToken.delete({ where: { id: record.id } }).catch(() => {});
   return record.userId;
 }

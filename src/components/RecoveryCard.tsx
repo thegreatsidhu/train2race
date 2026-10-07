@@ -2,28 +2,14 @@
 import { useState, useEffect } from "react";
 import { isMedianApp, computeRecoveryEstimate, type RecoveryEstimate } from "@/lib/median";
 
-const SOURCE_LABEL: Record<string, string> = { WHOOP: "Whoop", GARMIN: "Garmin" };
-
-export function RecoveryCard({ initialScore = null, initialSource = null }: { initialScore?: number | null; initialSource?: string | null }) {
-  const [estimate, setEstimate] = useState<RecoveryEstimate | null>(
-    initialScore != null
-      ? {
-          score: Math.round(initialScore),
-          label: initialScore >= 67 ? "Well recovered" : initialScore >= 34 ? "Moderate recovery" : "Low recovery",
-          advice: initialScore >= 67 ? "Good day to push harder if you want to." : initialScore >= 34 ? "Listen to your body — moderate effort is probably right." : "Consider an easier day or rest.",
-          sourcesUsed: [],
-          details: [],
-        }
-      : null
-  );
-  const isRealScore = initialScore != null;
-  const sourceLabel = isRealScore ? SOURCE_LABEL[initialSource ?? ""] ?? null : null;
+// Recovery estimate computed on-device from the health bridge's HRV / resting HR / sleep history.
+export function RecoveryCard() {
+  const [estimate, setEstimate] = useState<RecoveryEstimate | null>(null);
 
   useEffect(() => {
-    if (isRealScore) return; // real device score already takes priority
     if (!isMedianApp()) return;
     computeRecoveryEstimate().then((result) => { if (result) setEstimate(result); });
-  }, [isRealScore]);
+  }, []);
 
   if (!estimate) return null;
 
@@ -40,14 +26,12 @@ export function RecoveryCard({ initialScore = null, initialSource = null }: { in
         <div className="min-w-0">
           <p className="text-sm font-medium">{estimate.label}</p>
           <p className="text-xs text-foreground-dim">{estimate.advice}</p>
-          {isRealScore ? (
-            <p className="text-xs text-foreground-dim mt-0.5">via {sourceLabel}</p>
-          ) : estimate.sourcesUsed.length > 0 && (
+          {estimate.sourcesUsed.length > 0 && (
             <p className="text-xs text-foreground-dim mt-0.5">Estimated from your {estimate.sourcesUsed.join(", ")}</p>
           )}
         </div>
       </div>
-      {!isRealScore && estimate.details.length > 0 && (
+      {estimate.details.length > 0 && (
         <details className="mt-2 group">
           <summary className="text-xs text-foreground-dim hover:text-foreground transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none">
             How this was calculated <span className="inline-block transition-transform group-open:rotate-180">▾</span>

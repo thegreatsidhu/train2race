@@ -153,9 +153,13 @@ function CommunityPageInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ majorRaceId: sel.id, content, replyToId }),
     });
-    const data = await res.json();
-    if (res.ok) setMessages(prev => [...prev, data.message]);
-    setSending(false);
+    try {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Message not sent. Please try again.");
+      setMessages(prev => [...prev, data.message]);
+    } finally {
+      setSending(false);
+    }
   }
 
   async function deleteMessage(messageId: string) {

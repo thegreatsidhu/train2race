@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Linkify } from "@/components/Linkify";
 
 interface NotifGroup { teamId: string; teamName: string; count: number; senderName: string; preview: string; }
 interface AdminDm    { id: string; content: string; createdAt: string; }
@@ -72,7 +73,7 @@ export function DashboardNotifications() {
           <span className="text-base shrink-0 mt-0.5">🔔</span>
           <div className="min-w-0 flex-1">
             <p className="text-xs text-blue-400 font-medium mb-0.5">Message from Train2Race</p>
-            <p className="text-sm">{m.content}</p>
+            <p className="text-sm whitespace-pre-wrap break-words"><Linkify text={m.content} /></p>
           </div>
           <button onClick={() => dismissAdminDm(m.id)} className="shrink-0 self-start mt-0.5 text-foreground-dim hover:text-foreground transition-colors text-sm leading-none" aria-label="Dismiss">✕</button>
         </div>

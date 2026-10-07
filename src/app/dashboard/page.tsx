@@ -20,8 +20,10 @@ import { TodaysStepsCard } from "@/components/TodaysStepsCard";
 import { ConnectionAlertBanner } from "@/components/ConnectionAlertBanner";
 import { RecoveryCard } from "@/components/RecoveryCard";
 import { StrainCard } from "@/components/StrainCard";
+import { NextWorkoutCard } from "@/components/NextWorkoutCard";
+import { localDateKey, storedDateKey, dateFromKey } from "@/lib/userDate";
 
-const STEPS_SOURCE_LABEL: Record<string, string> = { GARMIN: "Garmin", APPLE_HEALTH: "Apple Health" };
+const STEPS_SOURCE_LABEL: Record<string, string> = { APPLE_HEALTH: "Apple Health" };
 
 const TYPE_COLORS: Record<string, string> = {
   easy_run:"bg-green-900/50 text-green-300 border-green-700",
@@ -63,11 +65,12 @@ function getGreeting(timezone: string | null) {
 }
 
 
-function computeStreak(activities: { startTime: Date }[], today: Date): number {
-  const days = new Set(activities.map(a => { const d = new Date(a.startTime); d.setHours(0,0,0,0); return d.getTime(); }));
+// Consecutive days with an activity, ending today, counted in the user's own time zone.
+function computeStreak(activities: { startTime: Date }[], timezone: string | null, todayKey: string): number {
+  const days = new Set(activities.map(a => localDateKey(timezone, new Date(a.startTime))));
   let streak = 0;
-  const d = new Date(today);
-  while (days.has(d.getTime())) { streak++; d.setDate(d.getDate()-1); }
+  const d = dateFromKey(todayKey);
+  while (days.has(d.toISOString().slice(0, 10))) { streak++; d.setUTCDate(d.getUTCDate()-1); }
   return streak;
 }
 
@@ -76,15 +79,14 @@ export default async function TodayPage() {
   if (!session?.user) redirect("/login");
   const userId = (session.user as {id:string}).id;
   const today = new Date(); today.setHours(0,0,0,0);
-  const todayDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][today.getDay()];
   const weekStart = new Date(today); weekStart.setDate(today.getDate()-today.getDay()+1);
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const fortyFiveDaysAgo = new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000);
   const now = new Date();
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-  const twoDaysAgo = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
-  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams, todayStepsMetric, recoveryMetric, strainMetric] = await Promise.all([
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const [hasConnection, recentActivities, activeRace, weeklyActivities, user, raceReg, recentForStreak, completedWorkouts, allRaceRegs, announcements, userTeams, todayStepsMetric, upcomingPlanWorkouts] = await Promise.all([
     prisma.deviceConnection.findFirst({where:{userId},select:{id:true}}),
     prisma.activity.findMany({where:{userId},orderBy:{startTime:"desc"},take:10,select:{id:true,title:true,type:true,startTime:true,durationSec:true,distanceM:true,source:true,photos:true,raw:true}}),
     prisma.raceTarget.findFirst({where:{userId,raceDate:{gte:today}},orderBy:{raceDate:"asc"},select:{id:true,raceName:true,raceDate:true,distanceM:true,trainingPlan:{select:{workouts:{orderBy:{date:"asc"},select:{id:true,week:true,day:true,date:true,type:true,title:true,distanceKm:true,durationMin:true,completed:true}}}}}}),
@@ -97,9 +99,12 @@ export default async function TodayPage() {
     (prisma as any).announcement.findMany({where:{AND:[{OR:[{expiresAt:null},{expiresAt:{gte:now}}]},{OR:[{scheduledFor:null},{scheduledFor:{lte:now}}]}]},orderBy:{createdAt:"desc"},take:5,select:{id:true,title:true,content:true}}),
     prisma.team.findMany({where:{members:{some:{userId}}},select:{id:true,name:true,logoUrl:true,logoStatus:true,isPrivate:true,_count:{select:{members:true}}},orderBy:{createdAt:"desc"},take:10}),
     prisma.dailyMetrics.findFirst({where:{userId,date:{gte:today,lt:tomorrow},steps:{not:null}},orderBy:{steps:"desc"},select:{steps:true,source:true}}),
-    prisma.dailyMetrics.findFirst({where:{userId,source:{in:["WHOOP","GARMIN"]},bodyBatteryOrRecoveryPct:{not:null},date:{gte:twoDaysAgo}},orderBy:{date:"desc"},select:{bodyBatteryOrRecoveryPct:true,source:true}}),
-    prisma.dailyMetrics.findFirst({where:{userId,source:{in:["WHOOP","GARMIN"]},strainOrLoadScore:{not:null},date:{gte:twoDaysAgo}},orderBy:{date:"desc"},select:{strainOrLoadScore:true,source:true}}),
+    // Candidates for the "Next workout" card across all of the user's plans. Starts a day early
+    // (server "today" is UTC) and is narrowed to the user's local today below.
+    prisma.trainingWorkout.findMany({where:{plan:{userId},completed:false,date:{gte:yesterday}},orderBy:{date:"asc"},take:3,select:{id:true,date:true,day:true,type:true,title:true,description:true,distanceKm:true,durationMin:true,plan:{select:{raceId:true,race:{select:{raceName:true}}}}}}),
   ]);
+  const userTz = user?.timezone ?? null;
+  const todayKey = localDateKey(userTz);
 
   const teamsWithActivity = (userTeams as any[]).map((t: any) => ({
     id: t.id, name: t.name, memberCount: t._count.members, logoUrl: t.logoUrl, logoStatus: t.logoStatus, isPrivate: t.isPrivate,
@@ -129,7 +134,8 @@ export default async function TodayPage() {
   })();
   const daysToRace = nextRace?Math.ceil((nextRace.date.getTime()-today.getTime())/(1000*60*60*24)):0;
   const thisWeekWorkouts = allWorkouts.filter(w=>{const d=new Date(w.date);return d>=weekStart&&d<=weekEnd;});
-  const todaysWorkout = thisWeekWorkouts.find(w=>w.day===todayDay);
+  const todaysWorkout = allWorkouts.find(w=>storedDateKey(w.date)===todayKey);
+  const nextWorkout = upcomingPlanWorkouts.find(w=>storedDateKey(w.date)>=todayKey) ?? null;
   const upcomingWorkouts = thisWeekWorkouts.filter(w=>{const d=new Date(w.date);d.setHours(0,0,0,0);return d>today&&!w.completed;}).slice(0,2);
 
   const userName = user?.name?.split(" ")[0] ?? "Athlete";
@@ -137,7 +143,7 @@ export default async function TodayPage() {
   const timezoneCity = TIMEZONE_CITY[user?.timezone ?? ""] ?? null;
   const raceCity = (raceReg as any)?.majorRace?.city ?? null;
   const displayCity = (user as any)?.city ?? timezoneCity ?? raceCity;
-  const streak = computeStreak(recentForStreak, today);
+  const streak = computeStreak(recentForStreak, userTz, todayKey);
   const monthlyMiles = recentForStreak.filter(a=>new Date(a.startTime)>=monthStart).reduce((s,a)=>s+(a.distanceM||0)/1609.34,0);
   const isNewUser = !hasConnection && !nextRace && recentActivities.length === 0;
   const stepsSourceLabel = todayStepsMetric?.source ? (STEPS_SOURCE_LABEL[todayStepsMetric.source] ?? null) : null;
@@ -163,7 +169,7 @@ export default async function TodayPage() {
       {/* ── Header ── */}
       <header className="mb-4">
         <p className="text-xs text-foreground-dim uppercase tracking-[0.16em] mb-2">
-          {today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+          {dateFromKey(todayKey).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",timeZone:"UTC"})}
         </p>
         <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4">{greetingText}, {userName}.</h1>
         <div className="flex flex-wrap gap-2">
@@ -187,17 +193,29 @@ export default async function TodayPage() {
         </div>
       </header>
 
+      {/* ── Next workout on any training plan ── */}
+      {nextWorkout && (
+        <NextWorkoutCard
+          todayKey={todayKey}
+          workout={{
+            dateKey: storedDateKey(nextWorkout.date), type: nextWorkout.type, title: nextWorkout.title,
+            description: nextWorkout.description, distanceKm: nextWorkout.distanceKm, durationMin: nextWorkout.durationMin,
+            raceId: nextWorkout.plan.raceId, raceName: nextWorkout.plan.race?.raceName ?? null,
+          }}
+        />
+      )}
+
       {/* ── Broken Health Bridge connection — only shown if it was working before ── */}
       <ConnectionAlertBanner />
 
       {/* ── Today's steps — shown only if a connected source reports steps ── */}
       <TodaysStepsCard initialSteps={todayStepsMetric?.steps ?? null} initialSourceLabel={stepsSourceLabel} />
 
-      {/* ── Recovery — real Whoop/Garmin score when connected, otherwise a Health Bridge estimate ── */}
-      <RecoveryCard initialScore={recoveryMetric?.bodyBatteryOrRecoveryPct ?? null} initialSource={recoveryMetric?.source ?? null} />
+      {/* ── Recovery estimate from the health bridge (in-app only) ── */}
+      <RecoveryCard />
 
-      {/* ── Strain/training load — real Whoop/Garmin score when connected, otherwise a Health Bridge estimate ── */}
-      <StrainCard initialScore={strainMetric?.strainOrLoadScore ?? null} initialSource={strainMetric?.source ?? null} />
+      {/* ── Strain estimate from the health bridge (in-app only) ── */}
+      <StrainCard />
 
       {/* ── Log Workout CTA + High Five strip — desktop only ── */}
       <div className="hidden md:block w-full max-w-[280px] mb-8">

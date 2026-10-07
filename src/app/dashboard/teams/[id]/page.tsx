@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TeamActivityFeed } from "@/components/TeamActivityFeed";
 import { TeamAvatar } from "@/components/TeamAvatar";
+import { Linkify } from "@/components/Linkify";
 
 function combineDateTime(dateStr: string, timeStr: string, endOfDay: boolean): string {
   if (!dateStr) return "";
@@ -50,7 +51,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   useEffect(()=>{params.then(p=>{setId(p.id);loadTeam(p.id);loadMessages(p.id);loadBulletins(p.id);loadEvents(p.id);const sp=new URLSearchParams(window.location.search);if(sp.get("tab")==="challenges"){loadChallenges(p.id).then(()=>{setActiveTab("challenges");const cId=sp.get("challenge");if(cId){setTimeout(()=>{const el=document.getElementById(`challenge-${cId}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},150);}});}else if(sp.get("tab")==="chat"){setActiveTab("chat");}});}, []);
   async function loadTeam(tid:string){try{const res=await fetch(`/api/teams/${tid}`);if(!res.ok){router.push("/dashboard/teams");return;}const data=await res.json();setTeam(data.team);setMyUserId(data.team?.members?.find((m:any)=>m.isMe)?.userId||"");if(data.team?.majorRace){setLbType(data.team.majorRace.isTriathlon?"triathlon":"run");}}catch{router.push("/dashboard/teams");}}
   async function loadMessages(tid:string){try{const res=await fetch(`/api/teams/${tid}/messages`);if(!res.ok)return;const data=await res.json();setMessages(data.messages||[]);setIsAdmin(data.isAdmin||false);}catch{}}
-  async function sendMessage(content:string,replyToId?:string){if(!id)return;setSending(true);const res=await fetch(`/api/teams/${id}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content,replyToId})});const data=await res.json();if(res.ok){setMessages(prev=>[...prev,data.message]);}setSending(false);}
+  async function sendMessage(content:string,replyToId?:string){if(!id)return;setSending(true);const res=await fetch(`/api/teams/${id}/messages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content,replyToId})});try{const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||"Message not sent. Please try again.");setMessages(prev=>[...prev,data.message]);}finally{setSending(false);}}
   async function deleteMessage(messageId:string){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId})});setMessages(prev=>prev.filter((m:any)=>m.id!==messageId));}
   async function deleteAllMessages(){await fetch(`/api/teams/${id}/messages`,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({deleteAll:true})});setMessages([]);}
   async function reportMessage(messageId:string,reason:string){const res=await fetch("/api/reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contentType:"team_message",contentId:messageId,reason})});if(!res.ok)throw new Error("report failed");}
@@ -119,7 +120,9 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
   async function sendDm(toUserId:string){
     if(!dmContent.trim())return;setSendingDm(true);
     const res=await fetch(`/api/teams/${id}/dm`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({toUserId,content:dmContent.trim()})});
-    if(res.ok){const d=await res.json();setDmThread(prev=>[...prev,d.message]);setDmContent("");}
+    const d=await res.json().catch(()=>({}));
+    if(res.ok){setDmThread(prev=>[...prev,d.message]);setDmContent("");}
+    else alert(d.error||"Message not sent. Please try again.");
     setSendingDm(false);
   }
   async function loadMyThreads(){
@@ -326,7 +329,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
             <span className="text-xs font-bold text-signal mt-0.5 shrink-0">📌 Pinned</span>
             <div className="min-w-0 flex-1">
               {b.title&&<p className="text-sm font-semibold mb-0.5">{b.title}</p>}
-              <p className="text-sm text-foreground-dim leading-snug">{b.content}</p>
+              <p className="text-sm text-foreground-dim leading-snug"><Linkify text={b.content}/></p>
             </div>
             <button onClick={handleBulletinTab} className="shrink-0 text-xs text-signal hover:underline">See all →</button>
           </div>
@@ -396,7 +399,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                       {b.title&&<p className="text-sm font-semibold">{b.title}</p>}
                       <span className="text-xs text-foreground-dim">{b.user.name} · {new Date(b.createdAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
                     </div>
-                    <p className="text-sm text-foreground-dim leading-relaxed whitespace-pre-wrap">{b.content}</p>
+                    <p className="text-sm text-foreground-dim leading-relaxed whitespace-pre-wrap break-words"><Linkify text={b.content}/></p>
                   </div>
                   {isCaptain&&(
                     <div className="flex gap-2 shrink-0">
@@ -802,7 +805,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                           {dmThread.map((m:any)=>(
                             <div key={m.id} className={"flex flex-col "+(m.fromUser.id===myUserId?"items-end":"items-start")}>
                               <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface border border-border")}>
-                                <p>{m.content}</p>
+                                <p className="whitespace-pre-wrap break-words"><Linkify text={m.content}/></p>
                                 <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{m.fromUser.id!==myUserId&&`${m.fromUser.name} · `}{fmtMsgDate(m.createdAt)}</p>
                               </div>
                               {m.fromUser.id!==myUserId&&(
@@ -912,7 +915,7 @@ export default function TeamPage({ params }: { params: Promise<{ id: string }> }
                     {dmThread.map((m:any)=>(
                       <div key={m.id} className={"flex flex-col "+(m.fromUser.id===myUserId?"items-end":"items-start")}>
                         <div className={"max-w-[80%] rounded-xl px-3 py-2 text-sm "+(m.fromUser.id===myUserId?"bg-signal text-background":"bg-surface-raised border border-border")}>
-                          <p>{m.content}</p>
+                          <p className="whitespace-pre-wrap break-words"><Linkify text={m.content}/></p>
                           <p className={"text-xs mt-0.5 "+(m.fromUser.id===myUserId?"opacity-70":"text-foreground-dim")}>{fmtMsgDate(m.createdAt)}</p>
                         </div>
                         {m.fromUser.id!==myUserId&&(
