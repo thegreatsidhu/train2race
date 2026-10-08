@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { enrollAllMembers } from "@/lib/challengeEnrollment";
 
 async function resolveAdminEditor(): Promise<{ userId: string; name: string }> {
   try {
@@ -18,6 +19,9 @@ async function resolveAdminEditor(): Promise<{ userId: string; name: string }> {
 }
 
 async function rateLimited(req: NextRequest): Promise<boolean> {
+  // Signed-in admins are never limited (every panel click is a request). The lockout only
+  // applies to callers who aren't admins, so it can't lock the real admin out of the panel.
+  if (await isAdminAuthorized()) return false;
   const ip = req.headers.get("x-forwarded-for") || "unknown";
   return !(await checkRateLimit(`admin:${ip}`, 10, 15 * 60 * 1000));
 }
@@ -68,6 +72,7 @@ export async function GET(req: NextRequest) {
       teamName: c.team.name,
       creator: creatorMap[c.createdBy] || null,
       participants: Object.values(participantMap).sort((a, b) => b.total - a.total),
+      enrolledCount: (c.acceptances || []).length,
       requirePhotoVerification: c.requirePhotoVerification,
       entries: c.requirePhotoVerification ? c.entries
         .map((e) => ({ id: e.id, userId: e.userId, userName: e.user?.name || "?", value: e.value, date: e.date, photoUrl: e.photoUrl, verified: e.verified, flagged: e.flagged, flagReason: e.flagReason }))
@@ -94,6 +99,7 @@ export async function PATCH(req: NextRequest) {
   if (body.status !== undefined && otherKeys.length === 0) {
     if (!["approved", "rejected"].includes(body.status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     const updated = await prisma.teamChallenge.update({ where: { id: challengeId }, data: { status: body.status } });
+    if (body.status === "approved") await enrollAllMembers(challengeId, updated.teamId);
     return NextResponse.json({ challenge: updated });
   }
 
@@ -246,7 +252,9 @@ export async function POST(req: NextRequest) {
       }),
       prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
     ]);
-    return NextResponse.json({ challenge: { ...challenge, teamName: team?.name || "", participants: [], creator: { name: "Admin" } } }, { status: 201 });
+    await enrollAllMembers(challenge.id, teamId);
+    const enrolledCount = await prisma.teamMember.count({ where: { teamId } });
+    return NextResponse.json({ challenge: { ...challenge, teamName: team?.name || "", participants: [], enrolledCount, creator: { name: "Admin" } } }, { status: 201 });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

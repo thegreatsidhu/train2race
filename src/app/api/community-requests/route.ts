@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { normalizeTeamName, teamNameTaken, communityRequestNameTaken, NAME_TAKEN } from "@/lib/teamNames";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -21,14 +22,18 @@ export async function POST(req: NextRequest) {
   const userId = (session.user as { id: string }).id;
 
   const { name, description, message } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "Community name required" }, { status: 400 });
+  const communityName = normalizeTeamName(name);
+  if (!communityName) return NextResponse.json({ error: "Community name required" }, { status: 400 });
+  if (await teamNameTaken(communityName) || await communityRequestNameTaken(communityName)) {
+    return NextResponse.json({ error: NAME_TAKEN }, { status: 409 });
+  }
 
   // Limit: one pending request at a time per user
   const existing = await prisma.communityRequest.findFirst({ where: { userId, status: "pending" } });
   if (existing) return NextResponse.json({ error: "You already have a pending community request." }, { status: 409 });
 
   const request = await prisma.communityRequest.create({
-    data: { userId, name: name.trim(), description: description?.trim() || null, message: message?.trim() || null },
+    data: { userId, name: communityName, description: description?.trim() || null, message: message?.trim() || null },
   });
   return NextResponse.json({ request }, { status: 201 });
 }

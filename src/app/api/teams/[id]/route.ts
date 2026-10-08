@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { normalizeTeamName, teamNameTaken, NAME_TAKEN } from "@/lib/teamNames";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
@@ -81,7 +82,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!member || member.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const updateData: any = {};
-  if ("name" in body && typeof body.name === "string" && body.name.trim()) updateData.name = body.name.trim();
+  if ("name" in body && normalizeTeamName(body.name)) {
+    updateData.name = normalizeTeamName(body.name);
+    if (await teamNameTaken(updateData.name, id)) return NextResponse.json({ error: NAME_TAKEN }, { status: 409 });
+  }
   if ("isPrivate" in body) {
     updateData.isPrivate = body.isPrivate;
     if (body.isPrivate === false) {

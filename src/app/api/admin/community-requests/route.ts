@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { normalizeTeamName, teamNameTaken } from "@/lib/teamNames";
 
 function makeInviteCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -27,9 +28,12 @@ export async function PATCH(req: NextRequest) {
   if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (action === "approve") {
+    if (await teamNameTaken(request.name)) {
+      return NextResponse.json({ error: `A team or community called "${request.name}" already exists. Reject this request or ask the member for a different name.` }, { status: 409 });
+    }
     const team = await prisma.team.create({
       data: {
-        name: request.name,
+        name: normalizeTeamName(request.name),
         description: request.description || null,
         inviteCode: makeInviteCode(),
         createdBy: request.userId,

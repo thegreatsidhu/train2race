@@ -70,6 +70,7 @@ export function AdminPanel() {
 
   const [allChallenges, setAllChallenges] = useState([]);
   const [challengesLoaded, setChallengesLoaded] = useState(false);
+  const [challengesError, setChallengesError] = useState("");
   const [challengeStatusFilter, setChallengeStatusFilter] = useState("all");
   const [expandedChallengeId, setExpandedChallengeId] = useState(null);
   const [approvingChallenge, setApprovingChallenge] = useState(null);
@@ -447,16 +448,21 @@ export function AdminPanel() {
 
   async function loadChallenges() {
     if (challengesLoaded) return;
-    const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
-    const d = await res.json();
-    setAllChallenges(d.challenges || []);
+    await reloadChallenges();
     setChallengesLoaded(true);
   }
 
   async function reloadChallenges() {
-    const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
-    const d = await res.json();
-    setAllChallenges(d.challenges || []);
+    // Surface failures instead of rendering them as "No challenges found."
+    try {
+      const res = await fetch(`/api/admin/challenges?password=${encodeURIComponent(password)}`);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setChallengesError(d.error || `Couldn't load challenges (error ${res.status}).`); return; }
+      setChallengesError("");
+      setAllChallenges(d.challenges || []);
+    } catch {
+      setChallengesError("Couldn't load challenges. Check your connection and try again.");
+    }
   }
 
   async function approveChallenge(challengeId, status) {
@@ -729,6 +735,7 @@ export function AdminPanel() {
     const d = await res.json().catch(() => ({}));
     setCreatingTeam(false);
     if (res.ok && d.team) { setTeams(prev => [{ ...d.team, members: [] }, ...prev]); setNewTeamName(""); setNewTeamDesc(""); setShowCreateTeam(false); }
+    else alert(d.error || "Couldn't create the team.");
   }
 
   async function loadCommunities() {
@@ -754,7 +761,7 @@ export function AdminPanel() {
     if (res.ok) {
       setCommRequests(prev => prev.map(r => r.id === id ? { ...r, status: "approved", teamId: d.teamId } : r));
       setCommunitiesLoaded(false);
-    }
+    } else alert(d.error || "Couldn't approve the request.");
   }
 
   // Approves every pending item across the Approvals tab in one go — team logos, team
@@ -794,6 +801,7 @@ export function AdminPanel() {
     const d = await res.json().catch(() => ({}));
     setCreatingComm(false);
     if (res.ok && d.team) { setCommunities(prev => [{ ...d.team, members: [] }, ...prev]); setNewCommName(""); setNewCommDesc(""); setShowCreateComm(false); }
+    else alert(d.error || "Couldn't create the community.");
   }
 
   async function deleteCommunity(teamId) {
@@ -812,7 +820,7 @@ export function AdminPanel() {
     if (res.ok) {
       setCommunities(prev => prev.map(c => c.id === teamId ? { ...c, name: editCommName.trim(), description: editCommDesc.trim() || null } : c));
       setEditingCommId(null);
-    }
+    } else { const d = await res.json().catch(() => ({})); alert(d.error || "Couldn't save the community."); }
   }
 
   async function addMemberToTeam(teamId) {
@@ -835,7 +843,7 @@ export function AdminPanel() {
     if (res.ok) {
       setTeams(prev => prev.map(t => t.id === teamId ? { ...t, name: editTeamName.trim(), description: editTeamDesc.trim() || null } : t));
       setEditingTeamId(null);
-    }
+    } else { const d = await res.json().catch(() => ({})); alert(d.error || "Couldn't save the team."); }
   }
 
   async function deleteUser(userId) {
@@ -2020,9 +2028,15 @@ export function AdminPanel() {
                 </div>
               </div>
             )}
+            {challengesError && (
+              <div className="mb-3 rounded-xl border border-red-700/40 bg-red-900/20 px-4 py-3 flex items-center justify-between gap-3">
+                <p className="text-sm text-red-300">{challengesError}</p>
+                <button onClick={reloadChallenges} className="text-xs px-3 py-1 rounded-full border border-border shrink-0">Retry</button>
+              </div>
+            )}
             {!challengesLoaded ? (
               <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-24 rounded-2xl bg-surface border border-border animate-pulse"/>)}</div>
-            ) : filteredChallengesSearched.length === 0 ? (
+            ) : challengesError && allChallenges.length === 0 ? null : filteredChallengesSearched.length === 0 ? (
               <p className="text-sm text-foreground-dim">No challenges found.</p>
             ) : (
               <div className="space-y-3">
@@ -2047,7 +2061,7 @@ export function AdminPanel() {
                               {isRejected && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-300 border border-red-700/30">Rejected</span>}
                             </div>
                             <p className="text-xs text-foreground-dim capitalize">{c.teamName} · {c.type} · {c.metric} · {c.unit}{c.goal ? ` · Goal: ${c.goal}` : ""}</p>
-                            <p className="text-xs text-foreground-dim">{fmtChallengeDate(c.startDate)} – {fmtChallengeDate(c.endDate)} · {c.participants.length} participant{c.participants.length !== 1 ? "s" : ""}</p>
+                            <p className="text-xs text-foreground-dim">{fmtChallengeDate(c.startDate)} – {fmtChallengeDate(c.endDate)} · {c.enrolledCount != null ? `${c.enrolledCount} enrolled · ` : ""}{c.participants.length} logging</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                             {isPending && (

@@ -5,6 +5,9 @@ import { isAdminAuthorized } from "@/lib/adminAuth";
 import { checkRateLimit } from "@/lib/rateLimit";
 
 async function rateLimited(req: NextRequest) {
+  // Signed-in admins are never limited (every panel click is a request). The lockout only
+  // applies to callers who aren't admins, so it can't lock the real admin out of the panel.
+  if (await isAdminAuthorized()) return false;
   const ip = req.headers.get("x-forwarded-for") || "unknown";
   return !(await checkRateLimit(`admin:${ip}`, 30, 15 * 60 * 1000));
 }

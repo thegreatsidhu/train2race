@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { enrollInOpenChallenges } from "@/lib/challengeEnrollment";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { normalizeTeamName, teamNameTaken, NAME_TAKEN } from "@/lib/teamNames";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -74,8 +75,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
   if (action === "editTeam") {
-    if (!name?.trim()) return NextResponse.json({ error: "Name required" }, { status: 400 });
-    await prisma.team.update({ where: { id: teamId }, data: { name: name.trim(), description: description || null } });
+    if (!normalizeTeamName(name)) return NextResponse.json({ error: "Name required" }, { status: 400 });
+    if (await teamNameTaken(name, teamId)) return NextResponse.json({ error: NAME_TAKEN }, { status: 409 });
+    await prisma.team.update({ where: { id: teamId }, data: { name: normalizeTeamName(name), description: description || null } });
     return NextResponse.json({ ok: true });
   }
   if (action === "deleteTeam") {
@@ -83,10 +85,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
   if (action === "createTeam") {
-    if (!name?.trim()) return NextResponse.json({ error: "Name required" }, { status: 400 });
+    if (!normalizeTeamName(name)) return NextResponse.json({ error: "Name required" }, { status: 400 });
+    if (await teamNameTaken(name)) return NextResponse.json({ error: NAME_TAKEN }, { status: 409 });
     const isCommunity = !!body.isCommunity;
     const team = await prisma.team.create({
-      data: { name: name.trim(), description: description || null, inviteCode: makeInviteCode(), createdBy: "admin", isPrivate: !isCommunity, isCommunity },
+      data: { name: normalizeTeamName(name), description: description || null, inviteCode: makeInviteCode(), createdBy: "admin", isPrivate: !isCommunity, isCommunity },
     });
     return NextResponse.json({ team: { id: team.id, name: team.name, description: team.description, isPrivate: team.isPrivate, isCommunity: team.isCommunity, createdAt: team.createdAt, members: [] } });
   }
