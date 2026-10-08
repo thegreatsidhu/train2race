@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { annotatePendingDuplicates } from "@/lib/raceDuplicates";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
         prisma.raceTarget.count(),
         prisma.team.count(),
       ]);
-      const pendingRaces = await prisma.majorRace.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" } });
+      const pendingRaces = await annotatePendingDuplicates(await prisma.majorRace.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" } }));
       const recentMessages = await prisma.eventMessage.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" }, take: 50, include: { user: { select: { name: true } }, majorRace: { select: { name: true } } } });
       const recentActivityComments = await (prisma as any).activityComment.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, content: true, createdAt: true, userId: true, activityId: true, user: { select: { name: true } }, activity: { select: { title: true, type: true } } } });
       return NextResponse.json({ users, activityCount, raceCount, teamCount, pendingRaces, recentMessages, recentActivityComments });

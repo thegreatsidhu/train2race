@@ -1171,6 +1171,7 @@ export function AdminPanel() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium">{race.name}</p>
                             <p className="text-xs text-foreground-dim">{[race.city, race.country].filter(Boolean).join(", ")} · {new Date(race.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</p>
+                            {race.possibleDuplicate && <p className="text-xs text-amber-400 mt-1">⚠ Possible duplicate of {race.possibleDuplicate.name} · {race.possibleDuplicate.city} · {new Date(race.possibleDuplicate.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"})}{race.possibleDuplicate.status === "pending" ? " (also pending)" : ""}. Not auto-approved.</p>}
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <button onClick={() => approveRace(race.id,"approve")} className="text-xs px-2.5 py-1 rounded-full bg-signal text-background font-medium">Approve</button>
@@ -1574,10 +1575,12 @@ export function AdminPanel() {
                             <div className="flex items-center gap-2 flex-wrap mb-0.5">
                               <p className="font-medium">{race.name}</p>
                               {race.source === "runsignup" && <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-900/30 text-blue-300 border border-blue-700/40">Auto-discovered</span>}
+                              {race.possibleDuplicate && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-900/30 text-amber-300 border border-amber-700/40">Possible duplicate</span>}
                             </div>
                             <p className="text-sm text-foreground-dim">{race.city}, {race.country} · {(race.distanceM/1609.34).toFixed(1)} mi{race.isTriathlon ? " · Triathlon" : ""}</p>
                             <p className="text-sm text-foreground-dim">{new Date(race.raceDate).toLocaleDateString()}</p>
                             {race.website && <a href={race.website} target="_blank" rel="noopener noreferrer" className="text-xs text-signal hover:underline">{race.website}</a>}
+                            {race.possibleDuplicate && <p className="text-xs text-amber-400 mt-1">⚠ Possible duplicate of {race.possibleDuplicate.name} · {race.possibleDuplicate.city} · {new Date(race.possibleDuplicate.raceDate).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"})}{race.possibleDuplicate.status === "pending" ? " (also pending)" : ""}. Not auto-approved.</p>}
                           </div>
                           <div className="flex gap-2 flex-wrap justify-end">
                             <button onClick={() => approveRace(race.id,"approve")} className="px-3 py-1.5 rounded-full bg-signal text-background text-xs">Approve</button>

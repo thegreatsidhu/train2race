@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { annotatePendingDuplicates } from "@/lib/raceDuplicates";
 import { discoverRacesFromRunSignup, clearPendingRunSignupRaces } from "@/lib/raceDiscovery";
 
 async function rateLimited(req: NextRequest): Promise<boolean> {
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
     prisma.majorRace.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" } }),
     prisma.majorRace.findMany({ where: { status: "active" }, orderBy: { raceDate: "asc" } }),
   ]);
-  return NextResponse.json({ pending, active });
+  return NextResponse.json({ pending: await annotatePendingDuplicates(pending), active });
 }
 
 export async function POST(req: NextRequest) {

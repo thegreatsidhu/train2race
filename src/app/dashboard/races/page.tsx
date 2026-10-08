@@ -198,7 +198,7 @@ export default function RacesPage() {
     const result = await res.json();
     setSubResult(result);
     setSubbing(false);
-    if (!result.duplicate) {
+    if (res.ok) {
       fetch("/api/major-races/submit").then(r => r.json()).then(d => { setMySubmissions(d.submissions || []); setSubsLoaded(true); });
     }
   }
@@ -570,18 +570,23 @@ export default function RacesPage() {
         <div className="max-w-lg">
           <div className="rounded-2xl border border-border bg-surface p-6">
             <h2 className="font-semibold mb-1">Submit a race</h2>
-            <p className="text-sm text-foreground-dim mb-5">Submit a race and we will review and add it within 24 hours.</p>
+            <p className="text-sm text-foreground-dim mb-5">New races are added automatically overnight. If it looks like a race we already list, an admin reviews it first.</p>
             {subResult ? (
-              subResult.duplicate ? (
-                <div className="rounded-xl border border-signal/30 bg-signal/5 p-4">
-                  <p className="text-sm font-medium text-signal mb-1">This race already exists!</p>
-                  <p className="text-sm text-foreground-dim">Found: {subResult.race.name}</p>
-                  <button onClick={() => { setTab("events"); setSearch(subResult.race.name); setSubResult(null); }} className="text-xs text-signal hover:underline mt-2">Find it in events</button>
+              subResult.error ? (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+                  <p className="text-sm text-red-400">{subResult.error}</p>
+                  <button onClick={() => setSubResult(null)} className="text-xs text-signal hover:underline mt-2">Try again</button>
+                </div>
+              ) : subResult.duplicate ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                  <p className="text-sm font-medium text-amber-400 mb-1">This race may already be listed</p>
+                  <p className="text-sm text-foreground-dim">It looks like <span className="text-foreground">{subResult.existing?.name}</span>. We've saved your submission and an admin will review it.</p>
+                  <button onClick={() => { setTab("events"); setSearch(subResult.existing?.name || ""); setSubResult(null); }} className="text-xs text-signal hover:underline mt-2">See the listed race</button>
                 </div>
               ) : (
                 <div className="rounded-xl border border-signal/30 bg-signal/5 p-4">
                   <p className="text-sm font-medium text-signal mb-1">Race submitted!</p>
-                  <p className="text-sm text-foreground-dim">We will review {subResult.race?.name} and add it within 24 hours.</p>
+                  <p className="text-sm text-foreground-dim">{subResult.race?.name} will be added to the race list tonight.</p>
                   <button onClick={() => { setSubResult(null); setRName(""); setRDate(""); setRCity(""); setRWeb(""); }} className="text-xs text-signal hover:underline mt-2">Submit another</button>
                 </div>
               )
